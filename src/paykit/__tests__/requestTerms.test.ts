@@ -1,8 +1,7 @@
 // Building our payment request terms and reading anyone's.
 import { ENDPOINT_BTC, ENDPOINT_USDT, PAYKIT_APP_ID } from '../../config/paykit';
-import { btcReceivingDetail, usdtReceivingDetail } from '../endpoints';
+import { btcReceivingDetail, PRIVATE_MESSAGE_LIMIT_BYTES, usdtReceivingDetail } from '../endpoints';
 import {
-  REQUEST_MESSAGE_BUDGET_BYTES,
   buildRequestTerms,
   cleanNote,
   newPaymentReference,
@@ -62,9 +61,9 @@ describe('buildRequestTerms', () => {
   it('fits in one private message with the longest plain note, and measures multi-byte notes', () => {
     const recurringUsdt = (note: string) =>
       buildRequestTerms(draft({ asset: 'usdt', receivingDetail: usdtReceivingDetail(EVM), repeat: '5m', note }), newPaymentReference(NOW));
-    expect(proposalMessageBytes(recurringUsdt('x'.repeat(200)))).toBeLessThanOrEqual(REQUEST_MESSAGE_BUDGET_BYTES);
+    expect(proposalMessageBytes(recurringUsdt('x'.repeat(200)))).toBeLessThanOrEqual(PRIVATE_MESSAGE_LIMIT_BYTES);
     // 100 three-byte characters are too much: requestMoney refuses before the SDK would.
-    expect(proposalMessageBytes(recurringUsdt('€'.repeat(200)))).toBeGreaterThan(REQUEST_MESSAGE_BUDGET_BYTES);
+    expect(proposalMessageBytes(recurringUsdt('€'.repeat(200)))).toBeGreaterThan(PRIVATE_MESSAGE_LIMIT_BYTES);
   });
 });
 

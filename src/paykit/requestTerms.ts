@@ -23,7 +23,7 @@
 // Pure: no native imports, unit tested.
 import { ENDPOINT_BTC, ENDPOINT_USDT, PAYKIT_APP_ID } from '../config/paykit';
 import { fromPaykitDecimal, toPaykitDecimal } from '../wallet/amounts';
-import { parseEndpoint, PRIVATE_MESSAGE_LIMIT_BYTES, utf8ByteLength, type ParsedEndpoint, type ReceivingDetail } from './endpoints';
+import { parseEndpoint, utf8ByteLength, type ParsedEndpoint, type ReceivingDetail } from './endpoints';
 import { cleanDisplayName } from './profiles';
 import { endsAtForCount, intervalWords, parseTime, toRfc3339, type Recurrence } from './recurrence';
 
@@ -33,9 +33,6 @@ export type RequestAsset = 'btc' | 'usdt';
 export const ENDPOINT_FOR_ASSET: Record<RequestAsset, string> = { btc: ENDPOINT_BTC, usdt: ENDPOINT_USDT };
 
 export const NOTE_MAX_CHARS = 100;
-
-/** Leave room for the event envelope's encryption and framing inside the 1000-byte message. */
-export const REQUEST_MESSAGE_BUDGET_BYTES = PRIVATE_MESSAGE_LIMIT_BYTES - 100;
 
 export const EXPIRY_CHOICES = [
   { id: '10m', label: '10 minutes', ms: 10 * 60_000 },
@@ -136,7 +133,7 @@ export function buildRequestTerms(draft: RequestDraft, reference: string): Reque
 
 /**
  * The proposal's size on the wire, as the spec's JSON event (with
- * placeholder UUIDs). Compared with REQUEST_MESSAGE_BUDGET_BYTES before
+ * placeholder UUIDs). Compared with PRIVATE_MESSAGE_LIMIT_BYTES before
  * proposing, so a long note is refused here instead of by the SDK.
  */
 export function proposalMessageBytes(terms: RequestTermsInput): number {

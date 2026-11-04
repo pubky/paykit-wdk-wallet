@@ -75,8 +75,8 @@ import { PAYKIT_LINK_ADVANCE_STEPS } from '../config/sync';
 import type { BtcReceipt, BtcSendStatus, EvmTransaction, SentTransferMatch, SentTransferQuery } from '../wallet/paymentEvidence';
 import type { Erc20PaymentTypedData } from '../wallet/erc20PaymentProof';
 import { toPaykitDecimal } from '../wallet/amounts';
-import { UserFacingError, describeError } from './errors';
-import { parseEndpoint } from './endpoints';
+import { UserFacingError, describeError, isMessageTooLarge } from './errors';
+import { parseEndpoint, PRIVATE_MESSAGE_LIMIT_BYTES } from './endpoints';
 import { readRestoreReview } from './restoreReview';
 import { shortKey } from './keys';
 import type { PaykitService } from './PaykitService';
@@ -89,7 +89,6 @@ import {
   proposalMessageBytes,
   readRequestTerms,
   newPaymentReference,
-  REQUEST_MESSAGE_BUDGET_BYTES,
   type PlainTerms,
   type RequestDraft,
   type RequestAsset,
@@ -400,7 +399,7 @@ export async function requestMoney(service: PaykitService, input: RequestMoneyIn
   if (!detail) throw new UserFacingError('Your address for them is still being set up. Try again in a moment.');
   const nowMs = Date.now();
   const terms = buildRequestTerms({ ...input, receivingDetail: detail, nowMs }, newPaymentReference(nowMs));
-  if (proposalMessageBytes(terms) > REQUEST_MESSAGE_BUDGET_BYTES) throw new UserFacingError('The note is too long to send. Shorten it.');
+  if (proposalMessageBytes(terms) > PRIVATE_MESSAGE_LIMIT_BYTES) throw new UserFacingError('The note is too long to send. Shorten it.');
 
   const ffiTerms: FfiPaymentRequestTerms = {
     amount: terms.amount,
@@ -416,7 +415,11 @@ export async function requestMoney(service: PaykitService, input: RequestMoneyIn
     paymentDeadline: undefined,
     metadata: new FfiPrivateJsonObject(JSON.stringify(terms.metadata)),
   };
-  const record = await service.call('proposePaymentRequest', (sdk, signal) => sdk.proposePaymentRequest(payer, ffiTerms, { signal }));
+  const record = await service
+    .call('proposePaymentRequest', (sdk, signal) => sdk.proposePaymentRequest(payer, ffiTerms, { signal }))
+    .catch((error: unknown) => {
+      throw isMessageTooLarge(error) ? new UserFacingError('The note is too long to send. Shorten it.') : error;
+    });
   // The payment-time rule (paymentProofs.ts): nothing paid before now counts.
   paymentRequestsOf(service).book.setAskedAt(payer, record.paymentRequestId, nowMs);
   service.log.info(`requested ${terms.amount.asset}${terms.recurrence ? ' (recurring)' : ''} from ${shortKey(payer)}: ${record.paymentRequestId.slice(0, 8)}`);
