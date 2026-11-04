@@ -15,8 +15,9 @@
 //             (PaykitService.removeContact). Someone you blocked stays
 //             blocked.
 //
-// Blocking and removing refuse while a proof of your payment to them has
-// not gone out: both drop the messages still queued for them.
+// Removing refuses while a proof of your payment to them has not gone out:
+// with no contact, nothing starts the fresh link it needs. Blocking doesn't:
+// the proof waits and goes out if you unblock them.
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 

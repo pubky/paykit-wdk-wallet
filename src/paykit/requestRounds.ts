@@ -105,7 +105,8 @@ async function finishOurPayments(service: PaykitService, requests: PaymentReques
       }
       continue;
     }
-    const needsProof = payment.stage === 'broadcast';
+    // Blocked: the SDK refuses the proof, so it waits for an Unblock. The outcome still gets recorded.
+    const needsProof = payment.stage === 'broadcast' && !service.isBlocked(payment.counterparty);
     const needsOutcome = (payment.stage === 'broadcast' || payment.stage === 'proof-sent') && payment.outcome === undefined;
     if (!payment.txHash || (!needsProof && !needsOutcome) || (payment.nextCheckAt ?? 0) > now) continue;
     try {

@@ -693,8 +693,9 @@ export class PaykitService {
    * contact's Bitcoin account stays in You > Bitcoin from contacts.
    */
   async removeContact(publicKey: string): Promise<void> {
-    this.refuseWhileProofPending(publicKey);
     const wasBlocked = this.isBlocked(publicKey);
+    // Someone already blocked: the person chose not to wait for a proof, and it can't leave anyway.
+    if (!wasBlocked) this.refuseWhileProofPending(publicKey);
     await endAutomaticPaymentsWith(this, publicKey);
     await this.withdrawPrivateList(publicKey);
     const removed = await this.call('removeContactsAndBlockPeers', (sdk, signal) => sdk.removeContactsAndBlockPeers([publicKey], { signal }));
@@ -727,14 +728,15 @@ export class PaykitService {
    * calls refuse this peer. Payment requests, proofs and receipts already
    * stored stay. Accepted Allowances would stay too, and pay again after
    * an Unblock, so, like removeContact:
-   *   - refuse while a proof of our payment to them has not left (it
-   *     would never reach them);
    *   - end automatic payments with them (stopped on this phone first);
    *   - first withdraw our Private Payment List (best effort), so their
    *     wallet drops our private addresses.
+   *
+   * A proof of our payment that has not left waits: a queued one is parked
+   * and goes out after an Unblock and a fresh link, and requestRounds.ts
+   * holds one it has yet to queue. Blocking never has to wait for it.
    */
   async blockPeer(publicKey: string): Promise<void> {
-    this.refuseWhileProofPending(publicKey);
     await endAutomaticPaymentsWith(this, publicKey);
     await this.withdrawPrivateList(publicKey);
     await this.call('blockPeer', (sdk, signal) => sdk.blockPeer(publicKey, { signal }));
@@ -796,7 +798,7 @@ export class PaykitService {
     }
   }
 
-  private isBlocked(publicKey: string): boolean {
+  isBlocked(publicKey: string): boolean {
     return !!this.state?.linkedPeers.some((p) => p.counterparty === publicKey && p.state === FfiLinkedPeerState.Blocked);
   }
 

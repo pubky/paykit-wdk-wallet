@@ -888,9 +888,9 @@ export async function submitProof(service: PaykitService, key: string, payment: 
 /**
  * Our payments to `counterparty` whose proof hasn't left yet: broadcast
  * with the proof still to queue, or queued and not sent. Removing the
- * contact discards the link and its queued messages ("Blocking discards
- * Encrypted Link state and retires pending private work"), and the book
- * would still say 'proof-sent', so the payee would never see the proof.
+ * contact parks queued messages until a fresh link, and with no contact
+ * nothing starts one, so the payee would not see the proof unless the
+ * person adds them again.
  */
 export function paymentsWithUndeliveredProof(service: PaykitService, counterparty: string): number {
   const book = paymentRequestsOf(service).book;

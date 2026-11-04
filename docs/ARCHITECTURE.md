@@ -565,10 +565,10 @@ Remove, each after a confirmation (`person/PersonActions.tsx`):
   people under their own "Blocked" heading at the bottom (with the empty
   state above it when no one else is left). Pay and Request are hidden,
   including the Pay button in their empty history. The app first ends
-  automatic payments with them (below), withdraws our Private Payment
-  List (best effort), and refuses while a proof of our payment to them
-  has not gone out (the same guard as Remove: the proof would be
-  dropped). The sync loop skips blocked contacts.
+  automatic payments with them (below) and withdraws our Private Payment
+  List (best effort). A proof of our payment that has not gone out waits:
+  the SDK parks a queued one until a fresh link, and the request rounds
+  hold one they have yet to queue. The sync loop skips blocked contacts.
 - **Automatic payments end on Block and Remove**
   (`endAutomaticPaymentsWith` in `allowances.ts`). The SDK's `blockPeer`
   leaves Allowances alone, and an accepted one would pay again after an
@@ -906,9 +906,11 @@ page only. Rows say "Paid Ana's request" or "Receipt from Ana" (payee:
 "Paid your request, receipt sent"), and Activity detail links to the
 request and its receipt.
 
-**Removing or blocking a contact** ends the link and drops its queued
-messages, so `removeContact` and `blockPeer` refuse while a proof of our
-payment to them has not left (`paymentsWithUndeliveredProof`).
+**Removing or blocking a contact** ends the link and parks its queued
+messages until a fresh link. After a Block an Unblock starts one, so the
+proof goes out then. After a Remove nothing does unless the person adds them
+again, so `removeContact` refuses while a proof of our payment to them has
+not left (`paymentsWithUndeliveredProof`).
 
 **Demo simplifications**, each a decision a production wallet would
 make differently:
