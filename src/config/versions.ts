@@ -8,9 +8,9 @@
 /** Paykit's React Native bindings, built from an unmerged paykit-rs PR (see README). */
 export const PAYKIT_PACKAGE = {
   name: '@synonymdev/react-native-paykit',
-  version: '0.1.0',
+  version: '0.1.1-rc5',
   source: 'paykit-rs PR #204',
-  commit: '23c702c8',
+  commit: '17706e07',
 } as const;
 
 /** WDK packages, pinned exactly in package.json. */

@@ -19,7 +19,7 @@ to read over code that is hardened.
 |---|---|---|
 | App framework | Expo SDK 55 (React Native 0.83), dev build (`expo prebuild`), New Architecture, Hermes. npm with a committed lockfile. | WDK's React Native core needs `expo-crypto` 55+. Paykit's package supports Expo dev builds. `react-native-bare-kit` breaks under pnpm. |
 | WDK integration | `@tetherto/wdk-react-native-core`, `@tetherto/wdk-worklet-bundler`, `react-native-bare-kit@0.14.5` (exact). | WDK runs in a Bare worklet, not in Hermes. bare-kit 0.16 dropped native addon auto-linking. |
-| Paykit package | `@synonymdev/react-native-paykit` built from paykit-rs PR #204 at `23c702c8`. See `scripts/build-paykit.sh`. | Not on npm yet. Builds must come from a pinned upstream commit, not a local checkout. |
+| Paykit package | `@synonymdev/react-native-paykit` built from paykit-rs PR #204 at `17706e07`. See `scripts/build-paykit.sh`. | Not on npm yet. Builds must come from a pinned upstream commit, not a local checkout. |
 | Chain 1 | **USD₮ on Ethereum Sepolia** (`@tetherto/wdk-wallet-evm`). The token is Aave's test USDT `0xaA8E…33D0`, mintable by anyone through the Aave faucet. ETH pays gas. | WDK is Tether's kit, so the stablecoin is the hero asset. Sepolia has 12 s blocks, a keyless RPC and near-zero gas. |
 | Chain 2 | **Bitcoin on Mutinynet** (signet, 30 s blocks), `@tetherto/wdk-wallet-btc` over Electrum TCP `electrum.mutinynet.com:50001`. | UTXO model and `tb1` addresses give a different UX from the EVM account. 30 s blocks keep the demo moving. Fallback: testnet4 over Electrum TLS. |
 | Paykit rail ids | `usdt-sepolia-address`, `btc-mutinynet-p2wpkh`. | Testnet-explicit ids, so nobody mistakes them for mainnet endpoints. Valid under Paykit's id and conversion-rate rules. |

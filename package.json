@@ -6,7 +6,7 @@
   "license": "MIT",
   "main": "index.ts",
   "scripts": {
-    "postinstall": "node scripts/patch-paykit.mjs && wdk-worklet-bundler generate",
+    "postinstall": "wdk-worklet-bundler generate",
     "demo-env": "node scripts/demo-env.mjs",
     "start": "expo start --dev-client",
     "prebuild": "expo prebuild --clean",

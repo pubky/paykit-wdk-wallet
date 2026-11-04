@@ -15,7 +15,7 @@ set -euo pipefail
 
 # PR #204 head: "Add generated React Native bindings with CI and example app".
 PAYKIT_REPO="https://github.com/pubky/paykit-rs.git"
-PAYKIT_COMMIT="23c702c8f75c7bc211b2deaaaafbcac6f33f15d1"
+PAYKIT_COMMIT="17706e078c73c336a0973cbf0d7b5245be2c8bf7"
 ANDROID_ABIS="${ANDROID_ABIS:-arm64-v8a}"
 
 # cargo-ndk needs a complete NDK (one with source.properties). If none is set,
