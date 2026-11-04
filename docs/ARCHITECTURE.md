@@ -381,8 +381,8 @@ queued calls are rejected and nothing new starts on the released handle.
 ### Publishing public endpoints
 
 The SDK refuses to publish endpoints until `publishPaykitApp` has run on
-this install ("Paykit app ... must be published before creating new
-state"). So the service publishes them only after `setUpIdentity()` (or,
+this install ("Paykit app ... must be registered before syncing public
+Payment Endpoints"). So the service publishes them only after `setUpIdentity()` (or,
 after onboarding, straight away), and only counts a publish with no failed
 endpoint as done. Anything else is retried from the next sync round.
 

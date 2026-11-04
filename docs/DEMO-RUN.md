@@ -166,3 +166,21 @@ on Ana's, and as payee on Ben's, where they count only verified payments.
 
 All 39 are in [`screenshots/demo-run/`](screenshots/demo-run/). None
 shows a recovery phrase or a backup.
+
+## Recheck after moving to 0.1.1-rc5, 4 November 2026
+
+The wallet moved from paykit-rs PR #204 at `23c702c8` to `17706e07`, which
+is rebased on 0.1.1-rc5. Both phones were upgraded in place, with the state
+from the run above, on Release builds. Android started without the
+`cpp-adapter.cpp` patch, which is gone. Identities, links and history all
+came through.
+
+| Direction | Amount | Transaction | Result |
+|---|---|---|---|
+| Ana (iOS) pays Ben's request | 0.00002 BTC | `6f41d16944…ef3777` | checked on chain, receipt received |
+| Ben (Android) pays Ana's request | 2.00 USD₮ | `0xae4ca42a…3d73a7` | checked on chain, receipt received |
+
+Not run on a device: restoring a backup (it needs a wiped identity), ending
+Allowances after a restore, blocking with a proof still pending, and the new
+sign-up error messages. Those have unit tests where the logic is pure, and
+type checks otherwise.
