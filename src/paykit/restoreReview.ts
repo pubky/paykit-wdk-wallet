@@ -22,9 +22,10 @@
 //                       says so)
 //   paused              if the backup held Allowances we pay under, no
 //                       automatic payment is made at all until the person
-//                       resumes them in You > Contacts and requests backup,
-//                       confirming they checked Activity. Their limits
-//                       count only the payments in the backup.
+//                       ends those Allowances in You > Contacts and requests
+//                       backup. Their limits count only the payments in the
+//                       backup, so they are not resumed: automatic payments
+//                       need a new Allowance, which has no usage to lose.
 //
 // The record lives in the app store (RESTORE_REVIEW_KEY) and is written by
 // PaykitService.connect right after the restore. It is not part of a
@@ -39,7 +40,7 @@ export type RestoreReview = {
   backupCreatedAtMs?: number;
   /** counterparty|requestId of every payer request the backup brought back. */
   requestKeys: string[];
-  /** True until the person resumes automatic payments. */
+  /** True until the person ends the Allowances from the backup. */
   paused: boolean;
 };
 
@@ -72,7 +73,7 @@ export function subscribeRestoreReview(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/** The person checked Activity and resumes automatic payments. Restored requests stay paid by hand. */
+/** The Allowances from the backup have ended. Restored requests stay paid by hand. */
 export function resumeAfterRestore(store: StringStore): void {
   const review = readRestoreReview(store);
   if (review?.paused) writeRestoreReview(store, { ...review, paused: false });

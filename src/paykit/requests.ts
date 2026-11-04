@@ -479,9 +479,10 @@ export async function cancelRequest(service: PaykitService, counterparty: string
  * After a restore that is not true: payments made after the backup are
  * missing (./restoreReview.ts). There the attestation comes from the
  * person, never from the background: a Pay tap (the request page warned
- * them to check Activity first), or resuming automatic payments. So `by:
- * 'automatic'` refuses while automatic payments are paused after a
- * restore. A production wallet would reconcile its complete payment
+ * them to check Activity first). So `by: 'automatic'` refuses while
+ * automatic payments are paused after a restore, and they stay paused
+ * until the Allowances from the backup have ended: new ones start with no
+ * usage to lose. A production wallet would reconcile its complete payment
  * records here instead.
  */
 export async function ensureLedgerReady(service: PaykitService, by: 'person' | 'automatic'): Promise<void> {

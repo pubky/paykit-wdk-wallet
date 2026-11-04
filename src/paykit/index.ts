@@ -86,6 +86,7 @@ export {
   acceptAutomaticPayments,
   declineAutomaticPayments,
   endAutomaticPayments,
+  endPayingAllowancesAfterRestore,
   offerAutomaticPayments,
   requestKey,
   type AllowanceLedger,

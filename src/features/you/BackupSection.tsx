@@ -17,7 +17,7 @@
 //             it").
 //   Check     open a backup from the clipboard and restore it into a
 //             throwaway store, then say what it holds. Nothing here changes.
-//   Resume    after a restore that paused automatic payments
+//   End       after a restore that paused automatic payments
 //             (src/paykit/restoreReview.ts): the person confirms they
 //             checked Activity for payments made after the backup.
 //
@@ -33,6 +33,7 @@ import {
   backupSummaryWords,
   checkBackup,
   describeError,
+  endPayingAllowancesAfterRestore,
   exportBackup,
   readBackupStatus,
   recordBackupKept,
@@ -201,24 +202,28 @@ export function BackupSection() {
   );
 }
 
-/** Automatic payments paused by a restore: what to check, and Resume after a confirmation. */
+/** Automatic payments paused by a restore: why, and ending them after a confirmation. */
 function PausedAfterRestore() {
   const { service, log } = usePaykit();
   const review = useRestoreReview();
   if (!service || !review?.paused) return null;
   const made = review.backupCreatedAtMs !== undefined ? `, made ${formatDateTime(review.backupCreatedAtMs)}` : '';
-  const resume = () =>
+  const end = () =>
     Alert.alert(
-      'Resume automatic payments?',
-      'Do this only once you have checked Activity for payments made after the backup: your limits count only the payments in the backup. Requests from the backup stay paid by hand.',
+      'End automatic payments from the backup?',
+      "Their limits count only the payments in the backup, so they can't be trusted. To pay automatically again, set them up with each person. Requests from the backup stay paid by hand.",
       [
         { text: 'Back', style: 'cancel' },
         {
-          text: 'Resume',
+          text: 'End them',
+          style: 'destructive',
           onPress: () => {
-            resumeAfterRestore(service.appStore);
-            log.info('resumed automatic payments after a restore');
-            service.syncLoop.flush();
+            endPayingAllowancesAfterRestore(service)
+              .then(() => {
+                resumeAfterRestore(service.appStore);
+                service.syncLoop.flush();
+              })
+              .catch((e) => log.error(`end automatic payments after a restore: ${describeError(e)}`));
           },
         },
       ],
@@ -229,7 +234,7 @@ function PausedAfterRestore() {
       <Text color="graphite">
         {`This phone was restored from a backup${made}. Payments made after it aren't in the backup, so the wallet can't tell what was already paid automatically.`}
       </Text>
-      <Button label="Resume automatic payments" variant="secondary" compact onPress={resume} testID="backup-restore-resume" />
+      <Button label="End automatic payments from the backup" variant="secondary" compact onPress={end} testID="backup-restore-end" />
     </View>
   );
 }

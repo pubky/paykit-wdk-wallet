@@ -371,6 +371,29 @@ export async function endAutomaticPayments(service: PaykitService, view: Allowan
  * and needs a ready private connection; the local stop doesn't, so the
  * hook never pays them automatically again either way.
  */
+/**
+ * After a backup restore (./restoreReview.ts): stop and end every Allowance
+ * we pay under, with anyone. Their usage can't be known, so they must not
+ * pay again. Stopped on this phone first, so a peer we can't reach right now
+ * still can't be paid under one.
+ */
+export async function endPayingAllowancesAfterRestore(service: PaykitService): Promise<void> {
+  const allowances = allowancesOf(service);
+  await allowances.refresh();
+  const live = allowances.all().filter((a) => a.role === 'allower' && (a.state === 'accepted' || (a.state === 'proposed' && a.proposedByUs)));
+  stopAllowancesHere(service.appStore, live.map((a) => a.allowanceId));
+  for (const allowance of live) {
+    try {
+      await service.call('endAllowance', (sdk, signal) => sdk.endAllowance(allowance.counterparty, allowance.allowanceId, { signal }));
+    } catch (error) {
+      service.log.warn(`end automatic payments with ${shortKey(allowance.counterparty)}: ${describeError(error)}`);
+    }
+  }
+  service.log.info(`ended ${live.length} automatic payment allowance(s) from the backup`);
+  allowances.markDirty();
+  await allowances.refresh();
+}
+
 export async function endAutomaticPaymentsWith(service: PaykitService, counterparty: string): Promise<void> {
   const allowances = allowancesOf(service);
   await allowances.refresh();

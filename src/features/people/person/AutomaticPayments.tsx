@@ -67,7 +67,7 @@ export function AutomaticPayments({ pubky, name, linkState, onSetUp }: { pubky: 
       )}
       {youPay && pausedByRestore ? (
         <Text color="graphite" testID="automatic-payments-paused">
-          {"Paused since this phone was restored from a backup. Resume them in You > Contacts and requests backup once you've checked Activity."}
+          {"Paused since this phone was restored from a backup. End them in You > Contacts and requests backup, then set them up again."}
         </Text>
       ) : null}
       {!youPay && linkState === 'linked' && !allowances.some((a) => a.role === 'allower' && a.proposedByUs && !a.stoppedHere) ? (

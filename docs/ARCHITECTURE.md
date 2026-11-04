@@ -1150,12 +1150,15 @@ missing. This wallet can't prove that from chain history, so
 - every payer request that came back is never paid automatically; its
   request page says to check Activity before paying it by hand;
 - if the backup held Allowances we pay under, no automatic payment is
-  made until the person checks Activity and taps "Resume automatic
-  payments" in You > Contacts and requests backup (after a confirmation
-  that says the limits count only the payments in the backup). The
-  Person page and Ready say so. `ensureLedgerReady(service,
-  'automatic')` refuses while paused, so only a person's Pay or Resume
-  attests the ledger after a restore.
+  made until the person taps "End automatic payments from the backup" in
+  You > Contacts and requests backup. That stops those Allowances on this
+  phone and ends them, because their usage can't be known: the SDK's
+  guidance is to stay blocked rather than reconcile a history that may be
+  incomplete, and the spec says missing accounting must not become zero
+  usage. Automatic payments then need a new Allowance. The Person page and
+  Ready say so. `ensureLedgerReady(service, 'automatic')` refuses while
+  paused, so only a person's Pay attests the ledger for a payment from the
+  backup.
 
 Not exercised on a device: the onboarding restore itself, because it
 needs an install with no state for the identity, which means wiping one

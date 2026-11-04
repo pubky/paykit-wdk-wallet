@@ -309,8 +309,9 @@ restoreBackupString into a throwaway handle.
 The real restore is on onboarding's sign-in step of a restored wallet
 ("Paste a backup"). It needs a phone with no state for the identity, so it
 is not part of this run. After a restore, requests from the backup are
-paid by hand, and if the backup held automatic payments they stay paused
-until you check Activity and tap **Resume automatic payments** in You.
+paid by hand. If the backup held automatic payments they stay paused until
+you tap **End automatic payments from the backup** in You. After that they
+need setting up again, so their limits start from a known count.
 
 ## 12. Network details
 
