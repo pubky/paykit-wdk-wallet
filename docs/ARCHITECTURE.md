@@ -307,7 +307,7 @@ useAllowancesWith(pubky) / useAllowanceLedger() / useAutomaticPaymentNote(key)
 | `syncLoop.ts` | The foreground sync loop and its extension hooks. |
 | `eventLog.ts` | Secret-free developer log for You > Sync status. |
 | `errors.ts`, `keys.ts`, `bytes.ts` | Small helpers. |
-| `signUpErrors.ts` | Pure: which step of a sign-up failed, from the SDK's Identity error context (the invite code was refused, the identity already exists, or only signing in is left), and the sentence for each. Unit tested. |
+| `signUpErrors.ts` | Pure: why a sign-up failed, from the SDK's error tag and code (the invite code was refused, the server can't be reached, the identity lives on another homeserver, or it didn't finish and is safe to retry with the same code), and the sentence the invite code screen shows. |
 | `profiles.ts` | `ProfileDirectory`: names and avatars per pubky, cached 10 minutes, deduplicated loads, retry pause. No native imports, unit tested. |
 | `publicPaymentOptions.ts` | Pure: turns a public endpoint resolution into checked addresses per asset, and says why someone can't be paid. Unit tested. |
 | `publicPayments.ts` | `resolvePublicPaymentOptions`: SDK lookup (registry, public endpoints, profile) mapped through the pure module. |

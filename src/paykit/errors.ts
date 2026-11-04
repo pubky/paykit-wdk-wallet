@@ -63,7 +63,12 @@ export function asCallbackError(error: unknown, code: string, context: string): 
   return new PaykitFfiError.Storage({ code, context });
 }
 
-/** Which step of a sign-up failed (./signUpErrors.ts), read from the error's tag and context. */
+/** Why a sign-up failed (./signUpErrors.ts), read from the error's tag and code. */
 export function signUpFailureOf(error: unknown): SignUpFailure {
-  return PaykitFfiError.instanceOf(error) ? signUpFailureFrom(error.tag, error.inner.context) : 'unknown';
+  return PaykitFfiError.instanceOf(error) ? signUpFailureFrom(error.tag, error.inner.code) : 'unknown';
+}
+
+/** The SDK refused an outbound private message as larger than the 1000-byte limit. */
+export function isMessageTooLarge(error: unknown): boolean {
+  return PaykitFfiError.instanceOf(error) && error.tag === PaykitFfiError_Tags.Protocol && error.inner.code === 'message_too_large';
 }
