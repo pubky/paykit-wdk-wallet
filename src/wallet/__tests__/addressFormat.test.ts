@@ -16,6 +16,14 @@ describe('Bitcoin addresses on a Mutinynet build', () => {
     expect(isPayableBtcAddress(BCRT1)).toBe(false);
     expect(checkRecipientAddress(BCRT1, 'bitcoin')).toMatchObject({ ok: false, message: 'This wallet sends to tb1… addresses only. Ask for a tb1… address.' });
   });
+
+  it('calls an unreadable address not a testnet one', () => {
+    expect(checkRecipientAddress('hello', 'bitcoin')).toEqual({
+      ok: false,
+      reason: 'invalid',
+      message: 'That is not a Bitcoin testnet address. It should start with tb1.',
+    });
+  });
 });
 
 describe('Bitcoin addresses on a Bitkit regtest build', () => {
@@ -43,5 +51,13 @@ describe('Bitcoin addresses on a Bitkit regtest build', () => {
       message: 'This wallet sends to bcrt1… addresses only. Ask for a bcrt1… address.',
     });
     expect(regtest.checkRecipientAddress(TB1, 'ethereum')).toMatchObject({ ok: false, reason: 'wrong-chain' });
+  });
+
+  it('calls an unreadable address not a regtest one, not a testnet one', () => {
+    expect(regtest.checkRecipientAddress('hello', 'bitcoin')).toEqual({
+      ok: false,
+      reason: 'invalid',
+      message: 'That is not a Bitcoin regtest address. It should start with bcrt1.',
+    });
   });
 });

@@ -13,6 +13,7 @@
 // own, and a stalled API must not leave the Send screen waiting forever.
 // Callers fall back (WDK estimates its own fee rate) when a fetch fails.
 import { BTC_CHAIN } from '../config/btcChain';
+import { isTxid } from './txid';
 
 export const FETCH_TIMEOUT_MS = 5_000;
 
@@ -57,6 +58,6 @@ export function parseTransactionStatus(json: unknown): BtcTransactionStatus | un
 }
 
 export async function fetchBtcTransactionStatus(txid: string): Promise<BtcTransactionStatus | undefined> {
-  if (!/^[0-9a-f]{64}$/i.test(txid)) return undefined;
+  if (!isTxid(txid)) return undefined;
   return parseTransactionStatus(await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}/tx/${txid}/status`));
 }

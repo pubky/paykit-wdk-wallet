@@ -127,6 +127,13 @@ describe('sendFailureFor', () => {
     expect(sendFailureFor(new Error('The amount must be bigger than the dust limit (= 294).'), 'btc').outcome).toBe('not-sent');
   });
 
+  it("treats useSend's own address refusal as not sent on Mutinynet and on regtest", () => {
+    // useSend words it from the build's chain profile: "testnet" on Mutinynet, "regtest" on Bitkit's regtest.
+    const prepare = expect.stringContaining('could not prepare this transaction');
+    expect(sendFailureFor(new Error('That is not a testnet Bitcoin address (tb1…).'), 'btc')).toEqual({ outcome: 'not-sent', message: prepare });
+    expect(sendFailureFor(new Error('That is not a regtest Bitcoin address (bcrt1…).'), 'btc')).toEqual({ outcome: 'not-sent', message: prepare });
+  });
+
   it('treats network errors and unknown errors as "may have been sent"', () => {
     // WDK's BTC send broadcasts, then polls Electrum: a timeout there comes after the broadcast.
     expect(sendFailureFor(new Error('Electrum request timed out'), 'btc')).toEqual({ outcome: 'unknown', message: MAY_HAVE_BEEN_SENT });

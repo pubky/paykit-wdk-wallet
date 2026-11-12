@@ -62,7 +62,7 @@ type BtcAccountExtension = {
 function checkRequest(request: SendRequest): void {
   const chain = ASSETS[request.asset].chain;
   if (!isAddressForChain(request.to, chain)) {
-    throw new Error(chain === 'bitcoin' ? `That is not a testnet Bitcoin address (${BTC_CHAIN.bech32Prefix}…).` : 'That is not an Ethereum address (0x…).');
+    throw new Error(chain === 'bitcoin' ? `That is not a ${BTC_CHAIN.wdkNetwork} Bitcoin address (${BTC_CHAIN.bech32Prefix}…).` : 'That is not an Ethereum address (0x…).');
   }
   // Last line of defence behind checkRecipientAddress: tokens sent to the
   // token or faucet contract are lost.

@@ -45,7 +45,7 @@ async function printMutinynetWallets(contactCount) {
   const provider = new JsonRpcProvider(SEPOLIA_RPC);
   const usdt = new Contract(SEPOLIA_USDT, ['function balanceOf(address) view returns (uint256)'], provider);
   const env = readDemoEnv();
-  const wallets = demoWallets();
+  const wallets = demoWallets(env);
   for (const wallet of Object.values(wallets)) {
     const [btc, eth, usdtUnits] = await Promise.all([
       btcBalance(wallet.btc, MUTINYNET_API),

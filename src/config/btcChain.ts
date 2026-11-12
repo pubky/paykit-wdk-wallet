@@ -52,7 +52,11 @@ export type BtcChainProfile = {
   readonly detailsLabel: string;
   /** The build-time switch that picked this chain, shown in Network details; none for the default. */
   readonly buildSwitch: string | undefined;
-  /** WDK wallet-btc's network: address rules and the BIP-84 coin type. */
+  /**
+   * WDK wallet-btc's network: address rules and the BIP-84 coin type. Also
+   * the word for the kind of address in messages ("not a Bitcoin testnet
+   * address"): a Mutinynet build pays testnet addresses.
+   */
   readonly wdkNetwork: 'testnet' | 'regtest';
   readonly electrum: { readonly host: string; readonly port: number; readonly protocol: 'tcp' | 'tls' };
   /** Esplora API base: `/v1/fees/recommended` and `/tx/<txid>/status` (src/wallet/esplora.ts). */
@@ -64,15 +68,12 @@ export type BtcChainProfile = {
   readonly endpointId: BtcEndpointId;
   /** Bech32 human-readable part plus separator: the only addresses this wallet pays. */
   readonly bech32Prefix: string;
-  /** The Bitcoin payment proof this wallet sends (src/paykit/paymentProofs.ts). */
-  readonly proofFormat: 'paykit-wdk' | 'bitkit';
   /**
-   * The `network` value of our own Bitcoin proof format that names this
-   * chain (src/paykit/paymentProofs.ts BTC_PROOF_NETWORK). Undefined when
-   * our format has no name for this chain: such a build reads only Bitkit's
-   * proofs.
+   * The Bitcoin payment proof this wallet sends (src/paykit/paymentProofs.ts).
+   * Our own format names Mutinynet, so only a 'paykit-wdk' build also reads
+   * it; every build reads Bitkit's.
    */
-  readonly ownProofNetwork: 'mutinynet' | undefined;
+  readonly proofFormat: 'paykit-wdk' | 'bitkit';
   /** WDK's asset id; it keys WDK's balance cache. */
   readonly assetId: string;
   /**
@@ -104,7 +105,6 @@ const MUTINYNET: BtcChainProfile = {
   endpointId: 'btc-mutinynet-p2wpkh',
   bech32Prefix: 'tb1',
   proofFormat: 'paykit-wdk',
-  ownProofNetwork: 'mutinynet',
   assetId: 'btc-mutinynet',
   buildSwitch: undefined,
   // Mutinynet makes a block every 30 s.
@@ -128,7 +128,6 @@ const BITKIT_REGTEST: BtcChainProfile = {
   endpointId: 'btc-regtest-p2wpkh',
   bech32Prefix: 'bcrt1',
   proofFormat: 'bitkit',
-  ownProofNetwork: undefined,
   assetId: 'btc-regtest',
   buildSwitch: 'EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest',
   // Blocktank's staging regtest mines only when asked (scripts/fund-btc.mjs

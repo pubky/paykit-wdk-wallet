@@ -130,6 +130,6 @@ function knownSendError(raw: string, asset: AssetId): string | undefined {
   if (/bad address checksum/i.test(raw)) return 'That address has a typo: its capital letters do not match its checksum. Copy it again.';
   if (/maximum fee/i.test(raw)) return 'The network fee is higher than this wallet allows right now. Try again later.';
   if (/execution reverted|CALL_EXCEPTION/i.test(raw)) return 'The network refused this transaction. Check the amount and your balance, then try again.';
-  if (/not ready yet|contract address|not a testnet Bitcoin address|not an Ethereum address|amount above zero/i.test(raw)) return PREPARE_MESSAGE;
+  if (/not ready yet|contract address|not a (testnet|regtest) Bitcoin address|not an Ethereum address|amount above zero/i.test(raw)) return PREPARE_MESSAGE;
   return undefined;
 }

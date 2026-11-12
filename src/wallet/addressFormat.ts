@@ -20,6 +20,8 @@ import type { Chain } from './assets';
 
 /** The build network's bech32 prefix, for messages: "tb1" or "bcrt1". */
 const BTC_PREFIX = BTC_CHAIN.bech32Prefix;
+/** The kind of address the build pays, for messages: "testnet" (Mutinynet, a signet) or "regtest". */
+const BTC_ADDRESS_KIND = BTC_CHAIN.wdkNetwork;
 
 /** Bech32's limit for a whole address, prefix included (BIP-173). */
 const BECH32_MAX_LENGTH = 90;
@@ -180,7 +182,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
     if (BTC_OTHER_TESTNET.test(address)) {
       return { ok: false, reason: 'unsupported', message: `This wallet sends to ${BTC_PREFIX}… addresses only. Ask for a ${BTC_PREFIX}… address.` };
     }
-    return { ok: false, reason: 'invalid', message: `That is not a Bitcoin testnet address. It should start with ${BTC_PREFIX}.` };
+    return { ok: false, reason: 'invalid', message: `That is not a Bitcoin ${BTC_ADDRESS_KIND} address. It should start with ${BTC_PREFIX}.` };
   }
 
   if (isEvmAddress(address)) {

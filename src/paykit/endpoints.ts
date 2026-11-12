@@ -55,7 +55,9 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
   const json = parseJsonObject(payloadText);
   if (!json || typeof json.value !== 'string') return undefined;
   if (identifier === ENDPOINT_BTC) {
-    return isPayableBtcAddress(json.value) ? { identifier, asset: 'btc', address: json.value } : undefined;
+    // Check and pay the same text: WDK's send wants the bare lowercase address.
+    const address = json.value.trim().toLowerCase();
+    return isPayableBtcAddress(address) ? { identifier, asset: 'btc', address } : undefined;
   }
   if (identifier === ENDPOINT_USDT) {
     const chainId = String(json.chain_id ?? '');

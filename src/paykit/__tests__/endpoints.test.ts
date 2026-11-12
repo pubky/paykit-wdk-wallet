@@ -46,6 +46,14 @@ describe('endpoint payloads', () => {
     expect(parsed.identifier).not.toBe(other.identifier);
   });
 
+  it('pays a padded or uppercase Bitcoin address as the bare lowercase address', () => {
+    for (const value of [` ${BTC} `, BTC.toUpperCase(), `\n${BTC.toUpperCase()}\t`]) {
+      const parsed = parseEndpoint(ENDPOINT_BTC, JSON.stringify({ value }));
+      expect(parsed).toEqual({ identifier: ENDPOINT_BTC, asset: 'btc', address: BTC });
+      expect(canonicalPayload(parsed!)).toBe(btcReceivingDetail(BTC).payload);
+    }
+  });
+
   it('accepts the token address in any letter case', () => {
     const lower = JSON.stringify({ value: EVM, chain_id: '11155111', token: SEPOLIA_USDT.toLowerCase() });
     expect(parseEndpoint(ENDPOINT_USDT, lower)?.asset).toBe('usdt');
@@ -75,6 +83,12 @@ describe('the Bitcoin endpoint on a Bitkit regtest build', () => {
     const btc = regtest.btcReceivingDetail(BCRT1);
     expect(btc.identifier).toBe('btc-regtest-p2wpkh');
     expect(regtest.parseEndpoint(btc.identifier, btc.payload)).toEqual({ identifier: 'btc-regtest-p2wpkh', asset: 'btc', address: BCRT1 });
+  });
+
+  it('pays a padded or uppercase bcrt1 address as the bare lowercase address', () => {
+    const parsed = regtest.parseEndpoint('btc-regtest-p2wpkh', JSON.stringify({ value: ` ${BCRT1.toUpperCase()} ` }));
+    expect(parsed).toEqual({ identifier: 'btc-regtest-p2wpkh', asset: 'btc', address: BCRT1 });
+    expect(regtest.canonicalPayload(parsed!)).toBe(regtest.btcReceivingDetail(BCRT1).payload);
   });
 
   it('pays neither a Mutinynet endpoint nor a tb1 address', () => {

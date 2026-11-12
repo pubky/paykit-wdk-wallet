@@ -11,7 +11,6 @@ describe('btcChainFromEnv', () => {
       esploraApi: MUTINYNET_API,
       endpointId: 'btc-mutinynet-p2wpkh',
       funding: { kind: 'faucet', url: MUTINYNET_FAUCET_URL },
-      ownProofNetwork: 'mutinynet',
       confirmsIn: 'about 30 seconds',
       pendingUntil: 'the next Mutinynet block, in about 30 seconds',
     });
@@ -26,7 +25,6 @@ describe('btcChainFromEnv', () => {
       funding: { kind: 'blocktank-regtest' },
       confirmsIn: 'the next block, which comes only when someone mines one',
       pendingUntil: 'the next block, which comes only when someone mines one',
-      ownProofNetwork: undefined,
       endpointId: 'btc-regtest-p2wpkh',
       bech32Prefix: 'bcrt1',
       proofFormat: 'bitkit',

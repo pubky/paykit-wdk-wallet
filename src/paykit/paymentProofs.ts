@@ -55,19 +55,17 @@ import { BTC_CHAIN } from '../config/btcChain';
 import { SEPOLIA_CHAIN_ID } from '../config/chains';
 import { ERC20_PROOF_TYPE, erc20PaymentSigner, erc20PaymentTypedData, isCanonicalLogIndex, type Erc20RequestBinding } from '../wallet/erc20PaymentProof';
 import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../wallet/paymentEvidence';
+import { isLowercaseTxid } from '../wallet/txid';
 
 export const BTC_PROOF_TYPE = 'bitcoin-onchain-tx';
 export const BTC_PROOF_NETWORK = 'mutinynet';
-/** Whether this build reads our proof format: only when its `network` names this build's chain. */
-const READS_BTC_PROOF_NETWORK = BTC_CHAIN.ownProofNetwork === BTC_PROOF_NETWORK;
+/**
+ * Whether this build reads our proof format: only a build that sends it,
+ * because its `network` names Mutinynet, the chain such a build runs on.
+ */
+const READS_BTC_PROOF_NETWORK = BTC_CHAIN.proofFormat === 'paykit-wdk';
 /** Bitkit's on-chain proof type (PaykitPaymentProofKind.onchain in bitkit-ios). */
 export const BITKIT_BTC_PROOF_TYPE = 'bitcoin-onchain-txid';
-
-const TXID = /^[0-9a-f]{64}$/;
-
-function isTxid(value: unknown): value is string {
-  return typeof value === 'string' && TXID.test(value);
-}
 
 export type ParsedProof =
   | { kind: 'btc'; txid: string }
@@ -101,10 +99,10 @@ export function parseProof(json: string): ParsedProof | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const proof = value as Record<string, unknown>;
   if (proof.type === BTC_PROOF_TYPE) {
-    return READS_BTC_PROOF_NETWORK && proof.network === BTC_PROOF_NETWORK && isTxid(proof.txid) ? { kind: 'btc', txid: proof.txid } : undefined;
+    return READS_BTC_PROOF_NETWORK && proof.network === BTC_PROOF_NETWORK && isLowercaseTxid(proof.txid) ? { kind: 'btc', txid: proof.txid } : undefined;
   }
   if (proof.type === BITKIT_BTC_PROOF_TYPE) {
-    return isTxid(proof.data) ? { kind: 'btc', txid: proof.data } : undefined;
+    return isLowercaseTxid(proof.data) ? { kind: 'btc', txid: proof.data } : undefined;
   }
   if (proof.type === ERC20_PROOF_TYPE) {
     const { chain_id: chainId, transaction_hash: transactionHash, receipt_log_index: receiptLogIndex, signature } = proof;

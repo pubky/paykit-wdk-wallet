@@ -167,6 +167,12 @@ If the deposit goes through but mining its block fails, the script says
 the deposit was sent and exits with an error. Do not fund again: mine the
 block with `--mine 1`.
 
+If the deposit request gets no answer (it times out after 30 seconds, or
+the connection drops), the script cannot tell whether Blocktank sent the
+coins. It does not mine, and exits with an error that says the deposit
+may have gone through. Check the address in the explorer before you fund
+again. If the coins are there, mine their block with `--mine 1`.
+
 To check the identity's balance (confirmed and unconfirmed):
 
 ```sh

@@ -30,7 +30,10 @@
 // The script also reads a deposit txid sent as a JSON string or a JSON
 // object with a txid field. Once the deposit is accepted (2xx), the script
 // mines the block even if it cannot find a txid in the reply, because the
-// coins are already sent.
+// coins are already sent. If the deposit request fails without an answer
+// (a timeout or a dropped connection), the deposit may still have gone
+// through: the script stops without mining and says to check the address
+// in the explorer before funding again.
 // Written from Bitkit's client; not yet run from this script.
 //
 // The faucet (faucet.mutinynet.com, source: MutinyWallet/mutinynet-faucet-rs)
@@ -166,7 +169,14 @@ function regtestAuthorization() {
   return `Basic ${Buffer.from(auth, 'utf8').toString('base64')}`;
 }
 
-/** POST JSON to Blocktank's regtest chain API; returns the response body as text. */
+/** Blocktank answered a regtest call with an HTTP error status, so it did not carry the call out. */
+class BlocktankStatusError extends Error {}
+
+/**
+ * POST JSON to Blocktank's regtest chain API; returns the response body as
+ * text. An HTTP error status throws a BlocktankStatusError; a timeout or
+ * network error throws whatever fetch throws.
+ */
 async function blocktankRegtest(call, body, authorization) {
   const response = await fetch(`${BLOCKTANK_REGTEST_CHAIN_API}/${call}`, {
     method: 'POST',
@@ -176,9 +186,9 @@ async function blocktankRegtest(call, body, authorization) {
   });
   const text = (await response.text()).trim();
   if (response.status === 401 || response.status === 403) {
-    throw new Error(`Blocktank's regtest ${call} refused ${REGTEST_AUTH_KEY} (${response.status}). Check its value. ${REGTEST_AUTH_HINT}`);
+    throw new BlocktankStatusError(`Blocktank's regtest ${call} refused ${REGTEST_AUTH_KEY} (${response.status}). Check its value. ${REGTEST_AUTH_HINT}`);
   }
-  if (!response.ok) throw new Error(`Blocktank's regtest ${call} answered ${response.status}: ${text.slice(0, 200) || 'no body'}`);
+  if (!response.ok) throw new BlocktankStatusError(`Blocktank's regtest ${call} answered ${response.status}: ${text.slice(0, 200) || 'no body'}`);
   return text;
 }
 
@@ -195,7 +205,20 @@ async function fundRegtest(targetArg, satsArg) {
   const amountSat = wholeNumber(satsArg, 1_000, MAX_REGTEST_SATS, 'sats');
 
   console.log(`Asking Blocktank's staging regtest for ${amountSat} sats to ${address}…`);
-  const reply = await blocktankRegtest('deposit', { address, amountSat }, authorization);
+  let reply;
+  try {
+    reply = await blocktankRegtest('deposit', { address, amountSat }, authorization);
+  } catch (error) {
+    if (error instanceof BlocktankStatusError) throw error;
+    // No answer (timeout, dropped connection): Blocktank may have sent the
+    // coins anyway. Do not mine, and say so, so nobody funds a second time.
+    throw new Error(
+      `The deposit request failed without an answer: ${error instanceof Error ? error.message : String(error)}\n` +
+        'The deposit may have gone through. Before you fund again, check ' +
+        `${BITKIT_REGTEST_EXPLORER}/address/${address}\n` +
+        'If the coins are there, mine their block with: node scripts/fund-btc.mjs --chain bitkit-regtest --mine 1',
+    );
+  }
   const txid = depositTxid(reply);
   if (txid) console.log(`Sent ${txid}: ${BITKIT_REGTEST_EXPLORER}/tx/${txid}`);
   else {

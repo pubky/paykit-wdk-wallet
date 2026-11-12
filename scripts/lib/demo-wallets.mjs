@@ -25,7 +25,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bech32 } from '@scure/base';
+import { bech32, bech32m } from '@scure/base';
 import { HDNodeWallet, JsonRpcProvider, getBytes, ripemd160, sha256 } from 'ethers';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -87,16 +87,22 @@ const BECH32_DATA = /^[02-9ac-hj-np-z]{8,}$/;
 const BECH32_MAX_LENGTH = 90;
 
 /**
- * Whether `text` looks like a bech32 address with prefix `hrp` ('tb',
+ * Whether `text` is a lowercase bech32 address with prefix `hrp` ('tb',
  * 'bcrt'): `<hrp>1` and bech32 data characters, at most 90 characters in
- * all. A shape check only; it does not verify the checksum.
+ * all, with a valid checksum. Witness v0 (P2WPKH) addresses use bech32 and
+ * v1 (P2TR) use bech32m (BIP-350), so either checksum is accepted, which
+ * catches a mistyped character. It does not check the witness program.
  */
 export function isBech32Address(text, hrp) {
-  return (
-    text.length <= BECH32_MAX_LENGTH &&
-    text.startsWith(`${hrp}1`) &&
-    BECH32_DATA.test(text.slice(hrp.length + 1))
-  );
+  if (
+    text.length > BECH32_MAX_LENGTH ||
+    !text.startsWith(`${hrp}1`) ||
+    !BECH32_DATA.test(text.slice(hrp.length + 1))
+  ) {
+    return false;
+  }
+  const decoded = bech32.decodeUnsafe(text, BECH32_MAX_LENGTH) ?? bech32m.decodeUnsafe(text, BECH32_MAX_LENGTH);
+  return decoded?.prefix === hrp;
 }
 
 const EVM_PATH = "m/44'/60'/0'/0/0";
@@ -185,15 +191,15 @@ export function describeBtc({ confirmed, pending }) {
  * prefix `hrp`, from the esplora API `api`. Public only.
  */
 export async function printBtcAccounts(name, hrp, api, count, env = readDemoEnv()) {
-  for (let index = 1; index <= count; index++) {
-    const address = btcAddressForAccount(name, index, env, hrp);
-    console.log(`  BTC contact account ${index}  ${address}  ${describeBtc(await btcBalance(address, api))}`);
-  }
+  const addresses = Array.from({ length: count }, (_, i) => btcAddressForAccount(name, i + 1, env, hrp));
+  const balances = await Promise.all(addresses.map((address) => btcBalance(address, api)));
+  addresses.forEach((address, i) => {
+    console.log(`  BTC contact account ${i + 1}  ${address}  ${describeBtc(balances[i])}`);
+  });
 }
 
-/** Both demo wallets' public addresses. */
-export function demoWallets() {
-  const env = readDemoEnv();
+/** Both demo wallets' public addresses, from `env` (.env.demo by default). */
+export function demoWallets(env = readDemoEnv()) {
   return { ios: demoWallet('ios', env), android: demoWallet('android', env) };
 }
 

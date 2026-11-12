@@ -50,9 +50,16 @@ describe('Bitcoin chain switch in the funding scripts', () => {
 
   // The scripts pick the chain only from --chain. Reading the app's
   // EXPO_PUBLIC_BTC_CHAIN would invite exporting it in the shell, which
-  // also makes `npm start` bundle regtest and breaks `npm test`.
+  // also makes `npm start` bundle regtest and breaks `npm test`. The name
+  // must not appear in their code at all (so no `process.env.X`, `['X']`
+  // or `const { X } = process.env`); comments may mention it. Only whole
+  // comment lines are dropped, so a trailing comment that names it fails.
   it.each(['lib/demo-wallets.mjs', 'fund-btc.mjs', 'fund-status.mjs'])('scripts/%s never reads EXPO_PUBLIC_BTC_CHAIN', (file) => {
     const source = readFileSync(join(__dirname, '..', '..', '..', 'scripts', file), 'utf8');
-    expect(source).not.toMatch(/\.EXPO_PUBLIC_BTC_CHAIN\b|\[['"]EXPO_PUBLIC_BTC_CHAIN['"]\]/);
+    const code = source
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+      .join('\n');
+    expect(code).not.toMatch(/\bEXPO_PUBLIC_BTC_CHAIN\b/);
   });
 });
