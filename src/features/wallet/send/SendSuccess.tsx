@@ -21,10 +21,7 @@ export type SendSuccessProps = {
   next?: string;
 };
 
-// "until the next Mutinynet block, in about 30 seconds"; on regtest,
-// CONFIRMATION_TIME already names the block ("the next block, which comes …").
-const BTC_NEXT_BLOCK = BTC_CHAIN.blockInterval ? `the next ${BTC_CHAIN.displayName} block, in ${CONFIRMATION_TIME.bitcoin}` : CONFIRMATION_TIME.bitcoin;
-const BTC_PENDING = `It shows as pending in Activity until ${BTC_NEXT_BLOCK}.`;
+const BTC_PENDING = `It shows as pending in Activity until ${BTC_CHAIN.pendingUntil}.`;
 
 export function SendSuccess({ asset, amount, toLabel, toIsName, result, onDone, next }: SendSuccessProps) {
   return (

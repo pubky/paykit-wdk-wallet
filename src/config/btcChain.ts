@@ -11,9 +11,9 @@
 // prefix, the Paykit endpoint id and the payment proof format. Ethereum
 // (Sepolia) does not change.
 //
-// Expo inlines EXPO_PUBLIC_* variables into the JS bundle when Metro builds
-// it, so changing the value needs a Metro restart with `--clear` (Debug), or
-// a rebuild (Release, where the bundle is inside the app).
+// Expo inlines EXPO_PUBLIC_* variables into the JS bundle. To switch
+// chains, restart Metro with the new value (Debug), or rebuild the app
+// (Release, where the bundle is inside the app).
 //
 // No native imports: unit tested in Node, like ./chains.ts.
 import {
@@ -27,6 +27,9 @@ import {
 } from './chains';
 
 export type BtcChainId = 'mutinynet' | 'bitkit-regtest';
+
+/** The Paykit endpoint ids for our P2WPKH address, one per chain. */
+export type BtcEndpointId = 'btc-mutinynet-p2wpkh' | 'btc-regtest-p2wpkh';
 
 /**
  * Where test bitcoin comes from (You > Test funds): a public faucet, or
@@ -58,19 +61,31 @@ export type BtcChainProfile = {
   readonly explorer: string;
   readonly funding: BtcFunding;
   /** The Paykit endpoint id for our P2WPKH address (src/config/paykit.ts ENDPOINT_BTC). */
-  readonly endpointId: string;
+  readonly endpointId: BtcEndpointId;
   /** Bech32 human-readable part plus separator: the only addresses this wallet pays. */
   readonly bech32Prefix: string;
   /** The Bitcoin payment proof this wallet sends (src/paykit/paymentProofs.ts). */
   readonly proofFormat: 'paykit-wdk' | 'bitkit';
+  /**
+   * The `network` value of our own Bitcoin proof format that names this
+   * chain (src/paykit/paymentProofs.ts BTC_PROOF_NETWORK). Undefined when
+   * our format has no name for this chain: such a build reads only Bitkit's
+   * proofs.
+   */
+  readonly ownProofNetwork: 'mutinynet' | undefined;
   /** WDK's asset id; it keys WDK's balance cache. */
   readonly assetId: string;
   /**
-   * How often the network makes a block, in words: "about 30 seconds".
-   * Undefined when a block comes only when someone mines one. The Send
-   * screens' sentences come from it (src/wallet/assets.ts CONFIRMATION_TIME).
+   * When a transaction is in a block, after "Confirms in": "about 30
+   * seconds". The Send review reads it through src/wallet/assets.ts
+   * CONFIRMATION_TIME.
    */
-  readonly blockInterval: string | undefined;
+  readonly confirmsIn: string;
+  /**
+   * The same, after "It shows as pending in Activity until" on the Send
+   * success screen: "the next Mutinynet block, in about 30 seconds".
+   */
+  readonly pendingUntil: string;
 };
 
 const MUTINYNET: BtcChainProfile = {
@@ -89,10 +104,12 @@ const MUTINYNET: BtcChainProfile = {
   endpointId: 'btc-mutinynet-p2wpkh',
   bech32Prefix: 'tb1',
   proofFormat: 'paykit-wdk',
+  ownProofNetwork: 'mutinynet',
   assetId: 'btc-mutinynet',
   buildSwitch: undefined,
   // Mutinynet makes a block every 30 s.
-  blockInterval: 'about 30 seconds',
+  confirmsIn: 'about 30 seconds',
+  pendingUntil: 'the next Mutinynet block, in about 30 seconds',
 };
 
 const BITKIT_REGTEST: BtcChainProfile = {
@@ -111,11 +128,13 @@ const BITKIT_REGTEST: BtcChainProfile = {
   endpointId: 'btc-regtest-p2wpkh',
   bech32Prefix: 'bcrt1',
   proofFormat: 'bitkit',
+  ownProofNetwork: undefined,
   assetId: 'btc-regtest',
   buildSwitch: 'EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest',
   // Blocktank's staging regtest mines only when asked (scripts/fund-btc.mjs
   // --mine, or Bitkit's Dev Settings), so no time can be promised.
-  blockInterval: undefined,
+  confirmsIn: 'the next block, which comes only when someone mines one',
+  pendingUntil: 'the next block, which comes only when someone mines one',
 };
 
 /** The profile for an EXPO_PUBLIC_BTC_CHAIN value. Throws for a value it does not know. */

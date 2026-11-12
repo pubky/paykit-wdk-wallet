@@ -47,4 +47,12 @@ describe('Bitcoin chain switch in the funding scripts', () => {
   it('uses the same regtest bech32 prefix as the app', () => {
     expect(`${scriptConstant('BITKIT_REGTEST_HRP')}1`).toBe(btcChainFromEnv('bitkit-regtest').bech32Prefix);
   });
+
+  // The scripts pick the chain only from --chain. Reading the app's
+  // EXPO_PUBLIC_BTC_CHAIN would invite exporting it in the shell, which
+  // also makes `npm start` bundle regtest and breaks `npm test`.
+  it.each(['lib/demo-wallets.mjs', 'fund-btc.mjs', 'fund-status.mjs'])('scripts/%s never reads EXPO_PUBLIC_BTC_CHAIN', (file) => {
+    const source = readFileSync(join(__dirname, '..', '..', '..', 'scripts', file), 'utf8');
+    expect(source).not.toMatch(/\.EXPO_PUBLIC_BTC_CHAIN\b|\[['"]EXPO_PUBLIC_BTC_CHAIN['"]\]/);
+  });
 });

@@ -335,8 +335,10 @@ endpoint id; USD₮ stays on Sepolia. [`docs/BITKIT-DEMO.md`](docs/BITKIT-DEMO.m
 covers the build, the demo identity, funding and mining with
 `scripts/fund-btc.mjs --chain bitkit-regtest`, balances with
 `scripts/fund-status.mjs --chain bitkit-regtest`, and the Bitkit setup.
-Unset, the wallet runs on Mutinynet as before. To switch back, stop Metro
-and run `npm start`; no cache clear is needed (BITKIT-DEMO.md says why).
+Unset, the wallet runs on Mutinynet as before. To switch back, stop Metro,
+run `npm start`, and use a Mutinynet install on its own simulator (or
+erase the simulator first); never reload the regtest install on Mutinynet.
+No cache clear is needed (BITKIT-DEMO.md says why).
 
 ### Checks
 

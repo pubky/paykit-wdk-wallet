@@ -28,6 +28,13 @@ describe('Bitcoin addresses on a Bitkit regtest build', () => {
     expect(regtest.chainOfAddress(BCRT1)).toBe('bitcoin');
   });
 
+  it("keeps bech32's 90-character limit with the longer bcrt1 prefix", () => {
+    const longest = `bcrt1${'q'.repeat(85)}`;
+    expect(longest).toHaveLength(90);
+    expect(regtest.isPayableBtcAddress(longest)).toBe(true);
+    expect(regtest.isPayableBtcAddress(`${longest}q`)).toBe(false);
+  });
+
   it('accepts a bcrt1 recipient and refuses a tb1 one, naming bcrt1', () => {
     expect(regtest.checkRecipientAddress(`bitcoin:${BCRT1}`, 'bitcoin')).toEqual({ ok: true, address: BCRT1 });
     expect(regtest.checkRecipientAddress(TB1, 'bitcoin')).toEqual({

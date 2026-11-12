@@ -11,10 +11,10 @@
 // BTC comes from Mutinynet's esplora API (confirmed + mempool). ETH and USD₮
 // come from the keyless Sepolia RPC the app uses.
 //
-// `--chain` defaults to EXPO_PUBLIC_BTC_CHAIN, the app's own switch
-// (src/config/btcChain.ts): unset is Mutinynet. With bitkit-regtest, the
-// script prints only the regtest identity's BTC (bcrt1…, also with
-// --contacts), from Bitkit's staging regtest esplora API.
+// Without `--chain` the script reads Mutinynet. With `--chain bitkit-regtest`,
+// it prints only the regtest identity's BTC (bcrt1…, also with --contacts),
+// from Bitkit's staging regtest esplora API. The chain comes only from
+// `--chain`, never from EXPO_PUBLIC_BTC_CHAIN.
 import { Contract, JsonRpcProvider, formatEther } from 'ethers';
 
 import {
@@ -24,49 +24,31 @@ import {
   SEPOLIA_RPC,
   SEPOLIA_USDT,
   bitkitRegtestBtcAddress,
-  btcAddressForAccount,
+  btcBalance,
   btcChainFromArgs,
   demoWallets,
+  describeBtc,
   formatUnits,
+  printBtcAccounts,
   readDemoEnv,
 } from './lib/demo-wallets.mjs';
 
-const { chain, rest: args } = btcChainFromArgs(process.argv.slice(2));
-const contactsArg = args.indexOf('--contacts');
-const contactCount = contactsArg >= 0 ? Number(args[contactsArg + 1] ?? 3) : 0;
-
-async function btcBalance(address, api = MUTINYNET_API) {
-  const response = await fetch(`${api}/address/${address}`);
-  if (!response.ok) throw new Error(`${new URL(api).host} answered ${response.status}`);
-  const { chain_stats: chain, mempool_stats: mempool } = await response.json();
-  const confirmed = BigInt(chain.funded_txo_sum - chain.spent_txo_sum);
-  const pending = BigInt(mempool.funded_txo_sum - mempool.spent_txo_sum);
-  return { confirmed, pending };
-}
-
-function describeBtc({ confirmed, pending }) {
-  const pendingText = pending !== 0n ? ` (${pending > 0n ? '+' : ''}${pending} sats unconfirmed)` : '';
-  return `${confirmed} sats${pendingText}`;
-}
-
-async function printRegtestIdentity() {
+async function printRegtestIdentity(contactCount) {
   const env = readDemoEnv();
   const address = bitkitRegtestBtcAddress(env);
   console.log('bitkit-regtest identity');
   console.log(`  BTC   ${address}  ${describeBtc(await btcBalance(address, BITKIT_REGTEST_API))}`);
-  for (let index = 1; index <= contactCount; index++) {
-    const contactAddress = btcAddressForAccount('bitkit_regtest', index, env, BITKIT_REGTEST_HRP);
-    console.log(`  BTC contact account ${index}  ${contactAddress}  ${describeBtc(await btcBalance(contactAddress, BITKIT_REGTEST_API))}`);
-  }
+  await printBtcAccounts('bitkit_regtest', BITKIT_REGTEST_HRP, BITKIT_REGTEST_API, contactCount, env);
 }
 
-async function printMutinynetWallets() {
+async function printMutinynetWallets(contactCount) {
   const provider = new JsonRpcProvider(SEPOLIA_RPC);
   const usdt = new Contract(SEPOLIA_USDT, ['function balanceOf(address) view returns (uint256)'], provider);
+  const env = readDemoEnv();
   const wallets = demoWallets();
   for (const wallet of Object.values(wallets)) {
     const [btc, eth, usdtUnits] = await Promise.all([
-      btcBalance(wallet.btc),
+      btcBalance(wallet.btc, MUTINYNET_API),
       provider.getBalance(wallet.evm),
       usdt.balanceOf(wallet.evm),
     ]);
@@ -74,11 +56,16 @@ async function printMutinynetWallets() {
     console.log(`  BTC   ${wallet.btc}  ${describeBtc(btc)}`);
     console.log(`  ETH   ${wallet.evm}  ${formatEther(eth)} ETH`);
     console.log(`  USD₮  ${wallet.evm}  ${formatUnits(usdtUnits, 6)} USD₮`);
-    for (let index = 1; index <= contactCount; index++) {
-      const address = btcAddressForAccount(wallet.name, index);
-      console.log(`  BTC contact account ${index}  ${address}  ${describeBtc(await btcBalance(address))}`);
-    }
+    await printBtcAccounts(wallet.name, 'tb', MUTINYNET_API, contactCount, env);
   }
 }
 
-await (chain === 'bitkit-regtest' ? printRegtestIdentity : printMutinynetWallets)();
+try {
+  const { chain, rest: args } = btcChainFromArgs(process.argv.slice(2));
+  const contactsArg = args.indexOf('--contacts');
+  const contactCount = contactsArg >= 0 ? Number(args[contactsArg + 1] ?? 3) : 0;
+  await (chain === 'bitkit-regtest' ? printRegtestIdentity : printMutinynetWallets)(contactCount);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

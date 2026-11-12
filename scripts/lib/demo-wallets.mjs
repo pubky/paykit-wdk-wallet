@@ -53,31 +53,50 @@ export const BITKIT_REGTEST_API = 'https://mempool.bitkit.stag0.blocktank.to/api
 export const BLOCKTANK_REGTEST_CHAIN_API = 'https://api.stag0.blocktank.to/blocktank/api/v2/regtest/chain';
 
 /**
- * The values EXPO_PUBLIC_BTC_CHAIN (and the scripts' --chain) accepts, as
- * btcChainFromEnv in src/config/btcChain.ts reads it: unset or empty is
- * Mutinynet, anything not listed here is refused.
+ * The values the scripts' --chain accepts: the same values the app's
+ * EXPO_PUBLIC_BTC_CHAIN accepts (btcChainFromEnv in src/config/btcChain.ts).
+ * No --chain is Mutinynet; anything not listed here is refused.
  */
 export const BTC_CHAIN_VALUES = ['bitkit-regtest'];
 /** Regtest's bech32 prefix, without the '1' separator (bech32Prefix 'bcrt1' in src/config/btcChain.ts). */
 export const BITKIT_REGTEST_HRP = 'bcrt';
 
-/** The chain for a --chain or EXPO_PUBLIC_BTC_CHAIN value: 'mutinynet' or one of BTC_CHAIN_VALUES. */
-export function btcChainFrom(value) {
-  if (value === undefined || value === '') return 'mutinynet';
-  if (BTC_CHAIN_VALUES.includes(value)) return value;
-  throw new Error(`Unknown chain "${value}". Leave it unset for Mutinynet, or use ${BTC_CHAIN_VALUES.join(' or ')}.`);
+/**
+ * Pull `--chain <value>` out of command-line arguments. Returns the chain
+ * ('mutinynet' without --chain, or one of BTC_CHAIN_VALUES) and the
+ * remaining arguments.
+ *
+ * Only an explicit --chain picks the chain, never the environment: an
+ * exported EXPO_PUBLIC_BTC_CHAIN would also make `npm start` bundle regtest
+ * and break `npm test`, so the docs never ask for one.
+ */
+export function btcChainFromArgs(argv) {
+  const at = argv.indexOf('--chain');
+  if (at < 0) return { chain: 'mutinynet', rest: argv };
+  const value = argv[at + 1];
+  if (!BTC_CHAIN_VALUES.includes(value)) {
+    const problem = value === undefined ? '--chain needs a value' : `Unknown chain "${value}"`;
+    throw new Error(`${problem}. Use ${BTC_CHAIN_VALUES.join(' or ')}, or leave out --chain for Mutinynet.`);
+  }
+  return { chain: value, rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
 }
 
+/** Bech32 data characters (BIP-173); the human-readable part is checked on its own. */
+const BECH32_DATA = /^[02-9ac-hj-np-z]{8,}$/;
+/** BIP-173's limit for a whole bech32 string, prefix and separator included. */
+const BECH32_MAX_LENGTH = 90;
+
 /**
- * Pull `--chain <value>` out of command-line arguments. Without it, the
- * chain comes from EXPO_PUBLIC_BTC_CHAIN, the app's own switch. Returns the
- * chain and the remaining arguments.
+ * Whether `text` looks like a bech32 address with prefix `hrp` ('tb',
+ * 'bcrt'): `<hrp>1` and bech32 data characters, at most 90 characters in
+ * all. A shape check only; it does not verify the checksum.
  */
-export function btcChainFromArgs(argv, env = process.env) {
-  const at = argv.indexOf('--chain');
-  if (at < 0) return { chain: btcChainFrom(env.EXPO_PUBLIC_BTC_CHAIN), rest: argv };
-  if (argv[at + 1] === undefined) throw new Error(`--chain needs a value: ${BTC_CHAIN_VALUES.join(' or ')}.`);
-  return { chain: btcChainFrom(argv[at + 1]), rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
+export function isBech32Address(text, hrp) {
+  return (
+    text.length <= BECH32_MAX_LENGTH &&
+    text.startsWith(`${hrp}1`) &&
+    BECH32_DATA.test(text.slice(hrp.length + 1))
+  );
 }
 
 const EVM_PATH = "m/44'/60'/0'/0/0";
@@ -142,6 +161,34 @@ export function btcAddressForAccount(name, accountIndex, env = readDemoEnv(), hr
  */
 export function bitkitRegtestBtcAddress(env = readDemoEnv()) {
   return btcAddressForAccount('bitkit_regtest', 0, env, BITKIT_REGTEST_HRP);
+}
+
+/** An address's BTC balance in sats from an esplora API: confirmed, and unconfirmed (mempool). */
+export async function btcBalance(address, api) {
+  const response = await fetch(`${api}/address/${address}`);
+  if (!response.ok) throw new Error(`${new URL(api).host} answered ${response.status}`);
+  const { chain_stats: chain, mempool_stats: mempool } = await response.json();
+  const confirmed = BigInt(chain.funded_txo_sum - chain.spent_txo_sum);
+  const pending = BigInt(mempool.funded_txo_sum - mempool.spent_txo_sum);
+  return { confirmed, pending };
+}
+
+/** "<confirmed> sats", plus the unconfirmed change if there is one. */
+export function describeBtc({ confirmed, pending }) {
+  const pendingText = pending !== 0n ? ` (${pending > 0n ? '+' : ''}${pending} sats unconfirmed)` : '';
+  return `${confirmed} sats${pendingText}`;
+}
+
+/**
+ * Print the BTC address and balance of a demo wallet's contact accounts
+ * 1..`count` (the wallet's phrase is `<NAME>_MNEMONIC`), with bech32
+ * prefix `hrp`, from the esplora API `api`. Public only.
+ */
+export async function printBtcAccounts(name, hrp, api, count, env = readDemoEnv()) {
+  for (let index = 1; index <= count; index++) {
+    const address = btcAddressForAccount(name, index, env, hrp);
+    console.log(`  BTC contact account ${index}  ${address}  ${describeBtc(await btcBalance(address, api))}`);
+  }
 }
 
 /** Both demo wallets' public addresses. */

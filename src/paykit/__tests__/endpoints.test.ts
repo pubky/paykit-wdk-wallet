@@ -8,6 +8,7 @@ import {
   payableCandidateIds,
   usdtReceivingDetail,
   utf8ByteLength,
+  type ParsedEndpoint,
 } from '../endpoints';
 import { withBtcChain } from '../../config/__tests__/withBtcChain';
 
@@ -36,6 +37,13 @@ describe('endpoint payloads', () => {
     expect(parseEndpoint(ENDPOINT_BTC, JSON.stringify({ value: 'bc1qmainnetaddress00000000000000000' }))).toBeUndefined();
     expect(parseEndpoint(ENDPOINT_BTC, 'not json')).toBeUndefined();
     expect(parseEndpoint('btc-bitcoin-p2wpkh', btcReceivingDetail(BTC).payload)).toBeUndefined();
+  });
+
+  it('types the Bitcoin identifier as one of our endpoint ids, not any string', () => {
+    const parsed: ParsedEndpoint = { identifier: ENDPOINT_BTC, asset: 'btc', address: BTC };
+    // @ts-expect-error: an id that is not ours does not type-check as the Bitcoin endpoint (npm run typecheck).
+    const other: ParsedEndpoint = { identifier: 'btc-bitcoin-p2wpkh', asset: 'btc', address: BTC };
+    expect(parsed.identifier).not.toBe(other.identifier);
   });
 
   it('accepts the token address in any letter case', () => {

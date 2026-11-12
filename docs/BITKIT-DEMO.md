@@ -33,7 +33,10 @@ for Mutinynet. Any other value stops the app at launch.
 | Blocks | every 30 seconds | only when someone mines one |
 | Test bitcoin | Mutinynet faucet | Blocktank's regtest deposit |
 
-The wallet reads both proof formats in every build.
+Every build reads Bitkit's `bitcoin-onchain-txid` proof. Only Mutinynet
+builds also read this wallet's own Mutinynet proof. A regtest build refuses
+that proof on purpose: it names Mutinynet, so its transaction could never
+be found on regtest.
 
 These do not change:
 
@@ -62,7 +65,9 @@ npm run start:bitkit-regtest
 The native Debug build is the same in both modes: build it as usual with
 `--no-bundler` (see [README](../README.md), "Run it"), then open the dev
 client on this Metro server. To go back to Mutinynet, stop Metro, run
-`npm start` and reload the app.
+`npm start`, and use a Mutinynet install on its own simulator (or erase
+the simulator first). Do not reload the regtest install on the Mutinynet
+bundle; see "Use a separate install per chain mode" below.
 
 Switching modes does not need a cache clear; the `--clear` in
 `start:bitkit-regtest` only makes sure. Checked in Expo SDK 55
@@ -93,8 +98,10 @@ EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest npx expo run:ios --configuration Release --
 Run each chain mode in its own app install, on its own simulator. Do not
 switch an existing install between modes. WDK's balance cache and the
 app's Paykit state (contacts, requests, ledger) are stored per install,
-and they do not know which chain they came from. On iOS, Keychain items
-also survive an uninstall, so erase the simulator to start clean.
+and they do not know which chain they came from. Old payment proofs in
+the other mode's format also stop parsing, so a proof could be sent again.
+On iOS, Keychain items also survive an uninstall, so erase the simulator
+to start clean.
 
 ## The demo identity
 
@@ -114,14 +121,29 @@ node scripts/demo-env.mjs
 ```
 
 The script writes `src/config/demo.local.ts` (git-ignored, mode 600) and
-never prints a secret. A regtest Debug build uses this identity on any
-platform. Release builds never contain the prefill.
+never prints a secret. A regtest Debug build uses this identity on iOS
+only, because the Bitkit demo runs on iOS. A regtest build on Android gets
+no prefill: one identity on two devices at once would split its contacts,
+ledger and Allowances. Release builds never contain the prefill.
 
 ## Fund and mine
 
 Regtest has no faucet. Blocktank's staging API makes coins on request.
 `scripts/fund-btc.mjs` sends the deposit and then mines one block, so
-the coins confirm at once:
+the coins confirm at once.
+
+Staging's regtest routes need HTTP basic auth. Put the credentials in
+the git-ignored `.env.demo`, never in a tracked file:
+
+| Key | What it is |
+|---|---|
+| `BLOCKTANK_REGTEST_AUTH` | `user:password` for Blocktank's staging `/regtest/*` routes |
+
+It is a Synonym team secret (Bitkit's CI keeps it as a GitHub secret);
+ask the Bitkit team for it. The script reads it from the environment
+first, then from `.env.demo`, and sends it on every deposit and mine. It
+never prints the value. If the key is missing, or Blocktank refuses it
+(401 or 403), the script stops and says where to put it.
 
 ```sh
 node scripts/fund-btc.mjs --chain bitkit-regtest bitkit-regtest 100000   # the demo identity
@@ -131,13 +153,19 @@ node scripts/fund-btc.mjs --chain bitkit-regtest --mine 1                # mine 
 
 The script prints the funding transaction with an explorer link. The
 `bitkit-regtest` target is the first Bitcoin address of the identity in
-`BITKIT_REGTEST_MNEMONIC`, derived as WDK derives it. If
-`EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest` is set in your shell, you can leave
-out `--chain`.
+`BITKIT_REGTEST_MNEMONIC`, derived as WDK derives it.
+
+The scripts pick the chain only from `--chain`; without it they use
+Mutinynet. Do not export `EXPO_PUBLIC_BTC_CHAIN` in your shell: `npm start`
+would then bundle regtest, and `npm test` would fail.
 
 If Blocktank accepts the deposit but the script cannot read a transaction
 id in the reply, it prints a warning with the reply and still mines the
 block. Check the address in the explorer before you fund again.
+
+If the deposit goes through but mining its block fails, the script says
+the deposit was sent and exits with an error. Do not fund again: mine the
+block with `--mine 1`.
 
 To check the identity's balance (confirmed and unconfirmed):
 
@@ -151,7 +179,14 @@ on a schedule. After a payment, mine a block with `--mine 1`, or from
 Bitkit.
 
 You can also fund and mine from Bitkit: Settings › Dev Settings ›
-Blocktank Regtest.
+Blocktank Regtest. Bitkit needs the same `BLOCKTANK_REGTEST_AUTH` value,
+passed to the app when it launches. Debug builds read it from the process
+environment or from a launch argument:
+
+```sh
+SIMCTL_CHILD_BLOCKTANK_REGTEST_AUTH='user:password' xcrun simctl launch <udid> to.bitkit
+# or: xcrun simctl launch <udid> to.bitkit -BLOCKTANK_REGTEST_AUTH=user:password
+```
 
 ## Set up Bitkit
 

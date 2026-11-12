@@ -58,8 +58,8 @@ import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../w
 
 export const BTC_PROOF_TYPE = 'bitcoin-onchain-tx';
 export const BTC_PROOF_NETWORK = 'mutinynet';
-/** Whether this build reads our proof format: only when its `network` is this build's chain. */
-const READS_BTC_PROOF_NETWORK = BTC_CHAIN.id === BTC_PROOF_NETWORK;
+/** Whether this build reads our proof format: only when its `network` names this build's chain. */
+const READS_BTC_PROOF_NETWORK = BTC_CHAIN.ownProofNetwork === BTC_PROOF_NETWORK;
 /** Bitkit's on-chain proof type (PaykitPaymentProofKind.onchain in bitkit-ios). */
 export const BITKIT_BTC_PROOF_TYPE = 'bitcoin-onchain-txid';
 

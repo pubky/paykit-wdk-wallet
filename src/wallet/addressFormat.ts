@@ -21,11 +21,15 @@ import type { Chain } from './assets';
 /** The build network's bech32 prefix, for messages: "tb1" or "bcrt1". */
 const BTC_PREFIX = BTC_CHAIN.bech32Prefix;
 
+/** Bech32's limit for a whole address, prefix included (BIP-173). */
+const BECH32_MAX_LENGTH = 90;
+
 /**
  * Bech32 addresses of the build's network: P2WPKH (…q…) or P2TR (…p…).
  * Mutinynet, a signet, uses testnet's tb1…; Bitkit's regtest uses bcrt1….
+ * At most 90 characters in all, so the body's limit depends on the prefix.
  */
-const ACTIVE_BECH32 = new RegExp(`^${BTC_PREFIX}[02-9ac-hj-np-z]{8,87}$`);
+const ACTIVE_BECH32 = new RegExp(`^${BTC_PREFIX}[02-9ac-hj-np-z]{8,${BECH32_MAX_LENGTH - BTC_PREFIX.length}}$`);
 
 /** An EVM address: 0x followed by 40 hex characters (checksum case is not checked). */
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;

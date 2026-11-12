@@ -13,15 +13,20 @@
 //   node scripts/fund-btc.mjs --chain bitkit-regtest --mine 3
 //                                               mine 3 regtest blocks
 //
-// `--chain` defaults to EXPO_PUBLIC_BTC_CHAIN, the app's own switch
-// (src/config/btcChain.ts): unset is Mutinynet.
+// Without `--chain` the script uses Mutinynet. The chain comes only from
+// `--chain`, never from EXPO_PUBLIC_BTC_CHAIN.
 //
 // Regtest: Bitkit's staging regtest has no faucet. Blocktank's staging API
 // makes coins on request, with the calls Bitkit's Dev Settings › Blocktank
 // Regtest make (rust-blocktank-client 0.0.16): POST …/regtest/chain/deposit
 // {"address", "amountSat"} answers the funding txid as plain text, and
 // POST …/regtest/chain/mine {"count"} answers an empty 2xx. A deposit is
-// followed by one mined block, so it confirms at once. No token is needed.
+// followed by one mined block, so it confirms at once.
+//
+// Staging's /regtest/* routes need HTTP basic auth: BLOCKTANK_REGTEST_AUTH
+// (user:password, a Synonym team secret), read from the environment first,
+// then from the git-ignored .env.demo. The script sends it as an
+// Authorization header on deposit and mine and never prints it.
 // The script also reads a deposit txid sent as a JSON string or a JSON
 // object with a txid field. Once the deposit is accepted (2xx), the script
 // mines the block even if it cannot find a txid in the reply, because the
@@ -39,7 +44,8 @@
 // Not yet run end to end (GitHub's device-code step is verified; the
 // faucet's token exchange is not). Fallback: `mutinynet-cli login`, then
 // copy ~/.mutinynet/token into .env.demo as MUTINYNET_FAUCET_TOKEN.
-import { appendFileSync, chmodSync, readFileSync, writeFileSync } from 'node:fs';
+import { Buffer } from 'node:buffer';
+import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -51,6 +57,7 @@ import {
   ROOT,
   bitkitRegtestBtcAddress,
   btcChainFromArgs,
+  isBech32Address,
   readDemoEnv,
   resolveTarget,
 } from './lib/demo-wallets.mjs';
@@ -60,14 +67,14 @@ const GITHUB_CLIENT_ID = 'Ov23liIa6qfR9KtYHwUF';
 const MAX_SATS = 1_000_000;
 const MAX_REGTEST_SATS = 10_000_000;
 const MAX_REGTEST_BLOCKS = 100;
-const REGTEST_ADDRESS = new RegExp(`^${BITKIT_REGTEST_HRP}1[02-9ac-hj-np-z]{8,87}$`);
 const TXID = /^[0-9a-f]{64}$/;
 
 const USAGE = `Usage:
   node scripts/fund-btc.mjs --login | <ios|android|tb1…> [sats, default 100000]
   node scripts/fund-btc.mjs --chain bitkit-regtest <bitkit-regtest|bcrt1…> [sats, default 100000]
   node scripts/fund-btc.mjs --chain bitkit-regtest --mine <blocks>
---chain defaults to EXPO_PUBLIC_BTC_CHAIN (unset: Mutinynet).`;
+Without --chain: Mutinynet. Regtest needs BLOCKTANK_REGTEST_AUTH (user:password)
+in the environment or in .env.demo.`;
 
 /** A whole number in [min, max], or an error that says the range. */
 function wholeNumber(text, min, max, what) {
@@ -142,32 +149,53 @@ async function fund(targetArg, satsArg) {
   console.log(`Sent ${result.json.txid}: ${MUTINYNET_EXPLORER}/tx/${result.json.txid}`);
 }
 
+const REGTEST_AUTH_KEY = 'BLOCKTANK_REGTEST_AUTH';
+const REGTEST_AUTH_HINT =
+  `Put ${REGTEST_AUTH_KEY}=user:password (a Synonym team secret) in .env.demo, or export it in the environment.`;
+
+/**
+ * The Authorization header for staging's /regtest/* routes, from
+ * BLOCKTANK_REGTEST_AUTH (user:password): the environment first, then
+ * .env.demo. The value is a secret: no message here contains it.
+ */
+function regtestAuthorization() {
+  let auth = process.env[REGTEST_AUTH_KEY]?.trim();
+  if (!auth && existsSync(join(ROOT, '.env.demo'))) auth = readDemoEnv()[REGTEST_AUTH_KEY]?.trim();
+  if (!auth) throw new Error(`${REGTEST_AUTH_KEY} is not set. ${REGTEST_AUTH_HINT}`);
+  if (!auth.includes(':')) throw new Error(`${REGTEST_AUTH_KEY} must have the form user:password. ${REGTEST_AUTH_HINT}`);
+  return `Basic ${Buffer.from(auth, 'utf8').toString('base64')}`;
+}
+
 /** POST JSON to Blocktank's regtest chain API; returns the response body as text. */
-async function blocktankRegtest(call, body) {
+async function blocktankRegtest(call, body, authorization) {
   const response = await fetch(`${BLOCKTANK_REGTEST_CHAIN_API}/${call}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', authorization },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
   });
   const text = (await response.text()).trim();
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(`Blocktank's regtest ${call} refused ${REGTEST_AUTH_KEY} (${response.status}). Check its value. ${REGTEST_AUTH_HINT}`);
+  }
   if (!response.ok) throw new Error(`Blocktank's regtest ${call} answered ${response.status}: ${text.slice(0, 200) || 'no body'}`);
   return text;
 }
 
-async function mineRegtest(countArg) {
+async function mineRegtest(countArg, authorization = regtestAuthorization()) {
   const count = wholeNumber(countArg, 1, MAX_REGTEST_BLOCKS, 'blocks');
-  await blocktankRegtest('mine', { count });
+  await blocktankRegtest('mine', { count }, authorization);
   console.log(`Mined ${count} regtest ${count === 1 ? 'block' : 'blocks'}.`);
 }
 
 async function fundRegtest(targetArg, satsArg) {
+  const authorization = regtestAuthorization();
   const address = targetArg === 'bitkit-regtest' ? bitkitRegtestBtcAddress() : targetArg.toLowerCase();
-  if (!REGTEST_ADDRESS.test(address)) throw new Error('Give a regtest address (bcrt1…) or bitkit-regtest.');
+  if (!isBech32Address(address, BITKIT_REGTEST_HRP)) throw new Error('Give a regtest address (bcrt1…) or bitkit-regtest.');
   const amountSat = wholeNumber(satsArg, 1_000, MAX_REGTEST_SATS, 'sats');
 
   console.log(`Asking Blocktank's staging regtest for ${amountSat} sats to ${address}…`);
-  const reply = await blocktankRegtest('deposit', { address, amountSat });
+  const reply = await blocktankRegtest('deposit', { address, amountSat }, authorization);
   const txid = depositTxid(reply);
   if (txid) console.log(`Sent ${txid}: ${BITKIT_REGTEST_EXPLORER}/tx/${txid}`);
   else {
@@ -176,7 +204,16 @@ async function fundRegtest(targetArg, satsArg) {
     console.warn(`Blocktank accepted the deposit, but its reply has no txid this script reads: ${reply.slice(0, 200) || 'no body'}`);
     console.warn(`Check ${BITKIT_REGTEST_EXPLORER}/address/${address} before you fund again.`);
   }
-  await mineRegtest('1');
+  try {
+    await mineRegtest('1', authorization);
+  } catch (error) {
+    // The coins are already sent: say so, so nobody funds a second time.
+    throw new Error(
+      `The deposit was sent${txid ? ` (${txid})` : ''}, but mining its block failed: ` +
+        `${error instanceof Error ? error.message : String(error)}\n` +
+        'Do not fund again. Mine the block with: node scripts/fund-btc.mjs --chain bitkit-regtest --mine 1',
+    );
+  }
 }
 
 /**

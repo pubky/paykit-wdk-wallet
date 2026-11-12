@@ -9,8 +9,10 @@
 //                                          platform gets the other one as its peer
 //   BITKIT_REGTEST_MNEMONIC                the identity a Bitkit regtest build
 //   BITKIT_REGTEST_SIGNUP_CODE             (EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest)
-//                                          prefills on any platform, and its
-//                                          single-use signup code
+//                                          prefills on iOS only, and its
+//                                          single-use signup code. iOS only: the
+//                                          Bitkit demo runs on iOS, and one
+//                                          identity must not run on two devices
 //   BITKIT_REGTEST_PEER_PUBKY              optional: Bitkit's pubky, the peer to
 //                                          prefill (docs/BITKIT-DEMO.md)
 //
