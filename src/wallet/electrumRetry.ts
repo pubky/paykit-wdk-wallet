@@ -1,10 +1,11 @@
 // Electrum drops the connection now and then; reads should not show that.
 //
-// WDK's Bitcoin module talks to Mutinynet's Electrum server over one TCP
-// socket (@mempool/electrum-client). When the server or the network closes
-// it (an idle timeout, the app coming back from the background), every
-// request fails with "Connection to server lost, please retry" until the
-// client's reconnect timer has opened a new socket, about a second later
+// WDK's Bitcoin module talks to the network's Electrum server
+// (src/config/btcChain.ts) over one socket (@mempool/electrum-client).
+// When the server or the network closes it (an idle timeout, the app
+// coming back from the background), every request fails with "Connection
+// to server lost, please retry" until the client's reconnect timer has
+// opened a new socket, about a second later
 // (`ELECTRUM_RECONNECT` in src/config/wdk.ts keeps that timer going for the
 // whole session; WDK's default gives up after two closes).
 //

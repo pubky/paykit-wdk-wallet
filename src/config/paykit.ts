@@ -1,5 +1,6 @@
 // Paykit and Pubky identifiers. These are frozen: Pubky grants are bound to
 // the client id, and peers find our endpoints under the Paykit app id.
+import { BTC_CHAIN } from './btcChain';
 
 /** Pubky staging homeserver (homeserver.staging.pubky.app). Signup needs a code. */
 export const STAGING_HOMESERVER = 'ufibwbmed6jeq9k4p583go95wofakh9fwpp4k734trq79pd9u1uy';
@@ -13,9 +14,11 @@ export const PAYKIT_APP_NAME = 'Paykit WDK example wallet';
 
 /**
  * Payment endpoint identifiers. They name the test network on purpose, so no
- * real wallet mistakes a testnet address for a mainnet endpoint.
+ * real wallet mistakes a testnet address for a mainnet endpoint. The Bitcoin
+ * one follows the build's network (./btcChain.ts): 'btc-mutinynet-p2wpkh',
+ * or Bitkit's own 'btc-regtest-p2wpkh' on Bitkit's regtest.
  */
-export const ENDPOINT_BTC = 'btc-mutinynet-p2wpkh';
+export const ENDPOINT_BTC = BTC_CHAIN.endpointId;
 export const ENDPOINT_USDT = 'usdt-sepolia-address';
 
 /** Endpoints we can pay to, in order of preference. */

@@ -1,8 +1,10 @@
 // The three assets the wallet shows, described in plain data.
 //
-// WDK moves BTC on Mutinynet and ETH + USD₮ on Sepolia. ETH is only shown as
-// gas for USD₮ transfers. Amounts are always bigint in the asset's smallest
-// unit (sats, USD₮ micro-units, wei); see ./amounts.ts for display.
+// WDK moves BTC on Mutinynet (or Bitkit's regtest, src/config/btcChain.ts)
+// and ETH + USD₮ on Sepolia. ETH is only shown as gas for USD₮ transfers.
+// Amounts are always bigint in the asset's smallest unit (sats, USD₮
+// micro-units, wei); see ./amounts.ts for display.
+import { BTC_CHAIN } from '../config/btcChain';
 
 export type AssetId = 'btc' | 'usdt' | 'eth';
 
@@ -57,10 +59,11 @@ export const ASSETS: Record<AssetId, AssetInfo> = {
 /**
  * How long until a transaction is in a block, in words, per chain. One
  * constant, so the Send review, the sent screen and the faucet agree.
- * Mutinynet makes a block every 30 s; Sepolia every 12 s.
+ * Bitcoin's depends on the network (src/config/btcChain.ts); Sepolia makes a
+ * block every 12 s.
  */
 export const CONFIRMATION_TIME: Record<Chain, string> = {
-  bitcoin: 'about 30 seconds',
+  bitcoin: BTC_CHAIN.confirmationTime,
   ethereum: 'about 12 seconds',
 };
 

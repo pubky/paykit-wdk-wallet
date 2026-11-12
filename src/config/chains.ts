@@ -1,9 +1,10 @@
-// Chain constants for the two testnets the wallet uses.
+// Chain constants for the test networks the wallet uses.
 //
 // This file has no imports on purpose: pure logic (amount formatting,
 // endpoint payload checks, faucet call data) imports it and is unit tested
 // in Node, where the WDK and Paykit native modules do not exist.
-// src/config/wdk.ts builds the WDK runtime configuration from these values.
+// src/config/wdk.ts builds the WDK runtime configuration from these values,
+// and src/config/btcChain.ts picks which Bitcoin network is active.
 
 /**
  * Bitcoin on Mutinynet, a signet with 30 s blocks.
@@ -16,6 +17,20 @@ export const MUTINYNET_ELECTRUM = {
   port: 50001,
   protocol: 'tcp',
 } as const;
+
+/**
+ * Bitcoin regtest on Bitkit's staging stack (Blocktank): the network a stock
+ * Bitkit iOS Debug build uses. Blocks are mined on demand. This Electrum
+ * server has a valid TLS certificate. The esplora API answers the same two
+ * calls as Mutinynet's (see MUTINYNET_API).
+ */
+export const BITKIT_REGTEST_ELECTRUM = {
+  host: 'electrs.bitkit.stag0.blocktank.to',
+  port: 9999,
+  protocol: 'tls',
+} as const;
+export const BITKIT_REGTEST_API = 'https://mempool.bitkit.stag0.blocktank.to/api';
+export const BITKIT_REGTEST_EXPLORER = 'https://mempool.bitkit.stag0.blocktank.to';
 
 /** Fallback if Mutinynet is down: Bitcoin testnet4 over Electrum TLS. */
 export const TESTNET4_ELECTRUM = {

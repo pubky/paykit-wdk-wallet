@@ -41,9 +41,50 @@ describe('proof JSON', () => {
     expect(parseProof(JSON.stringify({ type: 'erc20-transfer-eip712', chain_id: '11155111', transaction_hash: HASH, receipt_log_index: '01', signature: `0x${'1'.repeat(130)}` }))).toBeUndefined();
   });
 
+  it("reads Bitkit's Bitcoin proof as the same payment", () => {
+    const bitkit = `{"data":"${TXID}","type":"bitcoin-onchain-txid"}`;
+    expect(parseProof(bitkit)).toEqual({ kind: 'btc', txid: TXID });
+    expect(transferKey(parseProof(bitkit)!)).toBe(transferKey(parseProof(btcProofJson(TXID))!));
+    for (const data of [TXID.toUpperCase(), 'xyz', 7]) {
+      expect(parseProof(JSON.stringify({ data, type: 'bitcoin-onchain-txid' }))).toBeUndefined();
+    }
+  });
+
   it('keys a transfer by chain, hash and log', () => {
     expect(transferKey({ kind: 'btc', txid: TXID })).toBe(`bitcoin:${TXID}`);
     expect(transferKey({ kind: 'erc20', chainId: '1', transactionHash: HASH, receiptLogIndex: '2', signature: '' })).toBe(`ethereum:1:${HASH}:2`);
+  });
+});
+
+describe('Bitcoin proofs on a Bitkit regtest build', () => {
+  /** Loads the module as a bitkit-regtest build would, then restores the variable. */
+  function loadOnRegtest(): typeof import('../paymentProofs') {
+    const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
+    process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
+    try {
+      let loaded: typeof import('../paymentProofs') | undefined;
+      jest.isolateModules(() => {
+        loaded = jest.requireActual<typeof import('../paymentProofs')>('../paymentProofs');
+      });
+      return loaded!;
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
+      else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
+    }
+  }
+  const regtest = loadOnRegtest();
+
+  it("sends exactly Bitkit's proof: two keys, sorted, lowercase txid", () => {
+    expect(regtest.btcProofJson(TXID.toUpperCase())).toBe(`{"data":"${TXID}","type":"bitcoin-onchain-txid"}`);
+  });
+
+  it('reads both formats', () => {
+    expect(regtest.parseProof(regtest.btcProofJson(TXID))).toEqual({ kind: 'btc', txid: TXID });
+    expect(regtest.parseProof(btcProofJson(TXID))).toEqual({ kind: 'btc', txid: TXID });
+  });
+
+  it('leaves the Mutinynet build sending its own format', () => {
+    expect(JSON.parse(btcProofJson(TXID))).toEqual({ type: 'bitcoin-onchain-tx', network: 'mutinynet', txid: TXID });
   });
 });
 

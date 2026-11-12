@@ -3,7 +3,8 @@
 // Paykit treats a payload as opaque UTF-8 text; the meaning is agreed between
 // wallets per Payment Endpoint Identifier. Ours (see src/config/paykit.ts):
 //
-//   btc-mutinynet-p2wpkh   {"value":"tb1q..."}
+//   btc-mutinynet-p2wpkh   {"value":"tb1q..."}      (on Bitkit's regtest:
+//                                                    btc-regtest-p2wpkh, bcrt1q...)
 //   usdt-sepolia-address   {"value":"0x...","chain_id":"11155111","token":"0xaA8E..."}
 //
 // Keep payloads compact: every private message, including a whole Private

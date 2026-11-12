@@ -52,3 +52,40 @@ describe('endpoint payloads', () => {
     expect(ids).toEqual(['u', 'b']);
   });
 });
+
+describe('the Bitcoin endpoint on a Bitkit regtest build', () => {
+  const BCRT1 = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
+
+  /** Loads the module as a bitkit-regtest build would, then restores the variable. */
+  function loadOnRegtest(): typeof import('../endpoints') {
+    const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
+    process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
+    try {
+      let loaded: typeof import('../endpoints') | undefined;
+      jest.isolateModules(() => {
+        loaded = jest.requireActual<typeof import('../endpoints')>('../endpoints');
+      });
+      return loaded!;
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
+      else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
+    }
+  }
+  const regtest = loadOnRegtest();
+
+  it("publishes a bcrt1 address under Bitkit's endpoint id", () => {
+    const btc = regtest.btcReceivingDetail(BCRT1);
+    expect(btc.identifier).toBe('btc-regtest-p2wpkh');
+    expect(regtest.parseEndpoint(btc.identifier, btc.payload)).toEqual({ identifier: 'btc-regtest-p2wpkh', asset: 'btc', address: BCRT1 });
+  });
+
+  it('pays neither a Mutinynet endpoint nor a tb1 address', () => {
+    expect(regtest.parseEndpoint(ENDPOINT_BTC, JSON.stringify({ value: BTC }))).toBeUndefined();
+    expect(regtest.parseEndpoint('btc-regtest-p2wpkh', JSON.stringify({ value: BTC }))).toBeUndefined();
+  });
+
+  it('leaves the Mutinynet build on its own endpoint id', () => {
+    expect(ENDPOINT_BTC).toBe('btc-mutinynet-p2wpkh');
+    expect(parseEndpoint('btc-regtest-p2wpkh', JSON.stringify({ value: BCRT1 }))).toBeUndefined();
+  });
+});
