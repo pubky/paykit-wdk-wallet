@@ -1,8 +1,10 @@
 // After a broadcast: what was sent, to whom, and the transaction hash with
 // an explorer link. The send is "pending" in Activity until it is in a
-// block; the screen says how long that usually takes.
+// block; the screen says how long that usually takes (on regtest, it
+// says the block comes when someone mines one).
 import { Linking, StyleSheet, View } from 'react-native';
 
+import { BTC_CHAIN } from '../../../config/btcChain';
 import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
 import { CONFIRMATION_TIME, formatFee, type SendResult } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
@@ -19,6 +21,8 @@ export type SendSuccessProps = {
   next?: string;
 };
 
+const BTC_PENDING = `It shows as pending in Activity until ${BTC_CHAIN.pendingUntil}.`;
+
 export function SendSuccess({ asset, amount, toLabel, toIsName, result, onDone, next }: SendSuccessProps) {
   return (
     <View style={styles.root} testID="send-success">
@@ -26,9 +30,7 @@ export function SendSuccess({ asset, amount, toLabel, toIsName, result, onDone, 
         <Text variant="title">Sent</Text>
         <AssetAmount value={amount} asset={asset} size="hero" />
         <Text color="graphite">
-          {asset === 'btc'
-            ? `It shows as pending in Activity until the next Mutinynet block, in ${CONFIRMATION_TIME.bitcoin}.`
-            : `It shows as pending in Activity until the next Sepolia block, in ${CONFIRMATION_TIME.ethereum}.`}
+          {asset === 'btc' ? BTC_PENDING : `It shows as pending in Activity until the next Sepolia block, in ${CONFIRMATION_TIME.ethereum}.`}
         </Text>
         {next ? (
           <Text color="seal" testID="send-next">

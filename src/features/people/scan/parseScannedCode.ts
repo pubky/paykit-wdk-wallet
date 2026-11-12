@@ -2,6 +2,8 @@
 //
 //   pubky, pk:<key>, paykitwdk://contact?pubky=<key>   -> Add person
 //   tb1… or bitcoin:tb1…?amount=…                       -> Send Bitcoin
+//     (the build's prefix: tb1… on Mutinynet, bcrt1… on Bitkit's regtest;
+//     src/config/btcChain.ts)
 //   0x… or ethereum:0x…[@11155111]                      -> Send USD₮
 //   ethereum:<USD₮ token>@11155111/transfer?address=0x… -> Send USD₮ to that address
 //   paykitwdk://send?to=<pubky or address>&asset=…     -> Send
@@ -19,7 +21,7 @@
 import { pubkyFromText } from '../../../paykit/keys';
 import {
   checkRecipientAddress,
-  isBtcTestnetAddress,
+  isPayableBtcAddress,
   isEvmAddress,
   isKnownContract,
   parseQueryParams,
@@ -55,7 +57,7 @@ function parseSendLink(query: string): ScannedCode {
   const asset = assetParam(params.get('asset'));
   const pubky = pubkyFromText(to);
   if (pubky) return { kind: 'pay', to: pubky, asset };
-  if (isBtcTestnetAddress(to)) return asset === 'usdt' ? unsupported('That link asks for USD₮ but holds a Bitcoin address.') : { kind: 'pay', to, asset: 'btc' };
+  if (isPayableBtcAddress(to)) return asset === 'usdt' ? unsupported('That link asks for USD₮ but holds a Bitcoin address.') : { kind: 'pay', to, asset: 'btc' };
   if (isEvmAddress(to) && isKnownContract(to)) return unsupported("That link pays a token contract, not someone's wallet.");
   if (isEvmAddress(to)) return asset === 'btc' ? unsupported('That link asks for Bitcoin but holds an Ethereum address.') : { kind: 'pay', to, asset: 'usdt' };
   return unsupported('That payment link has no pubky or address in it.');

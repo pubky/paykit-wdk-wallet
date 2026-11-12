@@ -15,7 +15,7 @@ export {
   toPaykitDecimal,
   type ParseResult,
 } from './amounts';
-export { chainOfAddress, isAddressForChain, isBtcTestnetAddress, isEvmAddress } from './addressFormat';
+export { chainOfAddress, isAddressForChain, isPayableBtcAddress, isEvmAddress } from './addressFormat';
 export { addressUrl, transactionUrl } from './explorers';
 export { type ActivityItem, type ActivityStatus } from './activity';
 export { DEFAULT_FAUCET_MINT_UNITS } from './faucet';
@@ -30,7 +30,7 @@ export { useBtcContactAccount } from './useBtcContactAccount';
 export { isCollectable } from './collect';
 export { addressFromPaymentText, checkRecipientAddress, type RecipientCheck } from './addressFormat';
 export { checkAffordable, formatFee, sendErrorMessage, type SendProblem } from './sendChecks';
-export { fetchBtcFeeRate, fetchBtcTransactionStatus, type BtcTransactionStatus } from './mutinynet';
+export { fetchBtcFeeRate, fetchBtcTransactionStatus, type BtcTransactionStatus } from './esplora';
 export { MAY_HAVE_BEEN_SENT, sendFailureFor, type SendFailure } from './sendChecks';
 export { parseTypedAmount } from './amounts';
 export { CONFIRMATION_TIME } from './assets';

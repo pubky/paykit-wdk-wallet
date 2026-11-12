@@ -223,7 +223,7 @@ export function mergeActivity(sources: ActivityItem[][], localSends: ActivityIte
 
 /**
  * Give confirmed Bitcoin items the time of their block, from `blockTimes`
- * (txid -> ms, read from Mutinynet's esplora). WDK's transfers carry only a
+ * (txid -> ms, read from the network's esplora). WDK's transfers carry only a
  * block height, and an item without a time sorts below every Ethereum item
  * and shows "confirmed" instead of "2m ago".
  */

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@tetherto/wdk-react-native-core';
 
 import { BTC, BTC_NETWORK } from '../config/wdk';
-import { fetchBtcFeeRate } from './mutinynet';
+import { fetchBtcFeeRate } from './esplora';
 import { parseBaseUnits } from './amounts';
 import { BTC_HISTORY_FETCH_LIMIT, newestItems, parseBtcTransfers, type ActivityItem } from './activity';
 import { collectAmount } from './collect';

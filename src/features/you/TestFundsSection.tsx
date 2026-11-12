@@ -7,18 +7,23 @@
 //   person (a login or a captcha), so this section links to them
 //   (src/config/chains.ts). Every "Not enough ETH for gas" message points
 //   here. The demo scripts in scripts/fund-*.mjs do the same from a laptop.
+// - Bitkit's regtest (src/config/btcChain.ts `funding`) has no faucet. Its bitcoin
+//   comes from Blocktank's regtest deposit, which scripts/fund-btc.mjs
+//   calls from a laptop and Bitkit's Dev Settings call from the phone, so
+//   this section says so and shows the address to fund.
 //
 // One Ethereum address holds both ETH and USD₮, so the text calls it "your
 // Ethereum address" and says once that USD₮ arrives there too.
 import { Linking, StyleSheet, View } from 'react-native';
 
-import { MUTINYNET_FAUCET_URL, SEPOLIA_ETH_FAUCET_URL } from '../../config/chains';
+import { BTC_CHAIN, type BtcFunding } from '../../config/btcChain';
+import { SEPOLIA_ETH_FAUCET_URL } from '../../config/chains';
 import { Button, KeyText, Text, space } from '../../ui';
 import { formatFee, useWalletAddresses, useWalletBalances } from '../../wallet';
 import { GetTestUsdtButton } from '../wallet/GetTestUsdtButton';
 
 export function TestFundsSection() {
-  const { evm } = useWalletAddresses();
+  const { btc, evm } = useWalletAddresses();
   const { balances } = useWalletBalances();
   return (
     <View style={styles.root}>
@@ -35,11 +40,40 @@ export function TestFundsSection() {
         onPress={() => void Linking.openURL(SEPOLIA_ETH_FAUCET_URL)}
         testID="open-eth-faucet"
       />
-      <Text color="graphite" variant="secondary">
-        Test bitcoin comes from the Mutinynet faucet (GitHub login).
-      </Text>
-      <Button label="Open the Mutinynet faucet" variant="secondary" compact onPress={() => void Linking.openURL(MUTINYNET_FAUCET_URL)} />
+      <BtcTestFunds funding={BTC_CHAIN.funding} address={btc} />
     </View>
+  );
+}
+
+function BtcTestFunds({ funding, address }: { funding: BtcFunding; address?: string }) {
+  switch (funding.kind) {
+    case 'faucet':
+      return <BtcFaucet url={funding.url} />;
+    case 'blocktank-regtest':
+      return <BtcRegtestDeposit address={address} />;
+  }
+}
+
+function BtcFaucet({ url }: { url: string }) {
+  return (
+    <>
+      <Text color="graphite" variant="secondary">
+        Test bitcoin comes from the {BTC_CHAIN.displayName} faucet (GitHub login).
+      </Text>
+      <Button label={`Open the ${BTC_CHAIN.displayName} faucet`} variant="secondary" compact onPress={() => void Linking.openURL(url)} />
+    </>
+  );
+}
+
+function BtcRegtestDeposit({ address }: { address?: string }) {
+  return (
+    <>
+      <Text color="graphite" variant="secondary">
+        Regtest has no faucet. Test bitcoin comes from Blocktank’s regtest deposit: run node scripts/fund-btc.mjs --chain bitkit-regtest
+        with this address on your computer, or use Bitkit’s Dev Settings. A block comes only when someone mines one.
+      </Text>
+      {address ? <KeyText value={address} small testID="you-btc-address" /> : null}
+    </>
   );
 }
 

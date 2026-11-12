@@ -6,6 +6,7 @@
 // in ./activityPeople.ts from Paykit data (the contact's own BTC account on
 // our side, the private addresses they shared with us); this file only
 // words it.
+import { BTC_CHAIN } from '../../../config/btcChain';
 import type { ActivityItem } from '../../../wallet';
 
 const ZERO_ADDRESS = /^0x0{40}$/i;
@@ -63,6 +64,7 @@ export function activityStatusWords(item: ActivityItem): string {
   return 'Confirmed';
 }
 
+/** "Bitcoin (Mutinynet)" (or the build's network, src/config/btcChain.ts), "Ethereum (Sepolia)". */
 export function networkName(item: ActivityItem): string {
-  return item.chain === 'bitcoin' ? 'Bitcoin (Mutinynet)' : 'Ethereum (Sepolia)';
+  return item.chain === 'bitcoin' ? BTC_CHAIN.networkLabel : 'Ethereum (Sepolia)';
 }

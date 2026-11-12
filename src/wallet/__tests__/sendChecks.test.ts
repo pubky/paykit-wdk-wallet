@@ -1,6 +1,6 @@
 import { AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '../../config/chains';
 import { addressFromPaymentText, checkRecipientAddress } from '../addressFormat';
-import { parseRecommendedFeeRate, parseTransactionStatus } from '../mutinynet';
+import { parseRecommendedFeeRate, parseTransactionStatus } from '../esplora';
 import { checkAffordable, formatFee, MAY_HAVE_BEEN_SENT, sendErrorMessage, sendFailureFor } from '../sendChecks';
 
 const TB1 = 'tb1qh3z4yzs97s9sq9awmgm55t3auxjuc4j5srz0pg';
@@ -125,6 +125,13 @@ describe('sendFailureFor', () => {
     expect(sendFailureFor(new Error('No unspent outputs available.'), 'btc')).toEqual({ outcome: 'not-sent', message: expect.stringContaining('Not enough BTC') });
     expect(sendFailureFor(new Error('insufficient funds for gas * price + value'), 'usdt').outcome).toBe('not-sent');
     expect(sendFailureFor(new Error('The amount must be bigger than the dust limit (= 294).'), 'btc').outcome).toBe('not-sent');
+  });
+
+  it("treats useSend's own address refusal as not sent on Mutinynet and on regtest", () => {
+    // useSend words it from the build's chain profile: "testnet" on Mutinynet, "regtest" on Bitkit's regtest.
+    const prepare = expect.stringContaining('could not prepare this transaction');
+    expect(sendFailureFor(new Error('That is not a testnet Bitcoin address (tb1…).'), 'btc')).toEqual({ outcome: 'not-sent', message: prepare });
+    expect(sendFailureFor(new Error('That is not a regtest Bitcoin address (bcrt1…).'), 'btc')).toEqual({ outcome: 'not-sent', message: prepare });
   });
 
   it('treats network errors and unknown errors as "may have been sent"', () => {

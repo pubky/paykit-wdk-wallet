@@ -1,5 +1,6 @@
-// The two things WDK's BTC module does not tell us, read from Mutinynet's
-// esplora API (src/config/chains.ts MUTINYNET_API):
+// The two things WDK's BTC module does not tell us, read from the Bitcoin
+// network's esplora API (src/config/btcChain.ts `esploraApi`: Mutinynet's,
+// or Bitkit's staging regtest mempool):
 //
 // - the current fee rate in sats per virtual byte, so the Send review can
 //   say "1 sat/vB" and pass the same rate to WDK for the quote and the send
@@ -11,7 +12,8 @@
 // up after FETCH_TIMEOUT_MS: React Native's fetch never times out on its
 // own, and a stalled API must not leave the Send screen waiting forever.
 // Callers fall back (WDK estimates its own fee rate) when a fetch fails.
-import { MUTINYNET_API } from '../config/chains';
+import { BTC_CHAIN } from '../config/btcChain';
+import { isTxid } from './txid';
 
 export const FETCH_TIMEOUT_MS = 5_000;
 
@@ -27,7 +29,7 @@ async function fetchJsonWithTimeout(url: string): Promise<unknown> {
   }
 }
 
-/** Mutinynet's minimum relay rate. Also the fallback when the API is unsure. */
+/** The minimum relay rate (Mutinynet and regtest alike). Also the fallback when the API is unsure. */
 export const MIN_BTC_FEE_RATE = 1n;
 
 /** `/v1/fees/recommended` -> sats/vB for the next block, at least 1. */
@@ -39,7 +41,7 @@ export function parseRecommendedFeeRate(json: unknown): bigint | undefined {
 }
 
 export async function fetchBtcFeeRate(): Promise<bigint | undefined> {
-  return parseRecommendedFeeRate(await fetchJsonWithTimeout(`${MUTINYNET_API}/v1/fees/recommended`));
+  return parseRecommendedFeeRate(await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}/v1/fees/recommended`));
 }
 
 export type BtcTransactionStatus = { confirmed: boolean; blockHeight?: number; blockTime?: number };
@@ -56,6 +58,6 @@ export function parseTransactionStatus(json: unknown): BtcTransactionStatus | un
 }
 
 export async function fetchBtcTransactionStatus(txid: string): Promise<BtcTransactionStatus | undefined> {
-  if (!/^[0-9a-f]{64}$/i.test(txid)) return undefined;
-  return parseTransactionStatus(await fetchJsonWithTimeout(`${MUTINYNET_API}/tx/${txid}/status`));
+  if (!isTxid(txid)) return undefined;
+  return parseTransactionStatus(await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}/tx/${txid}/status`));
 }

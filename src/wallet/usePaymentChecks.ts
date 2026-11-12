@@ -6,12 +6,12 @@
 //                            transaction pay into it? (useBtcReceivedReader,
 //                            one per account: WDK's hooks are bound to one
 //                            account index each), plus the block's time
-//                            from Mutinynet's esplora
+//                            from the network's esplora
 //   evmTransaction(hash)     getTransaction on Sepolia: finality, success, logs
 //   findSentPayment(query)   a payment the app lost track of (no hash):
 //                            account 0's sent transfers. Bitcoin from WDK's
 //                            getTransfers (mempool included), with block
-//                            times from Mutinynet's esplora; USD₮ from
+//                            times from the network's esplora; USD₮ from
 //                            Blockscout, since WDK's EVM module has no
 //                            history call
 //   signErc20Payment(typed)  signTypedData with EVM account 0, for exactly
@@ -30,7 +30,7 @@ import { SEPOLIA_CHAIN_ID } from '../config/chains';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
-import { fetchBtcTransactionStatus } from './mutinynet';
+import { fetchBtcTransactionStatus } from './esplora';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,

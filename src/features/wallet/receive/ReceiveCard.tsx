@@ -11,14 +11,15 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { Linking, Share, StyleSheet, View } from 'react-native';
 
+import { BTC_CHAIN } from '../../../config/btcChain';
 import { AssetDot, Button, Card, KeyText, QrCode, Text, space } from '../../../ui';
 import { addressUrl } from '../../../wallet';
 
 const CARD_TEXT: Record<'btc' | 'usdt', { title: string; network: string; note: string }> = {
   btc: {
     title: 'Bitcoin',
-    network: 'Mutinynet test network',
-    note: 'Send only Mutinynet test bitcoin to this address.',
+    network: BTC_CHAIN.networkName,
+    note: `Send only ${BTC_CHAIN.coinName} to this address.`,
   },
   usdt: {
     title: 'USD₮',

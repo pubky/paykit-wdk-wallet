@@ -118,14 +118,14 @@ clearContactAccountActivity(): void
 formatAssetAmount(value: bigint, asset: AssetId, opts?): string
 parseAssetAmount(text: string, asset: AssetId): ParseResult
 toPaykitDecimal(value: bigint, asset): string / fromPaykitDecimal(text, asset): ParseResult
-isBtcTestnetAddress / isEvmAddress / chainOfAddress / transactionUrl / addressUrl
+isPayableBtcAddress / isEvmAddress / chainOfAddress / transactionUrl / addressUrl
 checkRecipientAddress(text, chain): { ok: true; address } | { ok: false; reason; message }  // refuses mainnet, wrong chain, pubkys, known contracts
 payeeOfPaymentText(text) / payeeOfEthereumUri(rest)                                        // BIP-21 / EIP-681: the payee, never the token contract
 checkAffordable({ asset, amount, balances, fee? }): SendProblem | undefined                // balance, amount + fee, "Not enough ETH for gas"
 formatFee(fee, asset) / sendErrorMessage(error, asset)                                     // display text; never shows the raw WDK error
 sendFailureFor(error, asset): { outcome: 'not-sent' | 'unknown'; message }                // after a send: 'unknown' = may have been broadcast, do not retry
 parseTypedAmount(text, asset): ParseResult                                                // decimal comma vs thousands separator; '1,000' is 'ambiguous'
-fetchBtcFeeRate() / fetchBtcTransactionStatus(txid)                                        // Mutinynet esplora (src/wallet/mutinynet.ts)
+fetchBtcFeeRate() / fetchBtcTransactionStatus(txid)                                        // the chain's esplora (src/wallet/esplora.ts)
 retryIfElectrumDropped(read) / isElectrumConnectionLost(error)                             // one quiet retry of a Bitcoin read (src/wallet/electrumRetry.ts)
 nextFailureStreak / shouldReportFailure                                                    // when a polled read has failed long enough to say so (src/wallet/failureStreak.ts)
 // payment requests
@@ -174,6 +174,18 @@ screen says "Couldn't load …" only after a run of failures
 data). WDK logs each failure with `console.error` first; in dev builds
 App.tsx tells LogBox to ignore exactly that line, so no toast covers the
 UI.
+
+Electrum over TLS (the regtest server, WDK's testnet4 fallback): WDK's
+Electrum library calls Node's `setTimeout`, `setKeepAlive` and
+`setNoDelay` on the TLS socket. In the worklet `node:tls` is `bare-tls`,
+whose socket lacks them, so every TLS connection failed with
+"this._socket.setTimeout is not a function" and Bitcoin calls timed out.
+`worklet/bare-tls-socket-methods` adds the missing methods and forwards
+them to the TCP socket underneath. `wdk.config.js` loads it before WDK
+(`preloadModules`), and `package.json` installs it as a `file:`
+dependency because the bundler only resolves installed packages there.
+Plain TCP (Mutinynet) never uses it. Remove it once `bare-tls` has these
+methods itself.
 
 History sources: BTC uses WDK's `getTransfers` (Electrum), which returns the
 oldest transfers first and stops at `limit`, so the app fetches the whole

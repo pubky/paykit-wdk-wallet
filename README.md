@@ -326,6 +326,20 @@ One-time human steps:
 In the app, You > Test funds has "Get test USD₮" (disabled, with the reason,
 while the wallet has no ETH for gas) and links to the faucets.
 
+### Run with Bitkit on regtest
+
+To demo Paykit with a stock Bitkit iOS Debug build, build this wallet with
+`EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest` (`npm run start:bitkit-regtest`). Its
+Bitcoin side then runs on Bitkit's staging regtest and publishes Bitkit's
+endpoint id; USD₮ stays on Sepolia. [`docs/BITKIT-DEMO.md`](docs/BITKIT-DEMO.md)
+covers the build, the demo identity, funding and mining with
+`scripts/fund-btc.mjs --chain bitkit-regtest`, balances with
+`scripts/fund-status.mjs --chain bitkit-regtest`, and the Bitkit setup.
+Unset, the wallet runs on Mutinynet as before. To switch back, stop Metro,
+run `npm start`, and use a Mutinynet install on its own simulator (or
+erase the simulator first); never reload the regtest install on Mutinynet.
+No cache clear is needed (BITKIT-DEMO.md says why).
+
 ### Checks
 
 ```sh

@@ -1,14 +1,14 @@
 import { AAVE_FAUCET_MINT_SELECTOR, AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '../../config/chains';
 import { mergeActivity, newestItems, parseBlockscoutTokenTransfers, parseBtcTransfers, type ActivityItem } from '../activity';
-import { chainOfAddress, isBtcTestnetAddress, isEvmAddress } from '../addressFormat';
+import { chainOfAddress, isPayableBtcAddress, isEvmAddress } from '../addressFormat';
 import { encodeFaucetMint, isAllowedContractCall, usdtFaucetTransaction } from '../faucet';
 
 const ME = '0x00000000000000000000000000000000000000aa';
 
 describe('address format checks', () => {
   it('accepts testnet bech32 and EVM addresses only', () => {
-    expect(isBtcTestnetAddress('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')).toBe(true);
-    expect(isBtcTestnetAddress('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')).toBe(false);
+    expect(isPayableBtcAddress('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')).toBe(true);
+    expect(isPayableBtcAddress('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')).toBe(false);
     expect(isEvmAddress(ME)).toBe(true);
     expect(isEvmAddress('0x123')).toBe(false);
     expect(chainOfAddress(ME)).toBe('ethereum');

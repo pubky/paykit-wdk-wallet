@@ -3,7 +3,8 @@
 // Paykit treats a payload as opaque UTF-8 text; the meaning is agreed between
 // wallets per Payment Endpoint Identifier. Ours (see src/config/paykit.ts):
 //
-//   btc-mutinynet-p2wpkh   {"value":"tb1q..."}
+//   btc-mutinynet-p2wpkh   {"value":"tb1q..."}      (on Bitkit's regtest:
+//                                                    btc-regtest-p2wpkh, bcrt1q...)
 //   usdt-sepolia-address   {"value":"0x...","chain_id":"11155111","token":"0xaA8E..."}
 //
 // Keep payloads compact: every private message, including a whole Private
@@ -16,7 +17,7 @@
 // unit tested.
 import { SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../config/chains';
 import { ENDPOINT_BTC, ENDPOINT_USDT, SUPPORTED_ENDPOINTS } from '../config/paykit';
-import { isBtcTestnetAddress, isEvmAddress, sameEvmAddress } from '../wallet/addressFormat';
+import { isPayableBtcAddress, isEvmAddress, sameEvmAddress } from '../wallet/addressFormat';
 
 /** Paykit's limit for one private message (a whole Private Payment List included). */
 export const PRIVATE_MESSAGE_LIMIT_BYTES = 1000;
@@ -54,7 +55,9 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
   const json = parseJsonObject(payloadText);
   if (!json || typeof json.value !== 'string') return undefined;
   if (identifier === ENDPOINT_BTC) {
-    return isBtcTestnetAddress(json.value) ? { identifier, asset: 'btc', address: json.value } : undefined;
+    // Check and pay the same text: WDK's send wants the bare lowercase address.
+    const address = json.value.trim().toLowerCase();
+    return isPayableBtcAddress(address) ? { identifier, asset: 'btc', address } : undefined;
   }
   if (identifier === ENDPOINT_USDT) {
     const chainId = String(json.chain_id ?? '');

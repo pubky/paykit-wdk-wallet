@@ -12,8 +12,10 @@
 //   Links     each contact's Encrypted Link recovery markers (ours and
 //             theirs, by attempt id), and the backup revisions
 //             (src/paykit/backup.ts)
-//   Chains    Electrum (Mutinynet), Sepolia RPC, chain id, USD₮ contract,
-//             explorer APIs
+//   Chains    Electrum and esplora of the build's Bitcoin network
+//             (src/config/btcChain.ts: Mutinynet, or Bitkit's regtest, which
+//             also names the build's chain mode), Sepolia RPC, chain id,
+//             USD₮ contract, explorer APIs
 //   SDKs      WDK and Paykit package versions
 //
 // Everything shown is public or a status. The registry is read live (two
@@ -21,14 +23,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import {
-  MUTINYNET_API,
-  MUTINYNET_ELECTRUM,
-  SEPOLIA_BLOCKSCOUT_API,
-  SEPOLIA_CHAIN_ID,
-  SEPOLIA_RPC,
-  SEPOLIA_USDT,
-} from '../../config/chains';
+import { BTC_CHAIN } from '../../config/btcChain';
+import { SEPOLIA_BLOCKSCOUT_API, SEPOLIA_CHAIN_ID, SEPOLIA_RPC, SEPOLIA_USDT } from '../../config/chains';
 import { PAYKIT_APP_ID, PUBKY_CLIENT_ID, STAGING_HOMESERVER } from '../../config/paykit';
 import { PAYKIT_PACKAGE, WDK_PACKAGES } from '../../config/versions';
 import {
@@ -50,6 +46,11 @@ const SESSION_ORIGIN_WORDS = {
   signIn: 'Signed in at launch',
   signUp: 'Signed up on this device',
 } as const;
+
+// The default build (Mutinynet) reads as it always has; any other chain
+// mode also says which build-time switch picked it.
+const BTC_DETAILS_HINT =
+  `Fee rates and block times: ${BTC_CHAIN.esploraApi}` + (BTC_CHAIN.buildSwitch ? `. Chain mode: ${BTC_CHAIN.buildSwitch}.` : '');
 
 function countWords(count: number): string {
   return `${count} ${count === 1 ? 'contact' : 'contacts'}`;
@@ -128,9 +129,9 @@ export function NetworkDetailsSection() {
       hint: `backupStateRevision. observedBackupStateRevision: ${backup?.observedRevision ?? 'none'} (it is only kept in the SDK's shared-state storage mode; this app stores state on the phone).`,
     },
     {
-      label: 'Bitcoin (Mutinynet signet)',
-      value: `Electrum ${MUTINYNET_ELECTRUM.protocol}://${MUTINYNET_ELECTRUM.host}:${MUTINYNET_ELECTRUM.port}`,
-      hint: `Fee rates and block times: ${MUTINYNET_API}`,
+      label: BTC_CHAIN.detailsLabel,
+      value: `Electrum ${BTC_CHAIN.electrum.protocol}://${BTC_CHAIN.electrum.host}:${BTC_CHAIN.electrum.port}`,
+      hint: BTC_DETAILS_HINT,
     },
     {
       label: `Ethereum Sepolia (chain id ${SEPOLIA_CHAIN_ID})`,

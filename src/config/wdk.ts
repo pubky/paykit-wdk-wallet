@@ -2,11 +2,12 @@
 //
 // The network keys ('bitcoin', 'ethereum') must match `networks` in
 // wdk.config.js, which decides which wallet modules go into the worklet
-// bundle. Chain constants live in ./chains.ts, so switching testnets is a
-// change in those two files.
+// bundle. Chain constants live in ./chains.ts, and the Bitcoin network
+// (Mutinynet or Bitkit's regtest) is picked at build time in ./btcChain.ts.
 import { BaseAsset, type WdkConfigs } from '@tetherto/wdk-react-native-core';
 
-import { MUTINYNET_ELECTRUM, SEPOLIA_CHAIN_ID, SEPOLIA_RPC, SEPOLIA_USDT } from './chains';
+import { BTC_CHAIN } from './btcChain';
+import { SEPOLIA_CHAIN_ID, SEPOLIA_RPC, SEPOLIA_USDT } from './chains';
 
 export const BTC_NETWORK = 'bitcoin';
 export const EVM_NETWORK = 'ethereum';
@@ -35,11 +36,11 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: BTC_NETWORK,
       config: {
         // WDK's BTC module only knows 'bitcoin' | 'testnet' | 'regtest'.
-        // Signets use testnet address rules (tb1..., m/84'/1'), so 'testnet'
-        // is right for Mutinynet.
-        network: 'testnet',
+        // Signets use testnet address rules (tb1..., m/84'/1'), so Mutinynet
+        // is 'testnet'; Bitkit's regtest is 'regtest' (bcrt1..., m/84'/1').
+        network: BTC_CHAIN.wdkNetwork,
         bip: 84,
-        client: { type: 'electrum', clientConfig: { ...MUTINYNET_ELECTRUM, ...ELECTRUM_RECONNECT } },
+        client: { type: 'electrum', clientConfig: { ...BTC_CHAIN.electrum, ...ELECTRUM_RECONNECT } },
       },
     },
     [EVM_NETWORK]: {
@@ -54,10 +55,10 @@ export const wdkConfigs: WdkConfigs = {
 
 /** WDK asset descriptors. `id` values are local to WDK's balance cache. */
 export const BTC = new BaseAsset({
-  id: 'btc-mutinynet',
+  id: BTC_CHAIN.assetId,
   network: BTC_NETWORK,
   symbol: 'BTC',
-  name: 'Bitcoin (Mutinynet)',
+  name: BTC_CHAIN.networkLabel,
   decimals: 8,
   isNative: true,
   address: null,

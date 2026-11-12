@@ -4,12 +4,25 @@
 // Paykit carries a proof as an opaque JSON object inside `paykit.payment_proof`
 // and leaves its meaning to the wallets (specs/payment-requests.md: "Paykit
 // validates the message shape ... Payment-method-specific code validates
-// whether the proof actually proves payment"). This app uses two:
+// whether the proof actually proves payment"). This app uses these:
 //
 //   Bitcoin  {"type":"bitcoin-onchain-tx","network":"mutinynet","txid":"…"}
-//            The money must land on the address bound in the request,
-//            which is the payer's own contact account on our side: an
-//            address only they were given. So the txid is enough.
+//            Ours, sent on Mutinynet builds, so peers on older versions of
+//            this wallet keep reading it.
+//   Bitcoin  {"data":"…","type":"bitcoin-onchain-txid"}
+//            Bitkit's, sent on Bitkit regtest builds (src/config/btcChain.ts
+//            `proofFormat`). Exactly these two keys, in this order: Bitkit
+//            writes them sorted, and when it looks for its own proof it
+//            compares the whole object, so an extra key would not match.
+//            Both mean the same: a txid in lowercase hex. Bitkit's names
+//            no network, so every build reads it and looks the txid up on
+//            its own chain. Ours names Mutinynet, so only a Mutinynet
+//            build reads it: a regtest build refuses it as a proof from
+//            another network instead of waiting for a transaction that
+//            never shows up on its chain. The money must land on the
+//            address bound in the request, which is the payer's own
+//            contact account on our side: an address only they were
+//            given. So the txid is enough.
 //   USD₮     {"type":"erc20-transfer-eip712","chain_id":"11155111",
 //             "transaction_hash":"0x…","receipt_log_index":"0","signature":"0x…"}
 //            Our USD₮ address is public, so the payer also signs which
@@ -17,7 +30,8 @@
 //
 // The payee's checks, in verifyBtcProof / verifyErc20Proof:
 //   - the transaction exists, succeeded and is in a block (one confirmation:
-//     Mutinynet blocks come every 30 s, Sepolia every 12 s);
+//     Mutinynet blocks come every 30 s, regtest's on demand, Sepolia's every
+//     12 s);
 //   - it paid the exact address in the request, at least the amount;
 //   - USD₮: the selected log is a Transfer of the USD₮ contract, and the
 //     signature over the request binding recovers to the Transfer's sender;
@@ -37,19 +51,31 @@
 // node can make a mined transaction look dropped.
 //
 // Pure: no native imports, unit tested.
+import { BTC_CHAIN } from '../config/btcChain';
 import { SEPOLIA_CHAIN_ID } from '../config/chains';
 import { ERC20_PROOF_TYPE, erc20PaymentSigner, erc20PaymentTypedData, isCanonicalLogIndex, type Erc20RequestBinding } from '../wallet/erc20PaymentProof';
 import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../wallet/paymentEvidence';
+import { isLowercaseTxid } from '../wallet/txid';
 
 export const BTC_PROOF_TYPE = 'bitcoin-onchain-tx';
 export const BTC_PROOF_NETWORK = 'mutinynet';
+/**
+ * Whether this build reads our proof format: only a build that sends it,
+ * because its `network` names Mutinynet, the chain such a build runs on.
+ */
+const READS_BTC_PROOF_NETWORK = BTC_CHAIN.proofFormat === 'paykit-wdk';
+/** Bitkit's on-chain proof type (PaykitPaymentProofKind.onchain in bitkit-ios). */
+export const BITKIT_BTC_PROOF_TYPE = 'bitcoin-onchain-txid';
 
 export type ParsedProof =
   | { kind: 'btc'; txid: string }
   | { kind: 'erc20'; chainId: string; transactionHash: string; receiptLogIndex: string; signature: string };
 
 export function btcProofJson(txid: string): string {
-  return JSON.stringify({ type: BTC_PROOF_TYPE, network: BTC_PROOF_NETWORK, txid: txid.toLowerCase() });
+  const id = txid.toLowerCase();
+  return BTC_CHAIN.proofFormat === 'bitkit'
+    ? JSON.stringify({ data: id, type: BITKIT_BTC_PROOF_TYPE })
+    : JSON.stringify({ type: BTC_PROOF_TYPE, network: BTC_PROOF_NETWORK, txid: id });
 }
 
 export function erc20ProofJson(proof: { transactionHash: string; receiptLogIndex: string; signature: string }): string {
@@ -73,9 +99,10 @@ export function parseProof(json: string): ParsedProof | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const proof = value as Record<string, unknown>;
   if (proof.type === BTC_PROOF_TYPE) {
-    const txid = proof.txid;
-    if (proof.network !== BTC_PROOF_NETWORK || typeof txid !== 'string' || !/^[0-9a-f]{64}$/.test(txid)) return undefined;
-    return { kind: 'btc', txid };
+    return READS_BTC_PROOF_NETWORK && proof.network === BTC_PROOF_NETWORK && isLowercaseTxid(proof.txid) ? { kind: 'btc', txid: proof.txid } : undefined;
+  }
+  if (proof.type === BITKIT_BTC_PROOF_TYPE) {
+    return isLowercaseTxid(proof.data) ? { kind: 'btc', txid: proof.data } : undefined;
   }
   if (proof.type === ERC20_PROOF_TYPE) {
     const { chain_id: chainId, transaction_hash: transactionHash, receipt_log_index: receiptLogIndex, signature } = proof;

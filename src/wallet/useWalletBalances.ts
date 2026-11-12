@@ -1,8 +1,8 @@
 // Balances for the spending account (index 0), polled every ~15 s while
 // the app is in the foreground.
 //
-// WDK's hooks wrap TanStack Query: the worklet reads BTC from Mutinynet's
-// Electrum server and ETH/USD₮ from a Sepolia RPC. Balances arrive as
+// WDK's hooks wrap TanStack Query: the worklet reads BTC from the build
+// network's Electrum server (src/config/btcChain.ts) and ETH/USD₮ from a Sepolia RPC. Balances arrive as
 // base-unit strings and are converted to bigint here, so screens never
 // touch floating point. Electrum counts unconfirmed incoming BTC, so a
 // payment from the other simulator shows up within seconds.

@@ -7,10 +7,18 @@
 //   IOS_MNEMONIC, ANDROID_MNEMONIC         BIP-39 phrases for the two identities
 //   IOS_PUBKY, ANDROID_PUBKY               public keys, recorded after signup; each
 //                                          platform gets the other one as its peer
+//   BITKIT_REGTEST_MNEMONIC                the identity a Bitkit regtest build
+//   BITKIT_REGTEST_SIGNUP_CODE             (EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest)
+//                                          prefills on iOS only, and its
+//                                          single-use signup code. iOS only: the
+//                                          Bitkit demo runs on iOS, and one
+//                                          identity must not run on two devices
+//   BITKIT_REGTEST_PEER_PUBKY              optional: Bitkit's pubky, the peer to
+//                                          prefill (docs/BITKIT-DEMO.md)
 //
-// With --generate-missing, a missing mnemonic is generated here (12 words,
-// CSPRNG) and appended to .env.demo, so a reinstall restores the same
-// identity and signs in without spending a new signup code.
+// With --generate-missing, a missing iOS or Android mnemonic is generated
+// here (12 words, CSPRNG) and appended to .env.demo, so a reinstall restores
+// the same identity and signs in without spending a new signup code.
 //
 // This script never prints secret values. Both files are written with mode 600.
 import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -52,14 +60,15 @@ for (const key of ['IOS_MNEMONIC', 'ANDROID_MNEMONIC']) {
 chmodSync(envPath, 0o600);
 env = parseEnv(readFileSync(envPath, 'utf8'));
 
-const prefill = (prefix, peerPrefix) => ({
+const prefill = (prefix, peerKey) => ({
   mnemonic: env[`${prefix}_MNEMONIC`] || undefined,
   signupCode: env[`${prefix}_SIGNUP_CODE`] || undefined,
-  peerPubky: env[`${peerPrefix}_PUBKY`] || undefined,
+  peerPubky: env[peerKey] || undefined,
 });
 const body = {
-  ios: prefill('IOS', 'ANDROID'),
-  android: prefill('ANDROID', 'IOS'),
+  ios: prefill('IOS', 'ANDROID_PUBKY'),
+  android: prefill('ANDROID', 'IOS_PUBKY'),
+  bitkitRegtest: prefill('BITKIT_REGTEST', 'BITKIT_REGTEST_PEER_PUBKY'),
 };
 writeFileSync(
   outPath,
@@ -69,4 +78,6 @@ writeFileSync(
 );
 chmodSync(outPath, 0o600);
 const present = (p) => Object.entries(p).filter(([, v]) => v).map(([k]) => k).join(', ') || 'none';
-console.log(`Wrote src/config/demo.local.ts (ios: ${present(body.ios)}; android: ${present(body.android)}).`);
+console.log(
+  `Wrote src/config/demo.local.ts (ios: ${present(body.ios)}; android: ${present(body.android)}; bitkitRegtest: ${present(body.bitkitRegtest)}).`,
+);

@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { btcChainFromEnv } from '../btcChain';
 import * as chains from '../chains';
 
 // The funding scripts are plain Node and keep their own copy of the chain
@@ -23,7 +24,42 @@ describe('chain constants in the funding scripts', () => {
     ['MUTINYNET_FAUCET', chains.MUTINYNET_FAUCET_URL],
     ['SEPOLIA_EXPLORER', chains.SEPOLIA_EXPLORER],
     ['MUTINYNET_EXPLORER', chains.MUTINYNET_EXPLORER],
+    ['BITKIT_REGTEST_EXPLORER', chains.BITKIT_REGTEST_EXPLORER],
+    ['BITKIT_REGTEST_API', chains.BITKIT_REGTEST_API],
   ])('%s matches src/config/chains.ts', (name, expected) => {
     expect(scriptConstant(name)).toBe(expected);
+  });
+});
+
+describe('Bitcoin chain switch in the funding scripts', () => {
+  // `export const BTC_CHAIN_VALUES = ['bitkit-regtest'];` → ['bitkit-regtest']
+  const listed = /export const BTC_CHAIN_VALUES = \[([^\]]*)\];/.exec(script)?.[1];
+  const scriptChainValues = listed?.match(/'[^']*'/g)?.map((quoted) => quoted.slice(1, -1)) ?? [];
+
+  it('lists at least one chain value', () => {
+    expect(scriptChainValues.length).toBeGreaterThan(0);
+  });
+
+  it.each(scriptChainValues)('accepts %s, as the app does', (value) => {
+    expect(btcChainFromEnv(value).id).toBe(value);
+  });
+
+  it('uses the same regtest bech32 prefix as the app', () => {
+    expect(`${scriptConstant('BITKIT_REGTEST_HRP')}1`).toBe(btcChainFromEnv('bitkit-regtest').bech32Prefix);
+  });
+
+  // The scripts pick the chain only from --chain. Reading the app's
+  // EXPO_PUBLIC_BTC_CHAIN would invite exporting it in the shell, which
+  // also makes `npm start` bundle regtest and breaks `npm test`. The name
+  // must not appear in their code at all (so no `process.env.X`, `['X']`
+  // or `const { X } = process.env`); comments may mention it. Only whole
+  // comment lines are dropped, so a trailing comment that names it fails.
+  it.each(['lib/demo-wallets.mjs', 'fund-btc.mjs', 'fund-status.mjs'])('scripts/%s never reads EXPO_PUBLIC_BTC_CHAIN', (file) => {
+    const source = readFileSync(join(__dirname, '..', '..', '..', 'scripts', file), 'utf8');
+    const code = source
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+      .join('\n');
+    expect(code).not.toMatch(/\bEXPO_PUBLIC_BTC_CHAIN\b/);
   });
 });

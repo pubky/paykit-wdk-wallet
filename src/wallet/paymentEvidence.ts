@@ -27,7 +27,7 @@ export type BtcReceipt = {
   confirmed: boolean;
   /**
    * The block's time (ms), once confirmed and read. WDK's transfers carry
-   * only a height, so the bridge reads it from Mutinynet's esplora.
+   * only a height, so the bridge reads it from the network's esplora.
    */
   blockTimeMs?: number;
 };

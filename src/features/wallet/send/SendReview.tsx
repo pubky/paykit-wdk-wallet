@@ -17,6 +17,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { BTC_CHAIN } from '../../../config/btcChain';
 import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
 import { CONFIRMATION_TIME, formatAssetAmount, formatFee, type FeeQuote, type SendProblem } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
@@ -45,7 +46,7 @@ export type SendReviewProps = {
 };
 
 const NETWORK: Record<PayableAsset, string> = {
-  btc: `Bitcoin (Mutinynet). Confirms in ${CONFIRMATION_TIME.bitcoin}.`,
+  btc: `${BTC_CHAIN.networkLabel}. Confirms in ${CONFIRMATION_TIME.bitcoin}.`,
   usdt: `Ethereum Sepolia. Confirms in ${CONFIRMATION_TIME.ethereum}.`,
 };
 

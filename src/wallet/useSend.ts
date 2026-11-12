@@ -10,30 +10,31 @@
 // and the resulting hash. Amounts are bigint base units end to end.
 //
 // BTC fee rate: WDK estimates a rate itself but never reports it, so the
-// quote fetches Mutinynet's recommended rate (./mutinynet.ts) and passes it
+// quote fetches the network's recommended rate (./esplora.ts) and passes it
 // to WDK explicitly. The review shows that rate, and send() must be given
 // the quote's `feeRate` so the transaction pays what the person approved.
 // If the rate API is down, WDK estimates as before and no rate is shown.
 import { useCallback, useMemo } from 'react';
 import { useAccount, type IAsset } from '@tetherto/wdk-react-native-core';
 
+import { BTC_CHAIN } from '../config/btcChain';
 import { BTC, BTC_NETWORK, ETH, EVM_NETWORK, USDT } from '../config/wdk';
 import { isAddressForChain, isKnownContract } from './addressFormat';
 import { parseBaseUnits } from './amounts';
 import { ASSETS, feeAssetFor, type AssetId } from './assets';
 import { transactionUrl } from './explorers';
-import { fetchBtcFeeRate } from './mutinynet';
+import { fetchBtcFeeRate } from './esplora';
 import { recordSentTransaction } from './sentTransactions';
 
 export type SendRequest = {
   asset: AssetId;
-  /** A tb1... address for BTC, a 0x... address for USD₮ and ETH. */
+  /** A tb1… (or bcrt1… on regtest) address for BTC, a 0x… address for USD₮ and ETH. */
   to: string;
   /** Base units of `asset`. */
   amount: bigint;
   /**
    * BTC only: sats per vbyte. For send(), the quote's rate. For quote(), the
-   * rate Max used, if any; omitted, quote() fetches Mutinynet's rate (and
+   * rate Max used, if any; omitted, quote() fetches the network's rate (and
    * if that fails, WDK estimates its own).
    */
   feeRate?: bigint;
@@ -61,7 +62,7 @@ type BtcAccountExtension = {
 function checkRequest(request: SendRequest): void {
   const chain = ASSETS[request.asset].chain;
   if (!isAddressForChain(request.to, chain)) {
-    throw new Error(chain === 'bitcoin' ? 'That is not a testnet Bitcoin address (tb1…).' : 'That is not an Ethereum address (0x…).');
+    throw new Error(chain === 'bitcoin' ? `That is not a ${BTC_CHAIN.wdkNetwork} Bitcoin address (${BTC_CHAIN.bech32Prefix}…).` : 'That is not an Ethereum address (0x…).');
   }
   // Last line of defence behind checkRecipientAddress: tokens sent to the
   // token or faucet contract are lost.
