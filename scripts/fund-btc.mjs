@@ -185,22 +185,18 @@ function splitChain(argv) {
 try {
   const { chainArg, rest: args } = splitChain(process.argv.slice(2));
   const chain = chainFrom(chainArg);
+  const regtest = chain === 'bitkit-regtest';
   if (args[0] === '--help' || args[0] === '-h') console.log(USAGE);
-  else if (chain === 'bitkit-regtest') {
-    if (args[0] === '--login') throw new Error('Regtest has no faucet and needs no login.');
-    if (args[0] === '--mine') await mineRegtest(args[1] ?? '');
-    else if (args[0]) await fundRegtest(args[0], args[1] ?? '100000');
-    else {
-      console.error(USAGE);
-      process.exit(1);
-    }
-  } else if (args[0] === '--mine') throw new Error('Mutinynet mines its own blocks every 30 s. --mine is for --chain bitkit-regtest.');
-  else if (args[0] === '--login') await login();
-  else if (args[0]) await fund(args[0], args[1] ?? '100000');
-  else {
+  else if (!args[0]) {
     console.error(USAGE);
     process.exit(1);
-  }
+  } else if (args[0] === '--login') {
+    if (regtest) throw new Error('Regtest has no faucet and needs no login.');
+    await login();
+  } else if (args[0] === '--mine') {
+    if (!regtest) throw new Error('Mutinynet mines its own blocks every 30 s. --mine is for --chain bitkit-regtest.');
+    await mineRegtest(args[1] ?? '');
+  } else await (regtest ? fundRegtest : fund)(args[0], args[1] ?? '100000');
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

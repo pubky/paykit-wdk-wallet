@@ -1,6 +1,6 @@
 import { AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '../../config/chains';
 import { addressFromPaymentText, checkRecipientAddress } from '../addressFormat';
-import { parseRecommendedFeeRate, parseTransactionStatus } from '../mutinynet';
+import { parseRecommendedFeeRate, parseTransactionStatus } from '../esplora';
 import { checkAffordable, formatFee, MAY_HAVE_BEEN_SENT, sendErrorMessage, sendFailureFor } from '../sendChecks';
 
 const TB1 = 'tb1qh3z4yzs97s9sq9awmgm55t3auxjuc4j5srz0pg';

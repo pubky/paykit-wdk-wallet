@@ -50,9 +50,7 @@ const SESSION_ORIGIN_WORDS = {
 // The default build (Mutinynet) reads as it always has; any other chain
 // mode also says which build-time switch picked it.
 const BTC_DETAILS_HINT =
-  BTC_CHAIN.id === 'mutinynet'
-    ? `Fee rates and block times: ${BTC_CHAIN.esploraApi}`
-    : `Fee rates and block times: ${BTC_CHAIN.esploraApi}. Chain mode: EXPO_PUBLIC_BTC_CHAIN=${BTC_CHAIN.id}.`;
+  `Fee rates and block times: ${BTC_CHAIN.esploraApi}` + (BTC_CHAIN.buildSwitch ? `. Chain mode: ${BTC_CHAIN.buildSwitch}.` : '');
 
 function countWords(count: number): string {
   return `${count} ${count === 1 ? 'contact' : 'contacts'}`;

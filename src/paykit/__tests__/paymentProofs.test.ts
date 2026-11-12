@@ -15,6 +15,7 @@ import {
   verifyBtcProof,
   verifyErc20Proof,
 } from '../paymentProofs';
+import { withBtcChain } from '../../config/__tests__/withBtcChain';
 
 const TXID = 'ab'.repeat(32);
 const NOW = Date.parse('2026-10-26T12:00:00Z');
@@ -59,18 +60,7 @@ describe('proof JSON', () => {
 describe('Bitcoin proofs on a Bitkit regtest build', () => {
   /** Loads the module as a bitkit-regtest build would, then restores the variable. */
   function loadOnRegtest(): typeof import('../paymentProofs') {
-    const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
-    process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
-    try {
-      let loaded: typeof import('../paymentProofs') | undefined;
-      jest.isolateModules(() => {
-        loaded = jest.requireActual<typeof import('../paymentProofs')>('../paymentProofs');
-      });
-      return loaded!;
-    } finally {
-      if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
-      else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
-    }
+    return withBtcChain('bitkit-regtest', () => jest.requireActual<typeof import('../paymentProofs')>('../paymentProofs'));
   }
   const regtest = loadOnRegtest();
 

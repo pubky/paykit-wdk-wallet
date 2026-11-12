@@ -125,7 +125,7 @@ checkAffordable({ asset, amount, balances, fee? }): SendProblem | undefined     
 formatFee(fee, asset) / sendErrorMessage(error, asset)                                     // display text; never shows the raw WDK error
 sendFailureFor(error, asset): { outcome: 'not-sent' | 'unknown'; message }                // after a send: 'unknown' = may have been broadcast, do not retry
 parseTypedAmount(text, asset): ParseResult                                                // decimal comma vs thousands separator; '1,000' is 'ambiguous'
-fetchBtcFeeRate() / fetchBtcTransactionStatus(txid)                                        // Mutinynet esplora (src/wallet/mutinynet.ts)
+fetchBtcFeeRate() / fetchBtcTransactionStatus(txid)                                        // the chain's esplora (src/wallet/esplora.ts)
 retryIfElectrumDropped(read) / isElectrumConnectionLost(error)                             // one quiet retry of a Bitcoin read (src/wallet/electrumRetry.ts)
 nextFailureStreak / shouldReportFailure                                                    // when a polled read has failed long enough to say so (src/wallet/failureStreak.ts)
 // payment requests

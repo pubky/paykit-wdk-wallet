@@ -30,7 +30,7 @@ import { SEPOLIA_CHAIN_ID } from '../config/chains';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
-import { fetchBtcTransactionStatus } from './mutinynet';
+import { fetchBtcTransactionStatus } from './esplora';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,

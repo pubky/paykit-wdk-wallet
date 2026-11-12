@@ -21,9 +21,7 @@ export type SendSuccessProps = {
   next?: string;
 };
 
-const BTC_PENDING = BTC_CHAIN.blocksOnDemand
-  ? 'It shows as pending in Activity until the next block. On regtest, a block comes only when someone mines one.'
-  : `It shows as pending in Activity until the next ${BTC_CHAIN.displayName} block, in ${CONFIRMATION_TIME.bitcoin}.`;
+const BTC_PENDING = `It shows as pending in Activity until ${BTC_CHAIN.nextBlock}.`;
 
 export function SendSuccess({ asset, amount, toLabel, toIsName, result, onDone, next }: SendSuccessProps) {
   return (

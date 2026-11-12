@@ -23,6 +23,7 @@ describe('chain constants in the funding scripts', () => {
     ['MUTINYNET_FAUCET', chains.MUTINYNET_FAUCET_URL],
     ['SEPOLIA_EXPLORER', chains.SEPOLIA_EXPLORER],
     ['MUTINYNET_EXPLORER', chains.MUTINYNET_EXPLORER],
+    ['BITKIT_REGTEST_EXPLORER', chains.BITKIT_REGTEST_EXPLORER],
   ])('%s matches src/config/chains.ts', (name, expected) => {
     expect(scriptConstant(name)).toBe(expected);
   });

@@ -1,23 +1,13 @@
 // Address checks follow the build's Bitcoin network (src/config/btcChain.ts).
 import { checkRecipientAddress, isBtcTestnetAddress } from '../addressFormat';
+import { withBtcChain } from '../../config/__tests__/withBtcChain';
 
 const TB1 = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
 const BCRT1 = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
 
 /** Loads the module as a bitkit-regtest build would, then restores the variable. */
 function loadOnRegtest(): typeof import('../addressFormat') {
-  const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
-  process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
-  try {
-    let loaded: typeof import('../addressFormat') | undefined;
-    jest.isolateModules(() => {
-      loaded = jest.requireActual<typeof import('../addressFormat')>('../addressFormat');
-    });
-    return loaded!;
-  } finally {
-    if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
-    else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
-  }
+  return withBtcChain('bitkit-regtest', () => jest.requireActual<typeof import('../addressFormat')>('../addressFormat'));
 }
 
 describe('Bitcoin addresses on a Mutinynet build', () => {

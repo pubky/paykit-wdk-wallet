@@ -49,7 +49,7 @@ import {
 } from './activity';
 import { retryIfElectrumDropped } from './electrumRetry';
 import { nextFailureStreak, NO_FAILURES, shouldReportFailure, type FailureStreak } from './failureStreak';
-import { fetchBtcTransactionStatus } from './mutinynet';
+import { fetchBtcTransactionStatus } from './esplora';
 import { evmTransactionFrom, sendOutcomeOf } from './paymentEvidence';
 import { markSentTransaction, sentTransactions, subscribeSentTransactions } from './sentTransactions';
 import { useAppActive } from './useAppActive';

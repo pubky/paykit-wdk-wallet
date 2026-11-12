@@ -94,12 +94,16 @@ export function demoWallet(name, env = readDemoEnv()) {
   return { name, evm: evm.address, btc: p2wpkhTestnetAddress(btc.publicKey) };
 }
 
-/** A demo wallet's BTC address for account `accountIndex` (contact accounts are 1, 2, …). Public only. */
-export function btcAddressForAccount(name, accountIndex, env = readDemoEnv()) {
+/**
+ * A demo wallet's BTC address for account `accountIndex` (contact accounts
+ * are 1, 2, …), with bech32 prefix `hrp`: 'tb' for Mutinynet, 'bcrt' for
+ * regtest. Public only.
+ */
+export function btcAddressForAccount(name, accountIndex, env = readDemoEnv(), hrp = 'tb') {
   const key = `${name.toUpperCase()}_MNEMONIC`;
   const phrase = env[key];
   if (!phrase) throw new Error(`${key} is not set in .env.demo`);
-  return p2wpkhTestnetAddress(HDNodeWallet.fromPhrase(phrase, '', btcPath(accountIndex)).publicKey);
+  return p2wpkhAddress(HDNodeWallet.fromPhrase(phrase, '', btcPath(accountIndex)).publicKey, hrp);
 }
 
 /**
@@ -107,9 +111,7 @@ export function btcAddressForAccount(name, accountIndex, env = readDemoEnv()) {
  * BITKIT_REGTEST_MNEMONIC. Public only.
  */
 export function bitkitRegtestBtcAddress(env = readDemoEnv()) {
-  const phrase = env.BITKIT_REGTEST_MNEMONIC;
-  if (!phrase) throw new Error('BITKIT_REGTEST_MNEMONIC is not set in .env.demo');
-  return p2wpkhAddress(HDNodeWallet.fromPhrase(phrase, '', btcPath(0)).publicKey, 'bcrt');
+  return btcAddressForAccount('bitkit_regtest', 0, env, 'bcrt');
 }
 
 /** Both demo wallets' public addresses. */

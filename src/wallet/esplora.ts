@@ -1,6 +1,6 @@
 // The two things WDK's BTC module does not tell us, read from the Bitcoin
 // network's esplora API (src/config/btcChain.ts `esploraApi`: Mutinynet's,
-// or Bitkit's staging regtest mempool; the file keeps its old name):
+// or Bitkit's staging regtest mempool):
 //
 // - the current fee rate in sats per virtual byte, so the Send review can
 //   say "1 sat/vB" and pass the same rate to WDK for the quote and the send

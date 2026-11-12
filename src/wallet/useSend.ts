@@ -10,7 +10,7 @@
 // and the resulting hash. Amounts are bigint base units end to end.
 //
 // BTC fee rate: WDK estimates a rate itself but never reports it, so the
-// quote fetches the network's recommended rate (./mutinynet.ts) and passes it
+// quote fetches the network's recommended rate (./esplora.ts) and passes it
 // to WDK explicitly. The review shows that rate, and send() must be given
 // the quote's `feeRate` so the transaction pays what the person approved.
 // If the rate API is down, WDK estimates as before and no rate is shown.
@@ -23,7 +23,7 @@ import { isAddressForChain, isKnownContract } from './addressFormat';
 import { parseBaseUnits } from './amounts';
 import { ASSETS, feeAssetFor, type AssetId } from './assets';
 import { transactionUrl } from './explorers';
-import { fetchBtcFeeRate } from './mutinynet';
+import { fetchBtcFeeRate } from './esplora';
 import { recordSentTransaction } from './sentTransactions';
 
 export type SendRequest = {

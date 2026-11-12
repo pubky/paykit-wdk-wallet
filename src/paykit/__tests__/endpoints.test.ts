@@ -9,6 +9,7 @@ import {
   usdtReceivingDetail,
   utf8ByteLength,
 } from '../endpoints';
+import { withBtcChain } from '../../config/__tests__/withBtcChain';
 
 const EVM = '0x00000000000000000000000000000000000000aa';
 const BTC = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
@@ -58,18 +59,7 @@ describe('the Bitcoin endpoint on a Bitkit regtest build', () => {
 
   /** Loads the module as a bitkit-regtest build would, then restores the variable. */
   function loadOnRegtest(): typeof import('../endpoints') {
-    const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
-    process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
-    try {
-      let loaded: typeof import('../endpoints') | undefined;
-      jest.isolateModules(() => {
-        loaded = jest.requireActual<typeof import('../endpoints')>('../endpoints');
-      });
-      return loaded!;
-    } finally {
-      if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
-      else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
-    }
+    return withBtcChain('bitkit-regtest', () => jest.requireActual<typeof import('../endpoints')>('../endpoints'));
   }
   const regtest = loadOnRegtest();
 

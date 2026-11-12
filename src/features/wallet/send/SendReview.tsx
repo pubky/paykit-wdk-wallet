@@ -46,9 +46,7 @@ export type SendReviewProps = {
 };
 
 const NETWORK: Record<PayableAsset, string> = {
-  btc: BTC_CHAIN.blocksOnDemand
-    ? `${BTC_CHAIN.networkLabel}. Confirms in the next block, which comes only when someone mines one.`
-    : `${BTC_CHAIN.networkLabel}. Confirms in ${CONFIRMATION_TIME.bitcoin}.`,
+  btc: `${BTC_CHAIN.networkLabel}. Confirms in ${CONFIRMATION_TIME.bitcoin}.`,
   usdt: `Ethereum Sepolia. Confirms in ${CONFIRMATION_TIME.ethereum}.`,
 };
 

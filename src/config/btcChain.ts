@@ -31,39 +31,38 @@ export type BtcChainId = 'mutinynet' | 'bitkit-regtest';
 export type BtcChainProfile = {
   readonly id: BtcChainId;
   /** The network's short name: "Mutinynet", "Regtest". */
-  readonly displayName: 'Mutinynet' | 'Regtest';
+  readonly displayName: string;
   /** The asset's name with its network: "Bitcoin (Mutinynet)". */
-  readonly networkLabel: 'Bitcoin (Mutinynet)' | 'Bitcoin (Bitkit regtest)';
+  readonly networkLabel: string;
   /** The network in a sentence, as Receive shows it: "Mutinynet test network". */
-  readonly networkName: 'Mutinynet test network' | 'Bitkit regtest network';
+  readonly networkName: string;
   /** The coin in a sentence: "Send only Mutinynet test bitcoin to this address." */
-  readonly coinName: 'Mutinynet test bitcoin' | 'regtest bitcoin';
+  readonly coinName: string;
   /** For You > Network details: the network and what kind it is. */
-  readonly detailsLabel: 'Bitcoin (Mutinynet signet)' | 'Bitcoin (Bitkit regtest)';
+  readonly detailsLabel: string;
+  /** The build-time switch that picked this chain, shown in Network details; none for the default. */
+  readonly buildSwitch: string | undefined;
   /** WDK wallet-btc's network: address rules and the BIP-84 coin type. */
   readonly wdkNetwork: 'testnet' | 'regtest';
   readonly electrum: { readonly host: string; readonly port: number; readonly protocol: 'tcp' | 'tls' };
-  /** Esplora API base: `/v1/fees/recommended` and `/tx/<txid>/status` (src/wallet/mutinynet.ts). */
+  /** Esplora API base: `/v1/fees/recommended` and `/tx/<txid>/status` (src/wallet/esplora.ts). */
   readonly esploraApi: string;
   /** Block explorer base: `/tx/<txid>` and `/address/<address>`. */
   readonly explorer: string;
   /** A public faucet, if the network has one. */
   readonly faucetUrl: string | undefined;
   /** The Paykit endpoint id for our P2WPKH address (src/config/paykit.ts ENDPOINT_BTC). */
-  readonly endpointId: 'btc-mutinynet-p2wpkh' | 'btc-regtest-p2wpkh';
+  readonly endpointId: string;
   /** Bech32 human-readable part plus separator: the only addresses this wallet pays. */
-  readonly bech32Prefix: 'tb1' | 'bcrt1';
+  readonly bech32Prefix: string;
   /** The Bitcoin payment proof this wallet sends (src/paykit/paymentProofs.ts). */
   readonly proofFormat: 'paykit-wdk' | 'bitkit';
   /** WDK's asset id; it keys WDK's balance cache. */
-  readonly assetId: 'btc-mutinynet' | 'btc-regtest';
-  /** How long until a transaction is in a block, in words. */
+  readonly assetId: string;
+  /** Ends "Confirms in …": how long until a transaction is in a block. */
   readonly confirmationTime: string;
-  /**
-   * True when blocks come only when someone mines one (regtest), so the
-   * app cannot promise a time for the next one.
-   */
-  readonly blocksOnDemand: boolean;
+  /** Ends "It shows as pending in Activity until …". */
+  readonly nextBlock: string;
 };
 
 const MUTINYNET: BtcChainProfile = {
@@ -83,9 +82,10 @@ const MUTINYNET: BtcChainProfile = {
   bech32Prefix: 'tb1',
   proofFormat: 'paykit-wdk',
   assetId: 'btc-mutinynet',
+  buildSwitch: undefined,
   // Mutinynet makes a block every 30 s.
   confirmationTime: 'about 30 seconds',
-  blocksOnDemand: false,
+  nextBlock: 'the next Mutinynet block, in about 30 seconds',
 };
 
 const BITKIT_REGTEST: BtcChainProfile = {
@@ -105,10 +105,11 @@ const BITKIT_REGTEST: BtcChainProfile = {
   bech32Prefix: 'bcrt1',
   proofFormat: 'bitkit',
   assetId: 'btc-regtest',
-  confirmationTime: 'the next block, mined on demand',
-  // Blocktank's staging regtest mines when asked (scripts/fund-btc.mjs
-  // --mine, or Bitkit's Dev Settings).
-  blocksOnDemand: true,
+  buildSwitch: 'EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest',
+  // Blocktank's staging regtest mines only when asked (scripts/fund-btc.mjs
+  // --mine, or Bitkit's Dev Settings), so no time can be promised.
+  confirmationTime: 'the next block, which comes only when someone mines one',
+  nextBlock: 'the next block, which comes only when someone mines one',
 };
 
 /** The profile for an EXPO_PUBLIC_BTC_CHAIN value. Throws for a value it does not know. */
