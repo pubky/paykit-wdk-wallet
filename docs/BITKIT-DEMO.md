@@ -208,3 +208,71 @@ SIMCTL_CHILD_BLOCKTANK_REGTEST_AUTH='user:password' xcrun simctl launch <udid> t
 
 Then add each other as contacts and pay as in [DEMO.md](DEMO.md), with
 Bitcoin only.
+
+## Checked on 12 November 2026
+
+Setup: one iPhone 17 simulator (iOS 26.5) with both apps installed.
+Bitkit was a `master` Debug build. This wallet was a Debug build with
+`EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest`.
+
+| Check | Result |
+|---|---|
+| 1. The wallet runs on Bitkit's staging regtest | **Pass**, except deposits |
+| 2. Bitkit finds the wallet by its pubky | **Pass** |
+| 3. The wallet finds Bitkit by its pubky | **Pass** |
+| 4. Encrypted Link between Bitkit and the wallet | **Pass** |
+
+Only the first screenshot was taken after the TLS fix (see check 1). The
+others were taken before it, so some show an error toast, such as
+"Failed to fetch balance". The fix removed that error.
+
+### 1. The wallet runs on Bitkit's staging regtest
+
+The wallet shows a regtest address (`bcrt1…`) and its Network details.
+It syncs with Electrum over TLS: the balance shows 0 BTC, with no
+errors. The TLS sync needed the Bare TLS socket shim
+([`worklet/bare-tls-socket-methods`](../worklet/bare-tls-socket-methods)).
+
+Not checked: receiving a Blocktank deposit. The deposit API needs
+`BLOCKTANK_REGTEST_AUTH`, and we did not have it.
+
+| | | |
+|---|---|---|
+| <img src="screenshots/bitkit-demo/1-wallet-syncs-regtest.png" width="220" alt="Wallet tab showing 0 BTC with no errors"> | <img src="screenshots/bitkit-demo/1-wallet-receive-bcrt1.png" width="220" alt="Receive screen with a bcrt1 address"> | <img src="screenshots/bitkit-demo/1-wallet-network-details.png" width="220" alt="Network details in regtest mode"> |
+| Synced on regtest | A regtest address | Network details |
+
+### 2. Bitkit finds the wallet by its pubky
+
+Bitkit shows "WDK demo (regtest)" and goes straight to an on-chain
+Bitcoin payment. The payment stopped at "Insufficient Savings", because
+Bitkit had no coins. Bitkit offers no USD₮ option.
+
+| | |
+|---|---|
+| <img src="screenshots/bitkit-demo/2-bitkit-resolves-wallet.png" width="220" alt="Bitkit's Add Contact showing WDK demo (regtest)"> | <img src="screenshots/bitkit-demo/2-bitkit-pay-wallet-onchain.png" width="220" alt="Bitkit's on-chain payment stopping at Insufficient Savings"> |
+| Bitkit finds the wallet | On-chain payment, no coins |
+
+### 3. The wallet finds Bitkit by its pubky
+
+The wallet shows "Bitkit demo" and sends Bitcoin to `bcrt1qvejx…mc9`.
+For USD₮ it says "Bitkit demo doesn't accept USD₮ by pubky". Bitkit's
+USD₮ was turned off, so this check did not test that the wallet skips
+Bitkit's Arbitrum USD₮ endpoint.
+
+| | |
+|---|---|
+| <img src="screenshots/bitkit-demo/3-wallet-resolves-bitkit.png" width="220" alt="The wallet's Send screen showing Bitkit demo and its Bitcoin address"> | <img src="screenshots/bitkit-demo/3-wallet-bitkit-no-usdt.png" width="220" alt="The wallet saying Bitkit demo doesn't accept USD₮ by pubky"> |
+| The wallet finds Bitkit | No USD₮ by pubky |
+
+### 4. Encrypted Link between Bitkit and the wallet
+
+Bitkit used Paykit 0.1.1-rc8 and this wallet used 0.1.1-rc5. The wallet
+shows "Private connection ready" and pays to Bitkit's private address
+(`bcrt1qfr8m…l0s`), which differs from Bitkit's public one. Bitkit
+lists the wallet in Contacts, but Bitkit's UI does not mark a contact
+as linked.
+
+| | | |
+|---|---|---|
+| <img src="screenshots/bitkit-demo/4-wallet-private-connection-ready.png" width="220" alt="The wallet showing Private connection ready for Bitkit demo"> | <img src="screenshots/bitkit-demo/4-wallet-pay-bitkit-private-address.png" width="220" alt="The wallet paying Bitkit at a private address"> | <img src="screenshots/bitkit-demo/4-bitkit-contacts-list.png" width="220" alt="Bitkit's Contacts listing WDK demo (regtest)"> |
+| Private connection ready | Bitkit's private address | Bitkit's Contacts |
