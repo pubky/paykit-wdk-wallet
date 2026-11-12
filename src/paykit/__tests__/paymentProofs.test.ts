@@ -68,9 +68,14 @@ describe('Bitcoin proofs on a Bitkit regtest build', () => {
     expect(regtest.btcProofJson(TXID.toUpperCase())).toBe(`{"data":"${TXID}","type":"bitcoin-onchain-txid"}`);
   });
 
-  it('reads both formats', () => {
+  it("reads Bitkit's format", () => {
     expect(regtest.parseProof(regtest.btcProofJson(TXID))).toEqual({ kind: 'btc', txid: TXID });
-    expect(regtest.parseProof(btcProofJson(TXID))).toEqual({ kind: 'btc', txid: TXID });
+  });
+
+  it('refuses a proof that names Mutinynet: that transaction is not on this chain', () => {
+    expect(regtest.parseProof(btcProofJson(TXID))).toBeUndefined();
+    expect(regtest.parseProof(JSON.stringify({ type: 'bitcoin-onchain-tx', network: 'mutinynet', txid: TXID }))).toBeUndefined();
+    expect(regtest.proofTransactionHash(btcProofJson(TXID))).toBeUndefined();
   });
 
   it('leaves the Mutinynet build sending its own format', () => {

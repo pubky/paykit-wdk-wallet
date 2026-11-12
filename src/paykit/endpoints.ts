@@ -17,7 +17,7 @@
 // unit tested.
 import { SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../config/chains';
 import { ENDPOINT_BTC, ENDPOINT_USDT, SUPPORTED_ENDPOINTS } from '../config/paykit';
-import { isBtcTestnetAddress, isEvmAddress, sameEvmAddress } from '../wallet/addressFormat';
+import { isPayableBtcAddress, isEvmAddress, sameEvmAddress } from '../wallet/addressFormat';
 
 /** Paykit's limit for one private message (a whole Private Payment List included). */
 export const PRIVATE_MESSAGE_LIMIT_BYTES = 1000;
@@ -55,7 +55,7 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
   const json = parseJsonObject(payloadText);
   if (!json || typeof json.value !== 'string') return undefined;
   if (identifier === ENDPOINT_BTC) {
-    return isBtcTestnetAddress(json.value) ? { identifier, asset: 'btc', address: json.value } : undefined;
+    return isPayableBtcAddress(json.value) ? { identifier, asset: 'btc', address: json.value } : undefined;
   }
   if (identifier === ENDPOINT_USDT) {
     const chainId = String(json.chain_id ?? '');

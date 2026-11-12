@@ -31,7 +31,7 @@ const ACTIVE_BECH32 = new RegExp(`^${BTC_PREFIX}[02-9ac-hj-np-z]{8,87}$`);
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
 /** A bech32 address of the build's Bitcoin network (tb1… on Mutinynet, bcrt1… on Bitkit's regtest). */
-export function isBtcTestnetAddress(text: string): boolean {
+export function isPayableBtcAddress(text: string): boolean {
   return ACTIVE_BECH32.test(text.trim().toLowerCase());
 }
 
@@ -40,12 +40,12 @@ export function isEvmAddress(text: string): boolean {
 }
 
 export function isAddressForChain(text: string, chain: Chain): boolean {
-  return chain === 'bitcoin' ? isBtcTestnetAddress(text) : isEvmAddress(text);
+  return chain === 'bitcoin' ? isPayableBtcAddress(text) : isEvmAddress(text);
 }
 
 /** Which chain an address belongs to, if it looks like one of ours. */
 export function chainOfAddress(text: string): Chain | undefined {
-  if (isBtcTestnetAddress(text)) return 'bitcoin';
+  if (isPayableBtcAddress(text)) return 'bitcoin';
   if (isEvmAddress(text)) return 'ethereum';
   return undefined;
 }
@@ -138,7 +138,7 @@ const BTC_MAINNET = /^(bc1[02-9ac-hj-np-z]{8,87}|[13][1-9A-HJ-NP-Za-km-z]{25,34}
 /**
  * Testnet base58 (m…, n…, 2…) and testnet or regtest bech32 (tb1…, bcrt1…):
  * valid test Bitcoin, but only the build network's bech32 (checked first,
- * with isBtcTestnetAddress) is what this wallet pays.
+ * with isPayableBtcAddress) is what this wallet pays.
  */
 const BTC_OTHER_TESTNET = /^([mn2][1-9A-HJ-NP-Za-km-z]{25,34}|(tb1|bcrt1)[02-9ac-hj-np-z]{8,87})$/i;
 /** A Pubky key: "pubky" + 52 z-base32 characters, or the bare 52 characters. */
@@ -166,7 +166,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
   }
 
   if (chain === 'bitcoin') {
-    if (isBtcTestnetAddress(address)) return { ok: true, address: address.toLowerCase() };
+    if (isPayableBtcAddress(address)) return { ok: true, address: address.toLowerCase() };
     if (isEvmAddress(address)) {
       return { ok: false, reason: 'wrong-chain', message: 'That is an Ethereum address. Choose USD₮ to send to it.' };
     }
@@ -189,7 +189,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
     }
     return { ok: true, address };
   }
-  if (isBtcTestnetAddress(address) || BTC_MAINNET.test(address) || BTC_OTHER_TESTNET.test(address)) {
+  if (isPayableBtcAddress(address) || BTC_MAINNET.test(address) || BTC_OTHER_TESTNET.test(address)) {
     return { ok: false, reason: 'wrong-chain', message: 'That is a Bitcoin address. Choose Bitcoin to send to it.' };
   }
   return { ok: false, reason: 'invalid', message: 'That is not an Ethereum address. It should be 0x and 40 characters.' };

@@ -59,11 +59,11 @@ export const ASSETS: Record<AssetId, AssetInfo> = {
 /**
  * How long until a transaction is in a block, in words, per chain. One
  * constant, so the Send review, the sent screen and the faucet agree.
- * Bitcoin's depends on the network (src/config/btcChain.ts); Sepolia makes a
- * block every 12 s.
+ * Bitcoin's depends on the network (src/config/btcChain.ts `blockInterval`;
+ * Bitkit's regtest has none); Sepolia makes a block every 12 s.
  */
 export const CONFIRMATION_TIME: Record<Chain, string> = {
-  bitcoin: BTC_CHAIN.confirmationTime,
+  bitcoin: BTC_CHAIN.blockInterval ?? 'the next block, which comes only when someone mines one',
   ethereum: 'about 12 seconds',
 };
 

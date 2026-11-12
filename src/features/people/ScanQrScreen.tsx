@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
+import { BTC_CHAIN } from '../../config/btcChain';
 import type { RootScreenProps } from '../../navigation/types';
 import { describeError, usePaykit } from '../../paykit';
 import { Button, Input, SheetScreen, Text, colors, radii, space } from '../../ui';
@@ -112,7 +113,7 @@ export function ScanQrScreen({ navigation }: RootScreenProps<'ScanQr'>) {
             setPasted(text);
             setError(undefined);
           }}
-          placeholder="pubky…, tb1… or 0x…"
+          placeholder={`pubky…, ${BTC_CHAIN.bech32Prefix}… or 0x…`}
           mono
           multiline
           blurOnSubmit

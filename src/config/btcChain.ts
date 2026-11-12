@@ -28,6 +28,13 @@ import {
 
 export type BtcChainId = 'mutinynet' | 'bitkit-regtest';
 
+/**
+ * Where test bitcoin comes from (You > Test funds): a public faucet, or
+ * Blocktank's regtest deposit, called from a laptop (scripts/fund-btc.mjs)
+ * or from Bitkit's Dev Settings.
+ */
+export type BtcFunding = { readonly kind: 'faucet'; readonly url: string } | { readonly kind: 'blocktank-regtest' };
+
 export type BtcChainProfile = {
   readonly id: BtcChainId;
   /** The network's short name: "Mutinynet", "Regtest". */
@@ -49,8 +56,7 @@ export type BtcChainProfile = {
   readonly esploraApi: string;
   /** Block explorer base: `/tx/<txid>` and `/address/<address>`. */
   readonly explorer: string;
-  /** A public faucet, if the network has one. */
-  readonly faucetUrl: string | undefined;
+  readonly funding: BtcFunding;
   /** The Paykit endpoint id for our P2WPKH address (src/config/paykit.ts ENDPOINT_BTC). */
   readonly endpointId: string;
   /** Bech32 human-readable part plus separator: the only addresses this wallet pays. */
@@ -59,10 +65,12 @@ export type BtcChainProfile = {
   readonly proofFormat: 'paykit-wdk' | 'bitkit';
   /** WDK's asset id; it keys WDK's balance cache. */
   readonly assetId: string;
-  /** Ends "Confirms in …": how long until a transaction is in a block. */
-  readonly confirmationTime: string;
-  /** Ends "It shows as pending in Activity until …". */
-  readonly nextBlock: string;
+  /**
+   * How often the network makes a block, in words: "about 30 seconds".
+   * Undefined when a block comes only when someone mines one. The Send
+   * screens' sentences come from it (src/wallet/assets.ts CONFIRMATION_TIME).
+   */
+  readonly blockInterval: string | undefined;
 };
 
 const MUTINYNET: BtcChainProfile = {
@@ -77,15 +85,14 @@ const MUTINYNET: BtcChainProfile = {
   electrum: MUTINYNET_ELECTRUM,
   esploraApi: MUTINYNET_API,
   explorer: MUTINYNET_EXPLORER,
-  faucetUrl: MUTINYNET_FAUCET_URL,
+  funding: { kind: 'faucet', url: MUTINYNET_FAUCET_URL },
   endpointId: 'btc-mutinynet-p2wpkh',
   bech32Prefix: 'tb1',
   proofFormat: 'paykit-wdk',
   assetId: 'btc-mutinynet',
   buildSwitch: undefined,
   // Mutinynet makes a block every 30 s.
-  confirmationTime: 'about 30 seconds',
-  nextBlock: 'the next Mutinynet block, in about 30 seconds',
+  blockInterval: 'about 30 seconds',
 };
 
 const BITKIT_REGTEST: BtcChainProfile = {
@@ -99,7 +106,7 @@ const BITKIT_REGTEST: BtcChainProfile = {
   electrum: BITKIT_REGTEST_ELECTRUM,
   esploraApi: BITKIT_REGTEST_API,
   explorer: BITKIT_REGTEST_EXPLORER,
-  faucetUrl: undefined,
+  funding: { kind: 'blocktank-regtest' },
   // Bitkit's own id for this endpoint, so each wallet finds the other's address.
   endpointId: 'btc-regtest-p2wpkh',
   bech32Prefix: 'bcrt1',
@@ -108,8 +115,7 @@ const BITKIT_REGTEST: BtcChainProfile = {
   buildSwitch: 'EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest',
   // Blocktank's staging regtest mines only when asked (scripts/fund-btc.mjs
   // --mine, or Bitkit's Dev Settings), so no time can be promised.
-  confirmationTime: 'the next block, which comes only when someone mines one',
-  nextBlock: 'the next block, which comes only when someone mines one',
+  blockInterval: undefined,
 };
 
 /** The profile for an EXPO_PUBLIC_BTC_CHAIN value. Throws for a value it does not know. */

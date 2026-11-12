@@ -118,7 +118,7 @@ clearContactAccountActivity(): void
 formatAssetAmount(value: bigint, asset: AssetId, opts?): string
 parseAssetAmount(text: string, asset: AssetId): ParseResult
 toPaykitDecimal(value: bigint, asset): string / fromPaykitDecimal(text, asset): ParseResult
-isBtcTestnetAddress / isEvmAddress / chainOfAddress / transactionUrl / addressUrl
+isPayableBtcAddress / isEvmAddress / chainOfAddress / transactionUrl / addressUrl
 checkRecipientAddress(text, chain): { ok: true; address } | { ok: false; reason; message }  // refuses mainnet, wrong chain, pubkys, known contracts
 payeeOfPaymentText(text) / payeeOfEthereumUri(rest)                                        // BIP-21 / EIP-681: the payee, never the token contract
 checkAffordable({ asset, amount, balances, fee? }): SendProblem | undefined                // balance, amount + fee, "Not enough ETH for gas"

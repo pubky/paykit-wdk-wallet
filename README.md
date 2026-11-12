@@ -333,8 +333,10 @@ To demo Paykit with a stock Bitkit iOS Debug build, build this wallet with
 Bitcoin side then runs on Bitkit's staging regtest and publishes Bitkit's
 endpoint id; USD₮ stays on Sepolia. [`docs/BITKIT-DEMO.md`](docs/BITKIT-DEMO.md)
 covers the build, the demo identity, funding and mining with
-`scripts/fund-btc.mjs --chain bitkit-regtest`, and the Bitkit setup. Unset,
-the wallet runs on Mutinynet as before.
+`scripts/fund-btc.mjs --chain bitkit-regtest`, balances with
+`scripts/fund-status.mjs --chain bitkit-regtest`, and the Bitkit setup.
+Unset, the wallet runs on Mutinynet as before. To switch back, stop Metro
+and run `npm start`; no cache clear is needed (BITKIT-DEMO.md says why).
 
 ### Checks
 

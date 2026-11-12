@@ -14,10 +14,15 @@
 //            `proofFormat`). Exactly these two keys, in this order: Bitkit
 //            writes them sorted, and when it looks for its own proof it
 //            compares the whole object, so an extra key would not match.
-//            Both are read in every build and mean the same: a txid in
-//            lowercase hex. The money must land on the address bound in
-//            the request, which is the payer's own contact account on our
-//            side: an address only they were given. So the txid is enough.
+//            Both mean the same: a txid in lowercase hex. Bitkit's names
+//            no network, so every build reads it and looks the txid up on
+//            its own chain. Ours names Mutinynet, so only a Mutinynet
+//            build reads it: a regtest build refuses it as a proof from
+//            another network instead of waiting for a transaction that
+//            never shows up on its chain. The money must land on the
+//            address bound in the request, which is the payer's own
+//            contact account on our side: an address only they were
+//            given. So the txid is enough.
 //   USD₮     {"type":"erc20-transfer-eip712","chain_id":"11155111",
 //             "transaction_hash":"0x…","receipt_log_index":"0","signature":"0x…"}
 //            Our USD₮ address is public, so the payer also signs which
@@ -53,6 +58,8 @@ import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../w
 
 export const BTC_PROOF_TYPE = 'bitcoin-onchain-tx';
 export const BTC_PROOF_NETWORK = 'mutinynet';
+/** Whether this build reads our proof format: only when its `network` is this build's chain. */
+const READS_BTC_PROOF_NETWORK = BTC_CHAIN.id === BTC_PROOF_NETWORK;
 /** Bitkit's on-chain proof type (PaykitPaymentProofKind.onchain in bitkit-ios). */
 export const BITKIT_BTC_PROOF_TYPE = 'bitcoin-onchain-txid';
 
@@ -94,7 +101,7 @@ export function parseProof(json: string): ParsedProof | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const proof = value as Record<string, unknown>;
   if (proof.type === BTC_PROOF_TYPE) {
-    return proof.network === BTC_PROOF_NETWORK && isTxid(proof.txid) ? { kind: 'btc', txid: proof.txid } : undefined;
+    return READS_BTC_PROOF_NETWORK && proof.network === BTC_PROOF_NETWORK && isTxid(proof.txid) ? { kind: 'btc', txid: proof.txid } : undefined;
   }
   if (proof.type === BITKIT_BTC_PROOF_TYPE) {
     return isTxid(proof.data) ? { kind: 'btc', txid: proof.data } : undefined;

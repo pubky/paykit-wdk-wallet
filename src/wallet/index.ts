@@ -15,7 +15,7 @@ export {
   toPaykitDecimal,
   type ParseResult,
 } from './amounts';
-export { chainOfAddress, isAddressForChain, isBtcTestnetAddress, isEvmAddress } from './addressFormat';
+export { chainOfAddress, isAddressForChain, isPayableBtcAddress, isEvmAddress } from './addressFormat';
 export { addressUrl, transactionUrl } from './explorers';
 export { type ActivityItem, type ActivityStatus } from './activity';
 export { DEFAULT_FAUCET_MINT_UNITS } from './faucet';

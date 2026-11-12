@@ -39,7 +39,13 @@ function loadDemoLocal(): DemoLocal {
 
 const local = loadDemoLocal();
 
-// A regtest build uses the regtest identity on any platform: its wallet
-// holds regtest coins and pairs with Bitkit, not with the other simulator.
-const platformPrefill = Platform.OS === 'ios' ? local.ios : Platform.OS === 'android' ? local.android : undefined;
-export const demoPrefill: DemoPrefill = (BTC_CHAIN.id === 'bitkit-regtest' ? local.bitkitRegtest : platformPrefill) ?? {};
+// A regtest build on iOS uses the regtest identity: its wallet holds
+// regtest coins and pairs with Bitkit, which the demo runs on iOS
+// (docs/BITKIT-DEMO.md), not with the other simulator. A regtest build on
+// Android gets no prefill: the same identity on two devices at once would
+// diverge its contact links, ledger and Allowances.
+function platformPrefill(): DemoPrefill | undefined {
+  if (BTC_CHAIN.id === 'bitkit-regtest') return Platform.OS === 'ios' ? local.bitkitRegtest : undefined;
+  return Platform.OS === 'ios' ? local.ios : Platform.OS === 'android' ? local.android : undefined;
+}
+export const demoPrefill: DemoPrefill = platformPrefill() ?? {};

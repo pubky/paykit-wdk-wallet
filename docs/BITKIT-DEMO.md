@@ -52,8 +52,7 @@ In regtest mode it also shows the chain mode.
 Expo puts `EXPO_PUBLIC_*` variables into the JavaScript bundle when Metro
 builds it. So the variable must be set when the bundle is built.
 
-**Debug (Metro).** Start Metro with the variable, and clear its cache so
-no bundle from the other mode is reused:
+**Debug (Metro).** Start Metro with the variable:
 
 ```sh
 npm run start:bitkit-regtest
@@ -62,8 +61,25 @@ npm run start:bitkit-regtest
 
 The native Debug build is the same in both modes: build it as usual with
 `--no-bundler` (see [README](../README.md), "Run it"), then open the dev
-client on this Metro server. To go back to Mutinynet, stop Metro and run
-`npx expo start --dev-client --clear`.
+client on this Metro server. To go back to Mutinynet, stop Metro, run
+`npm start` and reload the app.
+
+Switching modes does not need a cache clear; the `--clear` in
+`start:bitkit-regtest` only makes sure. Checked in Expo SDK 55
+(`babel-preset-expo` 55.0.25, `@expo/metro-config` 55.0.27,
+`@expo/cli` 55.0.36):
+
+- Metro's transform cache key does not include `EXPO_PUBLIC_*` values.
+- In a Debug bundle, Babel does not put the value into the transformed
+  file. It rewrites `process.env.EXPO_PUBLIC_BTC_CHAIN` to a lookup in
+  `expo/virtual/env` (`babel-preset-expo/build/inline-env-vars.js`).
+  Metro then adds the current values to each bundle it serves, from its
+  own environment (`environmentVariableSerializerPlugin.js`). So the
+  value comes from the Metro process that is running, and a cached
+  transform never holds it.
+- A Release bundle does contain the value. A Release
+  `npx expo run:ios` resets Metro's cache before it bundles, outside CI
+  (`exportEager.js`: `resetCache = !CI`), so a stale value is not reused.
 
 **Release builds** bundle the JavaScript at build time. Set the variable
 for the build command:
@@ -118,6 +134,17 @@ The script prints the funding transaction with an explorer link. The
 `BITKIT_REGTEST_MNEMONIC`, derived as WDK derives it. If
 `EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest` is set in your shell, you can leave
 out `--chain`.
+
+If Blocktank accepts the deposit but the script cannot read a transaction
+id in the reply, it prints a warning with the reply and still mines the
+block. Check the address in the explorer before you fund again.
+
+To check the identity's balance (confirmed and unconfirmed):
+
+```sh
+node scripts/fund-status.mjs --chain bitkit-regtest              # account 0
+node scripts/fund-status.mjs --chain bitkit-regtest --contacts 3 # plus contact accounts 1..3
+```
 
 A payment stays pending until the next block. On regtest, nobody mines
 on a schedule. After a payment, mine a block with `--mine 1`, or from

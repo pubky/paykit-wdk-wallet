@@ -44,11 +44,41 @@ export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
 export const MUTINYNET_EXPLORER = 'https://mutinynet.com';
 /** Bitkit's staging regtest explorer (BITKIT_REGTEST_EXPLORER in src/config/chains.ts). */
 export const BITKIT_REGTEST_EXPLORER = 'https://mempool.bitkit.stag0.blocktank.to';
+/** Bitkit's staging regtest esplora API (BITKIT_REGTEST_API in src/config/chains.ts). */
+export const BITKIT_REGTEST_API = 'https://mempool.bitkit.stag0.blocktank.to/api';
 /**
  * Blocktank's staging regtest chain API: `deposit` and `mine`, the calls
  * Bitkit's Dev Settings › Blocktank Regtest make (rust-blocktank-client 0.0.16).
  */
 export const BLOCKTANK_REGTEST_CHAIN_API = 'https://api.stag0.blocktank.to/blocktank/api/v2/regtest/chain';
+
+/**
+ * The values EXPO_PUBLIC_BTC_CHAIN (and the scripts' --chain) accepts, as
+ * btcChainFromEnv in src/config/btcChain.ts reads it: unset or empty is
+ * Mutinynet, anything not listed here is refused.
+ */
+export const BTC_CHAIN_VALUES = ['bitkit-regtest'];
+/** Regtest's bech32 prefix, without the '1' separator (bech32Prefix 'bcrt1' in src/config/btcChain.ts). */
+export const BITKIT_REGTEST_HRP = 'bcrt';
+
+/** The chain for a --chain or EXPO_PUBLIC_BTC_CHAIN value: 'mutinynet' or one of BTC_CHAIN_VALUES. */
+export function btcChainFrom(value) {
+  if (value === undefined || value === '') return 'mutinynet';
+  if (BTC_CHAIN_VALUES.includes(value)) return value;
+  throw new Error(`Unknown chain "${value}". Leave it unset for Mutinynet, or use ${BTC_CHAIN_VALUES.join(' or ')}.`);
+}
+
+/**
+ * Pull `--chain <value>` out of command-line arguments. Without it, the
+ * chain comes from EXPO_PUBLIC_BTC_CHAIN, the app's own switch. Returns the
+ * chain and the remaining arguments.
+ */
+export function btcChainFromArgs(argv, env = process.env) {
+  const at = argv.indexOf('--chain');
+  if (at < 0) return { chain: btcChainFrom(env.EXPO_PUBLIC_BTC_CHAIN), rest: argv };
+  if (argv[at + 1] === undefined) throw new Error(`--chain needs a value: ${BTC_CHAIN_VALUES.join(' or ')}.`);
+  return { chain: btcChainFrom(argv[at + 1]), rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
+}
 
 const EVM_PATH = "m/44'/60'/0'/0/0";
 /** BTC account i (0 = spending, 1, 2, … = contact accounts), as WDK's getAccount(i) on testnet and regtest. */
@@ -111,7 +141,7 @@ export function btcAddressForAccount(name, accountIndex, env = readDemoEnv(), hr
  * BITKIT_REGTEST_MNEMONIC. Public only.
  */
 export function bitkitRegtestBtcAddress(env = readDemoEnv()) {
-  return btcAddressForAccount('bitkit_regtest', 0, env, 'bcrt');
+  return btcAddressForAccount('bitkit_regtest', 0, env, BITKIT_REGTEST_HRP);
 }
 
 /** Both demo wallets' public addresses. */

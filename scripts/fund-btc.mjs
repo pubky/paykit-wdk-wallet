@@ -22,6 +22,10 @@
 // {"address", "amountSat"} answers the funding txid as plain text, and
 // POST …/regtest/chain/mine {"count"} answers an empty 2xx. A deposit is
 // followed by one mined block, so it confirms at once. No token is needed.
+// The script also reads a deposit txid sent as a JSON string or a JSON
+// object with a txid field. Once the deposit is accepted (2xx), the script
+// mines the block even if it cannot find a txid in the reply, because the
+// coins are already sent.
 // Written from Bitkit's client; not yet run from this script.
 //
 // The faucet (faucet.mutinynet.com, source: MutinyWallet/mutinynet-faucet-rs)
@@ -40,11 +44,13 @@ import { join } from 'node:path';
 
 import {
   BITKIT_REGTEST_EXPLORER,
+  BITKIT_REGTEST_HRP,
   BLOCKTANK_REGTEST_CHAIN_API,
   MUTINYNET_EXPLORER,
   MUTINYNET_FAUCET,
   ROOT,
   bitkitRegtestBtcAddress,
+  btcChainFromArgs,
   readDemoEnv,
   resolveTarget,
 } from './lib/demo-wallets.mjs';
@@ -54,7 +60,7 @@ const GITHUB_CLIENT_ID = 'Ov23liIa6qfR9KtYHwUF';
 const MAX_SATS = 1_000_000;
 const MAX_REGTEST_SATS = 10_000_000;
 const MAX_REGTEST_BLOCKS = 100;
-const REGTEST_ADDRESS = /^bcrt1[02-9ac-hj-np-z]{8,87}$/;
+const REGTEST_ADDRESS = new RegExp(`^${BITKIT_REGTEST_HRP}1[02-9ac-hj-np-z]{8,87}$`);
 const TXID = /^[0-9a-f]{64}$/;
 
 const USAGE = `Usage:
@@ -62,13 +68,6 @@ const USAGE = `Usage:
   node scripts/fund-btc.mjs --chain bitkit-regtest <bitkit-regtest|bcrt1…> [sats, default 100000]
   node scripts/fund-btc.mjs --chain bitkit-regtest --mine <blocks>
 --chain defaults to EXPO_PUBLIC_BTC_CHAIN (unset: Mutinynet).`;
-
-/** The chain from --chain or EXPO_PUBLIC_BTC_CHAIN, as the app reads it: unset is Mutinynet, anything unknown is refused. */
-function chainFrom(value) {
-  if (value === undefined || value === '') return 'mutinynet';
-  if (value === 'bitkit-regtest') return value;
-  throw new Error(`Unknown chain "${value}". Leave it unset for Mutinynet, or use bitkit-regtest.`);
-}
 
 /** A whole number in [min, max], or an error that says the range. */
 function wholeNumber(text, min, max, what) {
@@ -168,23 +167,37 @@ async function fundRegtest(targetArg, satsArg) {
   const amountSat = wholeNumber(satsArg, 1_000, MAX_REGTEST_SATS, 'sats');
 
   console.log(`Asking Blocktank's staging regtest for ${amountSat} sats to ${address}…`);
-  const txid = await blocktankRegtest('deposit', { address, amountSat });
-  if (!TXID.test(txid)) throw new Error(`Blocktank's regtest deposit answered without a txid: ${txid.slice(0, 200)}`);
-  console.log(`Sent ${txid}: ${BITKIT_REGTEST_EXPLORER}/tx/${txid}`);
+  const reply = await blocktankRegtest('deposit', { address, amountSat });
+  const txid = depositTxid(reply);
+  if (txid) console.log(`Sent ${txid}: ${BITKIT_REGTEST_EXPLORER}/tx/${txid}`);
+  else {
+    // The deposit was accepted, so the coins are on their way: do not throw
+    // (a rerun would send a second deposit). Confirm them and say where to look.
+    console.warn(`Blocktank accepted the deposit, but its reply has no txid this script reads: ${reply.slice(0, 200) || 'no body'}`);
+    console.warn(`Check ${BITKIT_REGTEST_EXPLORER}/address/${address} before you fund again.`);
+  }
   await mineRegtest('1');
 }
 
-/** Pull `--chain <id>` out of the arguments; the rest are the command. */
-function splitChain(argv) {
-  const at = argv.indexOf('--chain');
-  if (at < 0) return { chainArg: process.env.EXPO_PUBLIC_BTC_CHAIN, rest: argv };
-  if (argv[at + 1] === undefined) throw new Error('--chain needs a value: bitkit-regtest.');
-  return { chainArg: argv[at + 1], rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
+/**
+ * The funding txid in a deposit reply: plain text (what Bitkit's client
+ * reads), a JSON string, or a JSON object with a `txid` field. Undefined if
+ * none of these holds a txid.
+ */
+function depositTxid(reply) {
+  if (TXID.test(reply)) return reply;
+  let parsed;
+  try {
+    parsed = JSON.parse(reply);
+  } catch {
+    return undefined;
+  }
+  const candidate = typeof parsed === 'string' ? parsed : parsed?.txid;
+  return typeof candidate === 'string' && TXID.test(candidate) ? candidate : undefined;
 }
 
 try {
-  const { chainArg, rest: args } = splitChain(process.argv.slice(2));
-  const chain = chainFrom(chainArg);
+  const { chain, rest: args } = btcChainFromArgs(process.argv.slice(2));
   const regtest = chain === 'bitkit-regtest';
   if (args[0] === '--help' || args[0] === '-h') console.log(USAGE);
   else if (!args[0]) {

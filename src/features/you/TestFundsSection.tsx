@@ -7,7 +7,7 @@
 //   person (a login or a captcha), so this section links to them
 //   (src/config/chains.ts). Every "Not enough ETH for gas" message points
 //   here. The demo scripts in scripts/fund-*.mjs do the same from a laptop.
-// - Bitkit's regtest (src/config/btcChain.ts) has no faucet. Its bitcoin
+// - Bitkit's regtest (src/config/btcChain.ts `funding`) has no faucet. Its bitcoin
 //   comes from Blocktank's regtest deposit, which scripts/fund-btc.mjs
 //   calls from a laptop and Bitkit's Dev Settings call from the phone, so
 //   this section says so and shows the address to fund.
@@ -16,7 +16,7 @@
 // Ethereum address" and says once that USD₮ arrives there too.
 import { Linking, StyleSheet, View } from 'react-native';
 
-import { BTC_CHAIN } from '../../config/btcChain';
+import { BTC_CHAIN, type BtcFunding } from '../../config/btcChain';
 import { SEPOLIA_ETH_FAUCET_URL } from '../../config/chains';
 import { Button, KeyText, Text, space } from '../../ui';
 import { formatFee, useWalletAddresses, useWalletBalances } from '../../wallet';
@@ -40,9 +40,18 @@ export function TestFundsSection() {
         onPress={() => void Linking.openURL(SEPOLIA_ETH_FAUCET_URL)}
         testID="open-eth-faucet"
       />
-      {BTC_CHAIN.faucetUrl ? <BtcFaucet url={BTC_CHAIN.faucetUrl} /> : <BtcRegtestDeposit address={btc} />}
+      <BtcTestFunds funding={BTC_CHAIN.funding} address={btc} />
     </View>
   );
+}
+
+function BtcTestFunds({ funding, address }: { funding: BtcFunding; address?: string }) {
+  switch (funding.kind) {
+    case 'faucet':
+      return <BtcFaucet url={funding.url} />;
+    case 'blocktank-regtest':
+      return <BtcRegtestDeposit address={address} />;
+  }
 }
 
 function BtcFaucet({ url }: { url: string }) {

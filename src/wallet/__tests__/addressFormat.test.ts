@@ -1,5 +1,5 @@
 // Address checks follow the build's Bitcoin network (src/config/btcChain.ts).
-import { checkRecipientAddress, isBtcTestnetAddress } from '../addressFormat';
+import { checkRecipientAddress, isPayableBtcAddress } from '../addressFormat';
 import { withBtcChain } from '../../config/__tests__/withBtcChain';
 
 const TB1 = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
@@ -12,8 +12,8 @@ function loadOnRegtest(): typeof import('../addressFormat') {
 
 describe('Bitcoin addresses on a Mutinynet build', () => {
   it('pays tb1 only, not regtest bcrt1', () => {
-    expect(isBtcTestnetAddress(TB1)).toBe(true);
-    expect(isBtcTestnetAddress(BCRT1)).toBe(false);
+    expect(isPayableBtcAddress(TB1)).toBe(true);
+    expect(isPayableBtcAddress(BCRT1)).toBe(false);
     expect(checkRecipientAddress(BCRT1, 'bitcoin')).toMatchObject({ ok: false, message: 'This wallet sends to tb1… addresses only. Ask for a tb1… address.' });
   });
 });
@@ -22,9 +22,9 @@ describe('Bitcoin addresses on a Bitkit regtest build', () => {
   const regtest = loadOnRegtest();
 
   it('pays bcrt1 only, not Mutinynet tb1', () => {
-    expect(regtest.isBtcTestnetAddress(BCRT1)).toBe(true);
-    expect(regtest.isBtcTestnetAddress(BCRT1.toUpperCase())).toBe(true);
-    expect(regtest.isBtcTestnetAddress(TB1)).toBe(false);
+    expect(regtest.isPayableBtcAddress(BCRT1)).toBe(true);
+    expect(regtest.isPayableBtcAddress(BCRT1.toUpperCase())).toBe(true);
+    expect(regtest.isPayableBtcAddress(TB1)).toBe(false);
     expect(regtest.chainOfAddress(BCRT1)).toBe('bitcoin');
   });
 
