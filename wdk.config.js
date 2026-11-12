@@ -15,6 +15,10 @@ module.exports = {
     ethereum: { package: '@tetherto/wdk-wallet-evm' },
     bitcoin: { package: '@tetherto/wdk-wallet-btc' },
   },
+  // Required by the worklet before WDK loads. bare-tls-socket-methods
+  // (worklet/bare-tls-socket-methods, a `file:` dependency so the bundler
+  // can resolve it) adds the socket methods Electrum over TLS needs.
+  preloadModules: ['bare-tls-socket-methods'],
   allowedMethods: {
     ethereum: {
       methods: [

@@ -175,6 +175,18 @@ data). WDK logs each failure with `console.error` first; in dev builds
 App.tsx tells LogBox to ignore exactly that line, so no toast covers the
 UI.
 
+Electrum over TLS (the regtest server, WDK's testnet4 fallback): WDK's
+Electrum library calls Node's `setTimeout`, `setKeepAlive` and
+`setNoDelay` on the TLS socket. In the worklet `node:tls` is `bare-tls`,
+whose socket lacks them, so every TLS connection failed with
+"this._socket.setTimeout is not a function" and Bitcoin calls timed out.
+`worklet/bare-tls-socket-methods` adds the missing methods and forwards
+them to the TCP socket underneath. `wdk.config.js` loads it before WDK
+(`preloadModules`), and `package.json` installs it as a `file:`
+dependency because the bundler only resolves installed packages there.
+Plain TCP (Mutinynet) never uses it. Remove it once `bare-tls` has these
+methods itself.
+
 History sources: BTC uses WDK's `getTransfers` (Electrum), which returns the
 oldest transfers first and stops at `limit`, so the app fetches the whole
 history and keeps the newest. WDK's EVM module

@@ -1,0 +1,8 @@
+{
+  "name": "bare-tls-socket-methods",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Worklet preload: adds Node's setTimeout, setKeepAlive and setNoDelay to bare-tls sockets so Electrum over TLS works in WDK's Bare worklet.",
+  "license": "MIT",
+  "main": "index.js"
+}
