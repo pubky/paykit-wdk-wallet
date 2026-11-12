@@ -17,8 +17,8 @@
 //
 // Two gaps in those sources are filled here:
 // - Bitcoin times. WDK's transfers carry a block height, not a time, so
-//   each confirmed transaction's block time is read once from Mutinynet's
-//   esplora (fetchBtcTransactionStatus) and cached. Without it Bitcoin rows
+//   each confirmed transaction's block time is read once from the
+//   network's esplora (fetchBtcTransactionStatus) and cached. Without it Bitcoin rows
 //   say "confirmed" instead of "2m ago" and sort below every Ethereum row.
 // - Ethereum confirmation. Blockscout often lists a transaction a minute or
 //   more after its block, so a USD₮ send we made would stay "Pending" all

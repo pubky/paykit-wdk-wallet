@@ -1,10 +1,13 @@
-// Dev-only prefill for the two simulator identities.
+// Dev-only prefill for the simulator identities.
 //
 // `npm run demo-env` writes the git-ignored demo.local.ts from .env.demo.
-// It holds a mnemonic and a single-use signup code per platform, so it must
+// It holds a mnemonic and a single-use signup code per platform, plus one
+// identity for Bitkit's regtest (docs/BITKIT-DEMO.md), so it must
 // never be committed, logged, shown on screen or shipped in a release bundle. When the file is missing
 // (a fresh clone), the app simply has no prefill.
 import { Platform } from 'react-native';
+
+import { BTC_CHAIN } from './btcChain';
 
 export type DemoPrefill = {
   mnemonic?: string;
@@ -13,7 +16,7 @@ export type DemoPrefill = {
   peerPubky?: string;
 };
 
-type DemoLocal = { ios?: DemoPrefill; android?: DemoPrefill };
+type DemoLocal = { ios?: DemoPrefill; android?: DemoPrefill; bitkitRegtest?: DemoPrefill };
 
 function loadDemoLocal(): DemoLocal {
   // The require must sit INSIDE `if (__DEV__)`. Metro collects a bundle's
@@ -36,5 +39,7 @@ function loadDemoLocal(): DemoLocal {
 
 const local = loadDemoLocal();
 
-export const demoPrefill: DemoPrefill =
-  (Platform.OS === 'ios' ? local.ios : Platform.OS === 'android' ? local.android : undefined) ?? {};
+// A regtest build uses the regtest identity on any platform: its wallet
+// holds regtest coins and pairs with Bitkit, not with the other simulator.
+const platformPrefill = Platform.OS === 'ios' ? local.ios : Platform.OS === 'android' ? local.android : undefined;
+export const demoPrefill: DemoPrefill = (BTC_CHAIN.id === 'bitkit-regtest' ? local.bitkitRegtest : platformPrefill) ?? {};

@@ -4,7 +4,8 @@
 //
 // The item comes from useActivity() by id (route params carry ids, never
 // records). BTC transfers from WDK carry only a block height, so for a
-// confirmed BTC item the block time is read from Mutinynet's API.
+// confirmed BTC item the block time is read from the network's esplora API
+// (Mutinynet's or Bitkit regtest's, src/config/btcChain.ts).
 //
 // When the transaction involves a contact (activity/activityPeople.ts), the
 // title and the From / To row name them, and a receive on their own

@@ -1,7 +1,7 @@
 // Putting a contact's name on an on-chain activity item.
 import type { ActivityItem } from '../../../wallet';
 import { activityPersonFor, type AddressBook } from '../activity/activityPeople';
-import { activityTitleWithPerson } from '../activity/activityText';
+import { activityTitleWithPerson, networkName } from '../activity/activityText';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const BEN_BTC = 'tb1qzrav4ryngqgz8edew2y37976y9rvt2syvwuhgx';
@@ -76,5 +76,34 @@ describe('activityPersonFor with payment requests', () => {
 
   it('ignores a request link whose direction does not match', () => {
     expect(activityPersonFor({ ...base, hash: 'paid-ana', direction: 'in' }, withRequests)).toBeUndefined();
+  });
+});
+
+describe('the network an item names', () => {
+  /** activityText as a bitkit-regtest build loads it, then the variable is restored. */
+  function loadOnRegtest(): typeof import('../activity/activityText') {
+    const previous = process.env.EXPO_PUBLIC_BTC_CHAIN;
+    process.env.EXPO_PUBLIC_BTC_CHAIN = 'bitkit-regtest';
+    try {
+      let loaded: typeof import('../activity/activityText') | undefined;
+      jest.isolateModules(() => {
+        loaded = jest.requireActual<typeof import('../activity/activityText')>('../activity/activityText');
+      });
+      return loaded!;
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_BTC_CHAIN;
+      else process.env.EXPO_PUBLIC_BTC_CHAIN = previous;
+    }
+  }
+
+  it('says Mutinynet in a default build, as before', () => {
+    expect(networkName(base)).toBe('Bitcoin (Mutinynet)');
+    expect(networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Ethereum (Sepolia)');
+  });
+
+  it("says Bitkit's regtest in a regtest build, and Sepolia is unchanged", () => {
+    const regtest = loadOnRegtest();
+    expect(regtest.networkName(base)).toBe('Bitcoin (Bitkit regtest)');
+    expect(regtest.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Ethereum (Sepolia)');
   });
 });

@@ -10,6 +10,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable } from 'react-native';
 
+import { BTC_CHAIN } from '../../../config/btcChain';
 import { pubkyFromText } from '../../../paykit';
 import { Input, Text } from '../../../ui';
 import { ASSETS, checkRecipientAddress } from '../../../wallet';
@@ -50,13 +51,13 @@ export function AddressRecipientField({
       value={text}
       onChangeText={setText}
       onBlur={() => setTouched(true)}
-      placeholder={chain === 'bitcoin' ? 'tb1…' : '0x…'}
+      placeholder={chain === 'bitcoin' ? `${BTC_CHAIN.bech32Prefix}…` : '0x…'}
       mono
       multiline
       blurOnSubmit
       returnKeyType="done"
       error={touched && !check.ok && check.reason !== 'empty' ? check.message : undefined}
-      hint={chain === 'ethereum' ? 'Any Ethereum address. The tokens move on Sepolia.' : 'A Mutinynet address (tb1…).'}
+      hint={chain === 'ethereum' ? 'Any Ethereum address. The tokens move on Sepolia.' : `A ${BTC_CHAIN.displayName} address (${BTC_CHAIN.bech32Prefix}…).`}
       accessory={
         <Pressable accessibilityRole="button" accessibilityLabel="Paste" onPress={onPaste} hitSlop={8} testID="paste-address">
           <Text variant="bodyStrong" color="seal">

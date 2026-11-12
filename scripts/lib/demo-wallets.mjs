@@ -7,6 +7,14 @@
 //
 //   EVM (ETH and USD₮ on Sepolia)  m/44'/60'/0'/0/0   WDK wallet-evm getAccount(0)
 //   BTC (Mutinynet, P2WPKH tb1q…)  m/84'/1'/0'/0/0    WDK wallet-btc getAccount(0), network 'testnet'
+//   BTC (regtest, P2WPKH bcrt1q…)  m/84'/1'/0'/0/0    WDK wallet-btc getAccount(0), network 'regtest'
+//
+// Checked in @tetherto/wdk-wallet-btc 1.0.0-beta.17 (src/wallet-account-btc.js):
+// the path is m/<bip>'/<0 for 'bitcoin', else 1>'/0'/0/<index>, so testnet
+// and regtest share coin type 1 and the same key; only the address differs.
+// The address is bitcoinjs-lib's payments.p2wpkh with networks.regtest,
+// whose bech32 prefix is 'bcrt'. The regtest identity is a third phrase
+// (BITKIT_REGTEST_MNEMONIC, docs/BITKIT-DEMO.md).
 //
 // Both use the BIP-39 seed with an empty passphrase, like WDK. The iOS demo
 // wallet doubles as the treasury: its EVM key signs the Sepolia scripts.
@@ -34,9 +42,16 @@ export const MUTINYNET_API = 'https://mutinynet.com/api';
 export const MUTINYNET_FAUCET = 'https://faucet.mutinynet.com';
 export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
 export const MUTINYNET_EXPLORER = 'https://mutinynet.com';
+/** Bitkit's staging regtest explorer (BITKIT_REGTEST_EXPLORER in src/config/chains.ts). */
+export const BITKIT_REGTEST_EXPLORER = 'https://mempool.bitkit.stag0.blocktank.to';
+/**
+ * Blocktank's staging regtest chain API: `deposit` and `mine`, the calls
+ * Bitkit's Dev Settings › Blocktank Regtest make (rust-blocktank-client 0.0.16).
+ */
+export const BLOCKTANK_REGTEST_CHAIN_API = 'https://api.stag0.blocktank.to/blocktank/api/v2/regtest/chain';
 
 const EVM_PATH = "m/44'/60'/0'/0/0";
-/** BTC account i (0 = spending, 1, 2, … = contact accounts), as WDK's getAccount(i) on testnet. */
+/** BTC account i (0 = spending, 1, 2, … = contact accounts), as WDK's getAccount(i) on testnet and regtest. */
 const btcPath = (accountIndex) => `m/84'/1'/0'/0/${accountIndex}`;
 
 /** Read .env.demo into an object. Values are secrets: never print them. */
@@ -52,10 +67,18 @@ export function readDemoEnv() {
   return values;
 }
 
+/**
+ * A P2WPKH address for a compressed secp256k1 public key: bech32 prefix
+ * 'tb' (testnet and signets such as Mutinynet, tb1q…) or 'bcrt' (regtest, bcrt1q…).
+ */
+export function p2wpkhAddress(compressedPublicKeyHex, hrp) {
+  const hash160 = getBytes(ripemd160(sha256(compressedPublicKeyHex)));
+  return bech32.encode(hrp, [0, ...bech32.toWords(hash160)]);
+}
+
 /** A P2WPKH testnet address (tb1q…) for a compressed secp256k1 public key. */
 export function p2wpkhTestnetAddress(compressedPublicKeyHex) {
-  const hash160 = getBytes(ripemd160(sha256(compressedPublicKeyHex)));
-  return bech32.encode('tb', [0, ...bech32.toWords(hash160)]);
+  return p2wpkhAddress(compressedPublicKeyHex, 'tb');
 }
 
 /**
@@ -77,6 +100,16 @@ export function btcAddressForAccount(name, accountIndex, env = readDemoEnv()) {
   const phrase = env[key];
   if (!phrase) throw new Error(`${key} is not set in .env.demo`);
   return p2wpkhTestnetAddress(HDNodeWallet.fromPhrase(phrase, '', btcPath(accountIndex)).publicKey);
+}
+
+/**
+ * The regtest demo identity's BTC account 0 (bcrt1q…), from
+ * BITKIT_REGTEST_MNEMONIC. Public only.
+ */
+export function bitkitRegtestBtcAddress(env = readDemoEnv()) {
+  const phrase = env.BITKIT_REGTEST_MNEMONIC;
+  if (!phrase) throw new Error('BITKIT_REGTEST_MNEMONIC is not set in .env.demo');
+  return p2wpkhAddress(HDNodeWallet.fromPhrase(phrase, '', btcPath(0)).publicKey, 'bcrt');
 }
 
 /** Both demo wallets' public addresses. */

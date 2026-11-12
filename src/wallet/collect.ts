@@ -23,7 +23,8 @@ export const BTC_DUST_LIMIT_SATS = 294n;
 export const BTC_MIN_TX_FEE_SATS = 141n;
 
 /**
- * The smallest balance a collect can move at Mutinynet's usual 1 sat/vB:
+ * The smallest balance a collect can move at the usual 1 sat/vB (Mutinynet
+ * and regtest alike):
  * what is left after WDK's minimum fee must be above the dust limit. At
  * higher fee rates more is needed; Collect then says it is too little.
  */

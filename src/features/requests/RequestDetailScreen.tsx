@@ -22,6 +22,7 @@
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { BTC_CHAIN } from '../../config/btcChain';
 import type { RootScreenProps } from '../../navigation/types';
 import {
   acceptRequest,
@@ -148,7 +149,7 @@ export function RequestDetailScreen({ navigation, route }: RootScreenProps<'Requ
         ) : null}
         {terms?.asset ? (
           <>
-            <DetailRow label="Network" value={terms.asset === 'btc' ? 'Bitcoin (Mutinynet)' : `${ASSETS.usdt.displayName} on Ethereum Sepolia`} />
+            <DetailRow label="Network" value={terms.asset === 'btc' ? BTC_CHAIN.networkLabel : `${ASSETS.usdt.displayName} on Ethereum Sepolia`} />
             <Divider />
           </>
         ) : null}
