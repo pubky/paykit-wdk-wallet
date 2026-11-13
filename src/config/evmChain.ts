@@ -46,9 +46,11 @@ export type UsdtEndpointId = 'usdt-sepolia-address' | 'usdt-arbitrum-address';
  * Where ETH for gas and USD₮ come from (You > Test funds): a public ETH
  * faucet plus Aave's test-token mint (Sepolia), scripts/fund-fork.mjs
  * against the local Anvil fork, or nowhere, because they are real funds.
+ * Only 'aave-faucet' shows "Get test USD₮"; `testNetwork` names the network
+ * in its words ("Aave’s Sepolia faucet").
  */
 export type EvmFunding =
-  | { readonly kind: 'aave-faucet'; readonly ethFaucetUrl: string }
+  | { readonly kind: 'aave-faucet'; readonly ethFaucetUrl: string; readonly testNetwork: string }
   | { readonly kind: 'anvil-fork' }
   | { readonly kind: 'real-funds' };
 
@@ -89,6 +91,8 @@ export type EvmChainProfile = {
   readonly paymentTime: EvmPaymentTime;
   /** True when ETH and USD₮ are real money: the screens warn about it. */
   readonly realFunds: boolean;
+  /** What the Wallet tab and the Send review say, always, on a real-funds build; none otherwise. */
+  readonly realFundsWarning: string | undefined;
   /** The build-time switch that picked this chain, shown in Network details; none for the default. */
   readonly buildSwitch: string | undefined;
   /** WDK's asset ids; they key WDK's balance cache, so each chain has its own. */
@@ -135,10 +139,11 @@ const SEPOLIA: EvmChainProfile = {
   explorer: SEPOLIA_EXPLORER,
   activityApi: SEPOLIA_BLOCKSCOUT_API,
   endpointId: 'usdt-sepolia-address',
-  funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL },
+  funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
   // Sepolia makes at most one block per 12 s slot.
   paymentTime: { kind: 'slot-bound', slotMs: 12_000 },
   realFunds: false,
+  realFundsWarning: undefined,
   buildSwitch: undefined,
   ethAssetId: 'eth-sepolia',
   usdtAssetId: 'usdt-sepolia',
@@ -175,6 +180,7 @@ const ARBITRUM_FORK: EvmChainProfile = {
   funding: { kind: 'anvil-fork' },
   paymentTime: ARBITRUM_PAYMENT_TIME,
   realFunds: false,
+  realFundsWarning: undefined,
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
   // Not Arbitrum One's ids: the fork's balances must never land in the real chain's cache entry.
   ethAssetId: 'eth-arbitrum-fork',
@@ -207,6 +213,7 @@ const ARBITRUM_ONE: EvmChainProfile = {
   funding: { kind: 'real-funds' },
   paymentTime: ARBITRUM_PAYMENT_TIME,
   realFunds: true,
+  realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
   ethAssetId: 'eth-arbitrum-one',
   usdtAssetId: 'usdt-arbitrum-one',
@@ -236,3 +243,10 @@ export function evmChainFromEnv(value: string | undefined): EvmChainProfile {
 
 // Dot access on purpose: Expo only inlines EXPO_PUBLIC_* variables written exactly this way.
 export const EVM_CHAIN = evmChainFromEnv(process.env.EXPO_PUBLIC_EVM_CHAIN);
+
+/**
+ * Aave's test-token faucet, on a build whose USD₮ comes from it (Sepolia);
+ * undefined on any other. Screens show "Get test USD₮" and call a mint a
+ * mint only when it is set.
+ */
+export const AAVE_FAUCET_FUNDING = EVM_CHAIN.funding.kind === 'aave-faucet' ? EVM_CHAIN.funding : undefined;

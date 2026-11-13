@@ -9,13 +9,15 @@
 // - an endpoint must belong to the pubky we asked about;
 // - its payload must pass our own endpoint parser (./endpoints.ts): a
 //   BTC address on the build's network (tb1 on Mutinynet, bcrt1 on
-//   Bitkit's regtest), and for USD₮ an EVM address on Sepolia
-//   naming the exact test token contract this wallet holds;
+//   Bitkit's regtest), and for USD₮ an EVM address on the build's EVM
+//   chain (src/config/evmChain.ts) naming the exact token contract this
+//   wallet holds;
 // - the first valid endpoint per asset wins (the SDK returns them in the
 //   adapter's preference order).
 //
 // This file has no native imports and is unit tested. The SDK enum is
 // mapped to `PublicPaymentStatus` in ./publicPayments.ts.
+import { EVM_CHAIN } from '../config/evmChain';
 import { ASSETS } from '../wallet/assets';
 import { parseEndpoint } from './endpoints';
 
@@ -86,7 +88,7 @@ export function cannotPayReason(options: PublicPaymentOptions, asset: PayeeAsset
     return `${name} doesn't accept ${ASSETS[asset].displayName} by pubky. Choose ${other} instead.`;
   }
   if (options.status === 'unsupported') {
-    return `${name} publishes payment details this wallet can't use. Ask them for a test-network address instead.`;
+    return `${name} publishes payment details this wallet can't use. Ask them for ${EVM_CHAIN.realFunds ? 'an address' : 'a test-network address'} instead.`;
   }
   return `${name} doesn't publish any payment addresses. Ask them for an address, or add each other as contacts.`;
 }

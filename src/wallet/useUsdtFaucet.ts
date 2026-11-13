@@ -5,7 +5,8 @@
 // a little Sepolia ETH for gas; Sepolia gas is usually a few gwei or less.
 // `sendTransaction` must be in wdk.config.js `allowedMethods`, which lets it
 // sign any call data; isAllowedContractCall (./faucet.ts) is checked first
-// so this hook can only ever send the faucet's mint.
+// so this hook can only ever send the faucet's mint, and only on a build
+// whose USD₮ comes from that faucet (src/config/evmChain.ts `funding`).
 import { useCallback } from 'react';
 import { useAccount } from '@tetherto/wdk-react-native-core';
 

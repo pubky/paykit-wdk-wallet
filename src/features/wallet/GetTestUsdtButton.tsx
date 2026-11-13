@@ -8,27 +8,37 @@
 // A ref guards against a double tap before React re-renders.
 //
 // Used on Receive (next to USD₮), on the Wallet tab when USD₮ is empty, and
-// in You &gt; Test funds.
+// in You &gt; Test funds. Only builds whose USD₮ comes from Aave's faucet
+// (src/config/evmChain.ts AAVE_FAUCET_FUNDING) show it; on any other it
+// renders nothing, and those screens leave out the text around it too.
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../../config/evmChain';
 import { Button, Text, space } from '../../ui';
-import { CONFIRMATION_TIME, DEFAULT_FAUCET_MINT_UNITS, formatAssetAmount, sendFailureFor, useUsdtFaucet, useWalletBalances } from '../../wallet';
+import { DEFAULT_FAUCET_MINT_UNITS, formatAssetAmount, sendFailureFor, useUsdtFaucet, useWalletBalances } from '../../wallet';
 
 /** "Get 1,000 test USD₮". */
 const MINT_LABEL = `Get ${formatAssetAmount(DEFAULT_FAUCET_MINT_UNITS, 'usdt').replace(/\.00$/, '')} test USD₮`;
 
-export function GetTestUsdtButton({ compact, faucetBelow }: { compact?: boolean; /** In You > Test funds, where the ETH faucet link is right below. */ faucetBelow?: boolean }) {
+type GetTestUsdtButtonProps = { compact?: boolean; /** In You > Test funds, where the ETH faucet link is right below. */ faucetBelow?: boolean };
+
+export function GetTestUsdtButton(props: GetTestUsdtButtonProps) {
+  return AAVE_FAUCET_FUNDING ? <MintButton {...props} /> : null;
+}
+
+function MintButton({ compact, faucetBelow }: GetTestUsdtButtonProps) {
   const faucet = useUsdtFaucet();
   const { balances, refresh } = useWalletBalances();
   const [minting, setMinting] = useState(false);
-  const [result, setResult] = useState<{ explorerUrl: string }>();
+  const [result, setResult] = useState<{ explorerUrl?: string }>();
   const [error, setError] = useState<string>();
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const inFlight = useRef(false);
 
   const noGas = balances.eth === 0n;
+  const explorerUrl = result?.explorerUrl;
   const onMint = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -66,15 +76,15 @@ export function GetTestUsdtButton({ compact, faucetBelow }: { compact?: boolean;
       />
       {noGas && !result ? (
         <Text variant="caption" color="graphite" testID="faucet-needs-gas">
-          Minting needs a little Sepolia ETH for gas, and this wallet has none. {faucetBelow ? 'Get some from the Sepolia ETH faucet below.' : 'Get some for your Ethereum address in You > Test funds.'}
+          Minting needs a little {EVM_CHAIN.gasCoin} for gas, and this wallet has none. {faucetBelow ? `Get some from the ${EVM_CHAIN.gasCoin} faucet below.` : 'Get some for your Ethereum address in You > Test funds.'}
         </Text>
       ) : null}
       {result ? (
         <View style={styles.result}>
           <Text variant="caption" color="graphite">
-            Minting. It arrives with the next Sepolia block, in {CONFIRMATION_TIME.ethereum}.
+            Minting. It arrives with {EVM_CHAIN.pendingUntil}.
           </Text>
-          <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(result.explorerUrl)} />
+          {explorerUrl ? <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(explorerUrl)} /> : null}
         </View>
       ) : null}
       {error ? (

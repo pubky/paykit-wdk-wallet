@@ -32,6 +32,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, View } from 'react-native';
 
+import { EVM_CHAIN } from '../../config/evmChain';
 import type { RootScreenProps } from '../../navigation/types';
 import { Button, SegmentedControl, SheetScreen, Text, space } from '../../ui';
 import {
@@ -293,7 +294,7 @@ export function SendScreen({ navigation, route }: RootScreenProps<'Send'>) {
         />
         {noGas ? (
           <Text color="alert" testID="send-no-gas">
-            Not enough ETH for gas. USD₮ transfers pay their network fee in Sepolia ETH, and this wallet has none. Get some for your
+            Not enough ETH for gas. USD₮ transfers pay their network fee in {EVM_CHAIN.gasCoin}, and this wallet has none. Get some for your
             Ethereum address in You &gt; Test funds.
           </Text>
         ) : null}

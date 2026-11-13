@@ -3,6 +3,7 @@ import type { ActivityItem } from '../../../wallet';
 import { activityPersonFor, type AddressBook } from '../activity/activityPeople';
 import { activityTitleWithPerson, networkName } from '../activity/activityText';
 import { withBtcChain } from '../../../config/__tests__/withBtcChain';
+import { withEvmChain } from '../../../config/__tests__/withEvmChain';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const BEN_BTC = 'tb1qzrav4ryngqgz8edew2y37976y9rvt2syvwuhgx';
@@ -95,5 +96,18 @@ describe('the network an item names', () => {
     const regtest = loadOnRegtest();
     expect(regtest.networkName(base)).toBe('Bitcoin (Bitkit regtest)');
     expect(regtest.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Ethereum (Sepolia)');
+  });
+});
+
+describe('the network an item names, on another EVM chain', () => {
+  it('says the local Arbitrum fork, and Bitcoin is unchanged', () => {
+    const fork = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../activity/activityText')>('../activity/activityText'));
+    expect(fork.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Arbitrum (local fork)');
+    expect(fork.networkName(base)).toBe('Bitcoin (Mutinynet)');
+  });
+
+  it('says Arbitrum One on a real-funds build', () => {
+    const one = withEvmChain('arbitrum-one', () => jest.requireActual<typeof import('../activity/activityText')>('../activity/activityText'));
+    expect(one.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Arbitrum One');
   });
 });

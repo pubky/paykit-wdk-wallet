@@ -1,17 +1,19 @@
 // The receive card: one asset's account-0 address as a QR code, the full
 // address in the mono face, and ways to hand it over (copy, share) or check
-// it (explorer). It is the one centered element in the app (docs/DESIGN.md).
+// it (explorer, where the network has one). It is the one centered element
+// in the app (docs/DESIGN.md).
 //
 // The QR holds the plain address, not a payment URI: every wallet reads a
 // plain address, and the person types the amount on their side.
 // USD₮ and ETH share one Ethereum address, so the USD₮ card says that gas
-// money (Sepolia ETH) goes to the same place.
+// money (ETH on the build's EVM chain) goes to the same place.
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { Linking, Share, StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
+import { EVM_CHAIN } from '../../../config/evmChain';
 import { AssetDot, Button, Card, KeyText, QrCode, Text, space } from '../../../ui';
 import { addressUrl } from '../../../wallet';
 
@@ -23,8 +25,8 @@ const CARD_TEXT: Record<'btc' | 'usdt', { title: string; network: string; note: 
   },
   usdt: {
     title: 'USD₮',
-    network: 'Ethereum Sepolia test network',
-    note: 'Sepolia ETH for gas arrives at this same address. Send only Sepolia test tokens here.',
+    network: EVM_CHAIN.receiveNetwork,
+    note: EVM_CHAIN.receiveNote,
   },
 };
 
@@ -38,6 +40,7 @@ export function ReceiveCard({ asset, address }: { asset: 'btc' | 'usdt'; address
   }, [copied]);
 
   const chain = asset === 'btc' ? 'bitcoin' : 'ethereum';
+  const explorerUrl = address ? addressUrl(chain, address) : undefined;
   const onCopy = async () => {
     if (!address) return;
     await Clipboard.setStringAsync(address);
@@ -68,7 +71,7 @@ export function ReceiveCard({ asset, address }: { asset: 'btc' | 'usdt'; address
           <View style={styles.actions}>
             <Button label={copied ? 'Copied' : 'Copy'} variant="secondary" compact onPress={onCopy} testID="receive-copy" />
             <Button label="Share" variant="secondary" compact onPress={onShare} testID="receive-share" />
-            <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(addressUrl(chain, address))} />
+            {explorerUrl ? <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(explorerUrl)} /> : null}
           </View>
         </>
       ) : null}

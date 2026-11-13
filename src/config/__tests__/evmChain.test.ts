@@ -7,7 +7,7 @@ import {
   SEPOLIA_EXPLORER,
   SEPOLIA_RPC,
 } from '../chains';
-import { EVM_CHAIN, evmChainFromEnv } from '../evmChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN, evmChainFromEnv } from '../evmChain';
 import { withEvmChain } from './withEvmChain';
 
 // USD₮0 on Arbitrum One, in lowercase, exactly as Bitkit publishes it.
@@ -25,9 +25,10 @@ describe('evmChainFromEnv', () => {
         explorer: SEPOLIA_EXPLORER,
         activityApi: SEPOLIA_BLOCKSCOUT_API,
         endpointId: 'usdt-sepolia-address',
-        funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL },
+        funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
         paymentTime: { kind: 'slot-bound', slotMs: 12_000 },
         realFunds: false,
+        realFundsWarning: undefined,
         buildSwitch: undefined,
         // These key WDK's balance cache: changing them would orphan existing installs' balances.
         ethAssetId: 'eth-sepolia',
@@ -61,6 +62,7 @@ describe('evmChainFromEnv', () => {
       funding: { kind: 'anvil-fork' },
       paymentTime: { kind: 'block-timestamp', allowanceMs: 600_000 },
       realFunds: false,
+      realFundsWarning: undefined,
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
       ethAssetId: 'eth-arbitrum-fork',
       usdtAssetId: 'usdt-arbitrum-fork',
@@ -80,6 +82,7 @@ describe('evmChainFromEnv', () => {
       funding: { kind: 'real-funds' },
       paymentTime: { kind: 'block-timestamp', allowanceMs: 600_000 },
       realFunds: true,
+      realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
       ethAssetId: 'eth-arbitrum-one',
       usdtAssetId: 'usdt-arbitrum-one',
@@ -109,6 +112,28 @@ describe('evmChainFromEnv', () => {
 
   it('is Sepolia in this test run (the variable is unset)', () => {
     expect(EVM_CHAIN.id).toBe('sepolia');
+  });
+});
+
+describe('AAVE_FAUCET_FUNDING', () => {
+  const load = () => jest.requireActual<typeof import('../evmChain')>('../evmChain').AAVE_FAUCET_FUNDING;
+
+  it("is Sepolia's faucet on the default build", () => {
+    expect(AAVE_FAUCET_FUNDING).toEqual({ kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' });
+  });
+
+  it('is unset on both Arbitrum builds, so no screen offers a test-token mint there', () => {
+    expect(withEvmChain('arbitrum-fork', load)).toBeUndefined();
+    expect(withEvmChain('arbitrum-one', load)).toBeUndefined();
+  });
+});
+
+describe('the real-funds warning', () => {
+  it('is set only where the funds are real', () => {
+    for (const value of ['', 'arbitrum-fork', 'arbitrum-one']) {
+      const profile = evmChainFromEnv(value);
+      expect(profile.realFundsWarning !== undefined).toBe(profile.realFunds);
+    }
   });
 });
 

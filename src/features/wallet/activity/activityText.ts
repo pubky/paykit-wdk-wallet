@@ -7,13 +7,19 @@
 // our side, the private addresses they shared with us); this file only
 // words it.
 import { BTC_CHAIN } from '../../../config/btcChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../../../config/evmChain';
 import type { ActivityItem } from '../../../wallet';
 
 const ZERO_ADDRESS = /^0x0{40}$/i;
 
-/** A USD₮ transfer from the zero address is a mint: the Aave faucet. */
+/**
+ * A USD₮ transfer from the zero address is a mint: the Aave faucet. Only on
+ * a build funded by that faucet: USD₮0 on Arbitrum is minted from the zero
+ * address too, when it is bridged in, and that is not a test-token mint.
+ */
 export function isFaucetMint(item: ActivityItem): boolean {
   return (
+    AAVE_FAUCET_FUNDING !== undefined &&
     item.asset === 'usdt' &&
     item.direction === 'in' &&
     (item.id.endsWith(':local:faucet') || (item.counterpartyAddress !== undefined && ZERO_ADDRESS.test(item.counterpartyAddress)))
@@ -64,7 +70,7 @@ export function activityStatusWords(item: ActivityItem): string {
   return 'Confirmed';
 }
 
-/** "Bitcoin (Mutinynet)" (or the build's network, src/config/btcChain.ts), "Ethereum (Sepolia)". */
+/** "Bitcoin (Mutinynet)", "Ethereum (Sepolia)", or the build's networks (src/config/btcChain.ts, src/config/evmChain.ts). */
 export function networkName(item: ActivityItem): string {
-  return item.chain === 'bitcoin' ? BTC_CHAIN.networkLabel : 'Ethereum (Sepolia)';
+  return item.chain === 'bitcoin' ? BTC_CHAIN.networkLabel : EVM_CHAIN.networkLabel;
 }

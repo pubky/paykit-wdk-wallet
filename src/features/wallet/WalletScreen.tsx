@@ -4,8 +4,12 @@
 //
 // Balances are polled every ~15 s while the app is active (pull to
 // refresh). An empty USD₮ balance offers "Get test USD₮" right here, since
-// that is the first thing a new demo wallet needs. Activity rows open
-// Activity detail.
+// that is the first thing a new demo wallet needs (on builds funded by
+// Aave's faucet). Activity rows open Activity detail.
+//
+// A real-funds build (EXPO_PUBLIC_EVM_CHAIN=arbitrum-one) says so above the
+// balances, always: its USD₮ and ETH are real, its keys are not protected
+// like a real wallet's.
 //
 // Errors are sentences, never WDK's text: a balance that failed to load
 // says so under the balances, and failed history replaces the "No activity
@@ -20,6 +24,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../../config/evmChain';
 import type { MainTabScreenProps } from '../../navigation/types';
 import { useConnectionNotice, useContactAccounts, useOwnProfile, usePaykitService } from '../../paykit';
 import { ASSET_DOT_SIZE, AssetAmount, AssetDot, Button, Divider, EmptyState, Row, Screen, Text, space } from '../../ui';
@@ -70,6 +75,11 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
       }
       testID="wallet-screen"
     >
+      {EVM_CHAIN.realFundsWarning ? (
+        <Text variant="secondary" color="alert" style={styles.realFunds} testID="real-funds-warning">
+          {EVM_CHAIN.realFundsWarning}
+        </Text>
+      ) : null}
       <View style={styles.balances}>
         <Row title={ASSETS.btc.displayName} leading={<AssetDot asset="btc" />} trailing={<AssetAmount value={balances.btc} asset="btc" />} testID="balance-btc" />
         {fromContacts.collectable > 0n ? (
@@ -93,7 +103,7 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
         <Text variant="caption" color="graphite" style={styles.gas} testID="balance-eth">
           gas {balances.eth === undefined ? '—' : formatAssetAmount(balances.eth, 'eth', { withSymbol: true })}
         </Text>
-        {balances.usdt === 0n ? (
+        {balances.usdt === 0n && AAVE_FAUCET_FUNDING ? (
           <View style={styles.faucet}>
             <GetTestUsdtButton compact />
           </View>
@@ -147,6 +157,7 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
 const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: space.s, flexShrink: 1 },
   name: { flexShrink: 1 },
+  realFunds: { marginBottom: space.m },
   balances: { gap: 0 },
   // Line up with the asset names: dot width plus the Row's gap.
   gas: { marginLeft: ASSET_DOT_SIZE + space.m, marginTop: -space.s },
