@@ -1,5 +1,5 @@
-// Chain constants for the networks the wallet uses: test networks, plus
-// Arbitrum One for the opt-in EXPO_PUBLIC_EVM_CHAIN=arbitrum-one build.
+// Chain constants for the test networks the wallet uses, plus Arbitrum
+// One's chain id and token, which the local fork keeps.
 //
 // This file has no imports on purpose: pure logic (amount formatting,
 // endpoint payload checks, faucet call data) imports it and is unit tested
@@ -54,7 +54,6 @@ export const SEPOLIA_USDT = '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
  * computer, so it keeps the same chain id and token.
  */
 export const ARBITRUM_ONE_CHAIN_ID = 42161;
-export const ARBITRUM_ONE_RPC = 'https://arb1.arbitrum.io/rpc';
 export const ARBITRUM_FORK_RPC = 'http://127.0.0.1:18545';
 
 /**
@@ -83,7 +82,6 @@ export const MUTINYNET_FAUCET_URL = 'https://faucet.mutinynet.com';
 /** Block explorers, for links the user can open. */
 export const MUTINYNET_EXPLORER = 'https://mutinynet.com';
 export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
-export const ARBISCAN_EXPLORER = 'https://arbiscan.io';
 
 /**
  * Mutinynet's keyless esplora API (the mempool.space software). WDK has no

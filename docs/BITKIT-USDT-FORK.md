@@ -33,22 +33,22 @@ set for free.
 
 The switch is `EXPO_PUBLIC_EVM_CHAIN`
 ([`src/config/evmChain.ts`](../src/config/evmChain.ts)). Leave it unset
-for Sepolia. Any value other than the three below stops the app at
+for Sepolia. Any value other than `arbitrum-fork` stops the app at
 launch.
 
-| | Default (Sepolia) | `arbitrum-fork` | `arbitrum-one` |
-|---|---|---|---|
-| Chain id | `11155111` | `42161` | `42161` |
-| RPC | `https://ethereum-sepolia-rpc.publicnode.com` | `http://127.0.0.1:18545` (Anvil) | `https://arb1.arbitrum.io/rpc` |
-| USD₮ token | Aave test USDT `0xaA8E…33D0` | USD₮0 `0xfd08…cbb9` | USD₮0 `0xfd08…cbb9` |
-| USD₮ endpoint id | `usdt-sepolia-address` | `usdt-arbitrum-address` (Bitkit's id) | `usdt-arbitrum-address` |
-| Explorer links | Sepolia Etherscan | none | Arbiscan |
-| Activity history (indexer) | Blockscout Sepolia | none | none |
-| When a USD₮ payment was made | counted from confirmations (one block per 12 s) | the block's timestamp, with 10 minutes' allowance | the block's timestamp, with 10 minutes' allowance |
-| Test funds | Aave faucet ("Get test USD₮") and a public ETH faucet | `scripts/fund-fork.mjs` | none: real money |
-| npm script | `npm start` | `npm run start:arbitrum-fork` | none, on purpose |
+| | Default (Sepolia) | `arbitrum-fork` |
+|---|---|---|
+| Chain id | `11155111` | `42161` |
+| RPC | `https://ethereum-sepolia-rpc.publicnode.com` | `http://127.0.0.1:18545` (Anvil) |
+| USD₮ token | Aave test USDT `0xaA8E…33D0` | USD₮0 `0xfd08…cbb9` |
+| USD₮ endpoint id | `usdt-sepolia-address` | `usdt-arbitrum-address` (Bitkit's id) |
+| Explorer links | Sepolia Etherscan | none |
+| Activity history (indexer) | Blockscout Sepolia | none |
+| When a USD₮ payment was made | counted from confirmations (one block per 12 s) | the block's timestamp, with 10 minutes' allowance |
+| Test funds | Aave faucet ("Get test USD₮") and a public ETH faucet | `scripts/fund-fork.mjs` |
+| npm script | `npm start` | `npm run start:arbitrum-fork` |
 
-In both Arbitrum modes the wallet also:
+In the `arbitrum-fork` mode the wallet also:
 
 - publishes its USD₮ address under Bitkit's endpoint id, with the payload
   Bitkit expects: `{"value":"0x…","chain_id":"42161","token":"0xfd08…cbb9"}`;
@@ -57,13 +57,11 @@ In both Arbitrum modes the wallet also:
 - accepts Bitkit's payment code, `ethereum:<USD₮0>@42161/transfer?address=…`;
 - hides the Aave faucet, and refuses to sign any contract call (what
   lives at the faucet's address on Arbitrum is unknown);
-- uses its own WDK asset ids (`usdt-arbitrum-fork`, `usdt-arbitrum-one`),
-  so fork balances never mix with real ones.
+- uses its own WDK asset ids (`eth-arbitrum-fork`, `usdt-arbitrum-fork`),
+  so fork balances never mix with another chain's.
 
-`arbitrum-one` also shows a warning on the Wallet tab and the Send
-review: "Arbitrum One: real USD₮ and ETH. This demo wallet stores keys
-with demo-grade protection." This guide covers `arbitrum-fork` only. See
-"Known gaps" before you go near `arbitrum-one`.
+There is no mode for Arbitrum One itself, with real funds. See "Not in
+this change" below.
 
 Bitcoin is a separate switch. For the full Bitkit demo, Bitcoin runs on
 Bitkit's staging regtest ([BITKIT-DEMO.md](BITKIT-DEMO.md)) and USD₮ on
@@ -462,15 +460,33 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
   prefill is off on non-Sepolia EVM builds.
 - **Anvil forgets everything when it stops.** Keep it running for the
   whole demo.
-- **`arbitrum-one` is real money.** It has no npm script, so real funds
-  are never one command away, and no history API. If you run it:
-  - use fresh identities only, never the demo phones';
-  - fund it only with amounts the owner has approved, exactly;
-  - remember the keys have demo-grade protection, and the same phrase
-    derives the Pubky identity without domain separation
-    (`src/wallet/useWalletLifecycle.ts:6-8`), while the demo phrases sit
-    in plain, git-ignored files;
-  - every send spends real ETH for gas and real USD₮0.
+
+## Not in this change: Arbitrum One with real funds
+
+Issue #2 lists real Arbitrum One as an optional fallback that needs the
+owner's approval. It is left out: `EXPO_PUBLIC_EVM_CHAIN=arbitrum-one`
+stops the app at launch, like any unknown value. A wallet on real funds
+needs more than a new chain profile:
+
+- **Key protection is demo-grade** (see the README), and the demo
+  phrases are kept in plain, git-ignored files.
+- **The phrase is shared with the Pubky identity.** The same mnemonic
+  derives the Pubky key, and the two key uses are not domain-separated
+  (`src/wallet/useWalletLifecycle.ts`).
+- **No verified Arbitrum One indexer.** Activity and the search for a
+  lost USD₮ payment would see only this launch's own sends, as on the
+  fork, and received payments would never show.
+- **Payment codes without a chain id mean Ethereum mainnet.** EIP-681
+  defaults a missing chain id to chain 1. The wallet accepts such a code
+  as its own chain, which is harmless on a test network but would send
+  real USD₮0 on Arbitrum One for a code meant for another network.
+
+A follow-up would need its own review and the owner's approval of exact
+amounts, plus at least: key storage fit for real money, a key for the
+EVM wallet that is separate from the Pubky identity's, a checked
+Arbitrum One indexer for Activity and payment checks, refusing payment
+codes without a chain id, real-funds wording on every screen that says
+"test" today, no dev prefill, and fresh identities only.
 
 ## Not tested
 

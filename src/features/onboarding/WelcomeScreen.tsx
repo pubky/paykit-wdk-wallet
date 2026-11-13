@@ -10,7 +10,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { REAL_FUNDS_SCOPE } from '../../config/evmChain';
 import type { OnboardingScreenProps } from '../../navigation/types';
 import { Button, Screen, Seal, Text, space, type SealRing } from '../../ui';
 
@@ -39,16 +38,7 @@ export function WelcomeScreen({ navigation }: OnboardingScreenProps<'Welcome'>) 
             <Seal key={key} pubky={key} size={SEAL_SIZE} ring={ring} />
           ))}
         </View>
-        {REAL_FUNDS_SCOPE ? (
-          <>
-            <Text variant="title">A demo wallet where you pay people, not addresses.</Text>
-            <Text variant="secondary" color="alert" testID="welcome-real-funds">
-              {REAL_FUNDS_SCOPE} Keys are stored with demo-grade protection.
-            </Text>
-          </>
-        ) : (
-          <Text variant="title">A testnet wallet where you pay people, not addresses.</Text>
-        )}
+        <Text variant="title">A testnet wallet where you pay people, not addresses.</Text>
         <Text>
           Add someone once, by their key or their code, and the wallet works out where to pay them. The ring around their seal closes when
           the two of you have a private connection.

@@ -42,8 +42,7 @@ const local = loadDemoLocal();
 
 // The demo identities run on Sepolia, so any other EVM mode gets no
 // prefill: restoring one there would publish its usdt-arbitrum-address
-// and remove usdt-sepolia-address from that shared identity, and on
-// arbitrum-one it would put real funds on a phrase kept in a plain file
+// and remove usdt-sepolia-address from that shared identity
 // (docs/BITKIT-USDT-FORK.md).
 // A regtest build on iOS uses the regtest identity: its wallet holds
 // regtest coins and pairs with Bitkit, which the demo runs on iOS

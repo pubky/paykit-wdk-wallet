@@ -20,7 +20,6 @@
 // It only checks shapes. A pubky is validated for real by the SDK
 // (PaykitService.normalizeKey) before Add person, and Send re-checks
 // addresses against the chosen asset. Pure; unit tested.
-import { EVM_CHAIN, EVM_REAL_FUNDS } from '../../../config/evmChain';
 import { pubkyFromText } from '../../../paykit/keys';
 import {
   checkRecipientAddress,
@@ -43,10 +42,7 @@ export type ScannedCode =
 /** Longer than any pubky link or payment URI this app reads. */
 export const MAX_CODE_LENGTH = 2048;
 
-// On a real-funds build only USD₮ is real: its Bitcoin is still on a test network.
-const NOT_SUPPORTED = EVM_REAL_FUNDS
-  ? `This code isn't a pubky, a test-network Bitcoin address or a payment address on ${EVM_CHAIN.networkName}.`
-  : "This code isn't a pubky or a test-network payment address.";
+const NOT_SUPPORTED = "This code isn't a pubky or a test-network payment address.";
 
 function unsupported(message = NOT_SUPPORTED): ScannedCode {
   return { kind: 'unsupported', message };

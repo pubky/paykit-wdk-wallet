@@ -48,7 +48,7 @@ This app has two engines and one UI:
 | Path | What it does |
 |---|---|
 | `src/App.tsx` | Providers from the outside in: SafeArea, `WdkAppProvider`, fonts, `PaykitProvider`, `NavigationContainer`. |
-| `src/config/chains.ts` | Chain constants with no imports (Mutinynet Electrum, Sepolia RPC, USD₮ token, Aave faucet, explorers, Blockscout, and Arbitrum One's chain id, RPCs and USD₮0). |
+| `src/config/chains.ts` | Chain constants with no imports (Mutinynet Electrum, Sepolia RPC, USD₮ token, Aave faucet, explorers, Blockscout, and Arbitrum One's chain id and USD₮0, plus the local fork's RPC). |
 | `src/config/btcChain.ts`, `src/config/evmChain.ts` | The build's Bitcoin and EVM chain profiles, picked by `EXPO_PUBLIC_BTC_CHAIN` and `EXPO_PUBLIC_EVM_CHAIN` (see "Chain modes"). |
 | `src/config/wdk.ts` | WDK runtime config, `WALLET_ID`, WDK asset descriptors. Keys must match `wdk.config.js`. |
 | `src/config/paykit.ts` | Frozen identifiers: staging homeserver, Pubky client id, Paykit app id, endpoint identifiers. |
@@ -86,12 +86,13 @@ an unknown value stops the app at launch.
   (`docs/BITKIT-DEMO.md`).
 - `EXPO_PUBLIC_EVM_CHAIN` (`src/config/evmChain.ts`): unset is Ethereum
   Sepolia; `arbitrum-fork` is a local Anvil fork of Arbitrum One on
-  `127.0.0.1:18545`; `arbitrum-one` is Arbitrum One itself, with real
-  money (`docs/BITKIT-USDT-FORK.md`).
+  `127.0.0.1:18545` (`docs/BITKIT-USDT-FORK.md`). There is no mode for
+  Arbitrum One itself, with real funds: the guide's "Not in this change"
+  says why.
 
 `EVM_CHAIN` is one profile object, and every EVM-specific value comes
 from it: chain id, RPC, USD₮ token, explorer, history API (Blockscout on
-Sepolia, none on either Arbitrum mode), the Paykit endpoint id
+Sepolia, none on the Arbitrum fork), the Paykit endpoint id
 (`usdt-sepolia-address` or Bitkit's `usdt-arbitrum-address`), where test
 funds come from, the USD₮ payment-time rule, WDK's asset ids and the
 words the screens use for the network. `src/config/wdk.ts`,
@@ -114,8 +115,8 @@ Two guards depend on the profile:
   guard instead would let WDK sign EIP-712 data for other domains, such
   as a permit.
 
-WDK's asset ids differ per profile (`usdt-sepolia`, `usdt-arbitrum-fork`,
-`usdt-arbitrum-one`) because they key WDK's balance cache. Paykit state
+WDK's asset ids differ per profile (`usdt-sepolia`, `usdt-arbitrum-fork`)
+because they key WDK's balance cache. Paykit state
 (contacts, requests, the ledger) is not keyed by chain, so each mode
 needs its own install, and its own identity (`docs/BITKIT-USDT-FORK.md`).
 
@@ -249,8 +250,8 @@ oldest transfers first and stops at `limit`, so the app fetches the whole
 history and keeps the newest. WDK's EVM module
 has no history call and the WDK Indexer does not cover testnets, so EVM
 activity comes from the keyless Blockscout Sepolia API, merged with a local
-in-memory record of transactions this app just sent. The Arbitrum modes
-have no history API (`EVM_CHAIN.activityApi` is undefined), so
+in-memory record of transactions this app just sent. The Arbitrum fork
+has no history API (`EVM_CHAIN.activityApi` is undefined), so
 `fetchEvmActivity` returns nothing there and Activity shows only that
 in-memory record: this launch's sends, and no received transfers.
 
@@ -870,8 +871,8 @@ Electrum and includes the mempool, so half an hour of empty searches
 means it never left: Failed is recorded and the request can be paid
 again. USD₮'s history comes from Blockscout, which can lag by hours, so a
 missing USD₮ payment stays reserved ("May have been paid. Check
-Activity") and the search goes on every five minutes. The Arbitrum modes
-have no history API, so the search sees only this launch's own sends
+Activity") and the search goes on every five minutes. The Arbitrum fork
+has no history API, so the search sees only this launch's own sends
 (`findSentPayment` in `src/wallet/usePaymentChecks.ts`). After a
 relaunch that record is gone, so a USD₮ payment lost across a relaunch is never found: like any
 missing USD₮ payment it stays reserved and shows as "may have been

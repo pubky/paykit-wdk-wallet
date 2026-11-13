@@ -111,11 +111,4 @@ describe('the unknown-token message per build', () => {
     expect(otherToken(load(), 11155111)).toEqual({ ok: false, message });
     expect(otherToken(withEvmChain('arbitrum-fork', load), 42161)).toEqual({ ok: false, message });
   });
-
-  it('never calls real USD₮ test money on Arbitrum One', () => {
-    expect(otherToken(withEvmChain('arbitrum-one', load), 42161)).toEqual({
-      ok: false,
-      message: 'That code asks for a token this wallet does not hold. It pays USD₮ on Arbitrum One only.',
-    });
-  });
 });

@@ -87,10 +87,4 @@ describe('cannotPayReason for unusable payment details', () => {
       expect(unusable(reason, 'btc')).toBe(message);
     }
   });
-
-  it('asks for a real USD₮ address, but still test Bitcoin, on a real-funds build', () => {
-    const one = loadOn('arbitrum-one');
-    expect(unusable(one, 'usdt')).toBe("Ben publishes payment details this wallet can't use. Ask them for a USD₮ address on Arbitrum One instead.");
-    expect(unusable(one, 'btc')).toBe("Ben publishes payment details this wallet can't use. Ask them for a test-network Bitcoin address instead.");
-  });
 });

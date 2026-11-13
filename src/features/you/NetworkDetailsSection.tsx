@@ -15,8 +15,8 @@
 //   Chains    Electrum and esplora of the build's Bitcoin network
 //             (src/config/btcChain.ts: Mutinynet, or Bitkit's regtest, which
 //             also names the build's chain mode), and the build's EVM
-//             chain (src/config/evmChain.ts: Sepolia, or an Arbitrum mode,
-//             named too): RPC, chain id, history API, USD₮ contract
+//             chain (src/config/evmChain.ts: Sepolia, or the local Arbitrum
+//             fork, named too): RPC, chain id, history API, USD₮ contract
 //   SDKs      WDK and Paykit package versions
 //
 // Everything shown is public or a status. The registry is read live (two

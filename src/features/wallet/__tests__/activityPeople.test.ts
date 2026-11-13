@@ -104,9 +104,4 @@ describe('the network an item names, on another EVM chain', () => {
     expect(fork.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Arbitrum (local fork)');
     expect(fork.networkName(base)).toBe('Bitcoin (Mutinynet)');
   });
-
-  it('says Arbitrum One on a real-funds build', () => {
-    const one = withEvmChain('arbitrum-one', () => jest.requireActual<typeof import('../activity/activityText')>('../activity/activityText'));
-    expect(one.networkName({ ...base, chain: 'ethereum', asset: 'usdt' })).toBe('Arbitrum One');
-  });
 });

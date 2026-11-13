@@ -7,10 +7,6 @@
 // that is the first thing a new demo wallet needs (on builds funded by
 // Aave's faucet). Activity rows open Activity detail.
 //
-// A real-funds build (EXPO_PUBLIC_EVM_CHAIN=arbitrum-one) says so above the
-// balances, always: its USD₮ and ETH are real, its keys are not protected
-// like a real wallet's. Its empty Activity asks for funds, not test funds.
-//
 // Errors are sentences, never WDK's text: a balance that failed to load
 // says so under the balances, and failed history replaces the "No activity
 // yet" empty state (with "Try again") or sits above the cached rows.
@@ -24,7 +20,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AAVE_FAUCET_FUNDING, EVM_REAL_FUNDS, REAL_FUNDS_WARNING } from '../../config/evmChain';
+import { AAVE_FAUCET_FUNDING } from '../../config/evmChain';
 import type { MainTabScreenProps } from '../../navigation/types';
 import { useConnectionNotice, useContactAccounts, useOwnProfile, usePaykitService } from '../../paykit';
 import { ASSET_DOT_SIZE, AssetAmount, AssetDot, Button, Divider, EmptyState, Row, Screen, Text, space } from '../../ui';
@@ -75,11 +71,6 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
       }
       testID="wallet-screen"
     >
-      {REAL_FUNDS_WARNING ? (
-        <Text variant="secondary" color="alert" style={styles.realFunds} testID="real-funds-warning">
-          {REAL_FUNDS_WARNING}
-        </Text>
-      ) : null}
       <View style={styles.balances}>
         <Row title={ASSETS.btc.displayName} leading={<AssetDot asset="btc" />} trailing={<AssetAmount value={balances.btc} asset="btc" />} testID="balance-btc" />
         {fromContacts.collectable > 0n ? (
@@ -139,7 +130,7 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
       ) : activity.items.length === 0 ? (
         <EmptyState
           title={activity.isLoading ? 'Loading activity…' : 'No activity yet'}
-          message={activity.isLoading ? undefined : EVM_REAL_FUNDS ? 'Receive some funds to get started.' : 'Receive some test funds to get started.'}
+          message={activity.isLoading ? undefined : 'Receive some test funds to get started.'}
           action={activity.isLoading ? undefined : { label: 'Receive', onPress: () => navigation.navigate('Receive') }}
         />
       ) : (
@@ -158,7 +149,6 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
 const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: space.s, flexShrink: 1 },
   name: { flexShrink: 1 },
-  realFunds: { marginBottom: space.m },
   balances: { gap: 0 },
   // Line up with the asset names: dot width plus the Row's gap.
   gas: { marginLeft: ASSET_DOT_SIZE + space.m, marginTop: -space.s },

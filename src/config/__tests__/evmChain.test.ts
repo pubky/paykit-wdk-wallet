@@ -1,13 +1,11 @@
 import {
-  ARBISCAN_EXPLORER,
   ARBITRUM_FORK_RPC,
-  ARBITRUM_ONE_RPC,
   SEPOLIA_BLOCKSCOUT_API,
   SEPOLIA_ETH_FAUCET_URL,
   SEPOLIA_EXPLORER,
   SEPOLIA_RPC,
 } from '../chains';
-import { AAVE_FAUCET_FUNDING, EVM_CHAIN, evmChainFromEnv } from '../evmChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN, EVM_CHAIN_PROFILES, evmChainFromEnv } from '../evmChain';
 import { withEvmChain } from './withEnv';
 
 // USD₮0 on Arbitrum One, in lowercase, exactly as Bitkit publishes it.
@@ -66,42 +64,35 @@ describe('evmChainFromEnv', () => {
     });
   });
 
-  it("runs on Arbitrum One, with real funds, for 'arbitrum-one'", () => {
-    expect(evmChainFromEnv('arbitrum-one')).toMatchObject({
-      id: 'arbitrum-one',
-      chainId: 42161,
-      rpc: ARBITRUM_ONE_RPC,
-      usdtToken: USDT0,
-      explorer: ARBISCAN_EXPLORER,
-      activityApi: undefined,
-      endpointId: 'usdt-arbitrum-address',
-      funding: { kind: 'real-funds', warning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.' },
-      paymentTime: 'block-timestamp',
-      buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
-      ethAssetId: 'eth-arbitrum-one',
-      usdtAssetId: 'usdt-arbitrum-one',
-      networkLabel: 'Arbitrum One',
-    });
-  });
-
-  it("keeps the fork's balances apart from Arbitrum One's and Sepolia's in WDK's cache", () => {
-    const ids = (['', 'arbitrum-fork', 'arbitrum-one'] as const).flatMap((value) => {
+  it("keeps the fork's balances apart from Sepolia's in WDK's cache", () => {
+    const ids = (['', 'arbitrum-fork'] as const).flatMap((value) => {
       const profile = evmChainFromEnv(value);
       return [profile.ethAssetId, profile.usdtAssetId];
     });
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('never names Sepolia in an Arbitrum profile', () => {
-    for (const value of ['arbitrum-fork', 'arbitrum-one']) {
-      expect(JSON.stringify(evmChainFromEnv(value))).not.toMatch(/sepolia/i);
-    }
+  it('never names Sepolia in the Arbitrum fork profile', () => {
+    expect(JSON.stringify(evmChainFromEnv('arbitrum-fork'))).not.toMatch(/sepolia/i);
   });
 
   it('refuses any other value instead of guessing a network', () => {
-    for (const value of ['arbitrum', 'mainnet', 'Arbitrum-Fork', ' arbitrum-fork', 'sepolia']) {
+    for (const value of ['arbitrum', 'mainnet', 'Arbitrum-Fork', ' arbitrum-fork', 'sepolia', 'toString', '__proto__']) {
       expect(() => evmChainFromEnv(value)).toThrow('EXPO_PUBLIC_EVM_CHAIN');
     }
+  });
+
+  it("refuses 'arbitrum-one': real funds are not part of this wallet yet", () => {
+    expect(() => evmChainFromEnv('arbitrum-one')).toThrow(
+      'EXPO_PUBLIC_EVM_CHAIN is "arbitrum-one". Leave it unset for Sepolia, or set it to "arbitrum-fork".',
+    );
+  });
+
+  it('builds every profile from EVM_CHAIN_PROFILES, each under its own id', () => {
+    expect(Object.keys(EVM_CHAIN_PROFILES)).toEqual(['sepolia', 'arbitrum-fork']);
+    for (const [id, profile] of Object.entries(EVM_CHAIN_PROFILES)) expect(profile.id).toBe(id);
+    expect(evmChainFromEnv(undefined)).toBe(EVM_CHAIN_PROFILES.sepolia);
+    expect(evmChainFromEnv('arbitrum-fork')).toBe(EVM_CHAIN_PROFILES['arbitrum-fork']);
   });
 
   it('is Sepolia in this test run (the variable is unset)', () => {
@@ -116,45 +107,8 @@ describe('AAVE_FAUCET_FUNDING', () => {
     expect(AAVE_FAUCET_FUNDING).toEqual({ kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' });
   });
 
-  it('is unset on both Arbitrum builds, so no screen offers a test-token mint there', () => {
+  it('is unset on the Arbitrum fork build, so no screen offers a test-token mint there', () => {
     expect(withEvmChain('arbitrum-fork', load)).toBeUndefined();
-    expect(withEvmChain('arbitrum-one', load)).toBeUndefined();
-  });
-});
-
-describe('EVM_REAL_FUNDS', () => {
-  const load = () => jest.requireActual<typeof import('../evmChain')>('../evmChain').EVM_REAL_FUNDS;
-
-  it('is set only on Arbitrum One', () => {
-    expect(load()).toBe(false);
-    expect(withEvmChain('arbitrum-fork', load)).toBe(false);
-    expect(withEvmChain('arbitrum-one', load)).toBe(true);
-  });
-});
-
-describe('REAL_FUNDS_WARNING', () => {
-  const load = () => jest.requireActual<typeof import('../evmChain')>('../evmChain').REAL_FUNDS_WARNING;
-
-  it('is set only on Arbitrum One, the one build whose funds are real', () => {
-    expect(load()).toBeUndefined();
-    expect(withEvmChain('arbitrum-fork', load)).toBeUndefined();
-    expect(withEvmChain('arbitrum-one', load)).toBe('Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.');
-  });
-});
-
-describe('real-funds copy', () => {
-  const load = () => {
-    const { REAL_FUNDS_SCOPE, REAL_FUNDS_GAS_HINT } = jest.requireActual<typeof import('../evmChain')>('../evmChain');
-    return { REAL_FUNDS_SCOPE, REAL_FUNDS_GAS_HINT };
-  };
-
-  it('is set only on Arbitrum One', () => {
-    expect(load()).toEqual({ REAL_FUNDS_SCOPE: undefined, REAL_FUNDS_GAS_HINT: undefined });
-    expect(withEvmChain('arbitrum-fork', load)).toEqual({ REAL_FUNDS_SCOPE: undefined, REAL_FUNDS_GAS_HINT: undefined });
-    expect(withEvmChain('arbitrum-one', load)).toEqual({
-      REAL_FUNDS_SCOPE: 'Its Bitcoin is test money, but its USD₮ and ETH on Arbitrum One are real.',
-      REAL_FUNDS_GAS_HINT: 'Send a little Arbitrum ETH to your Ethereum address.',
-    });
   });
 });
 
@@ -163,7 +117,6 @@ describe('Paykit USD₮ endpoint id', () => {
     const load = () => jest.requireActual<typeof import('../paykit')>('../paykit').ENDPOINT_USDT;
     expect(load()).toBe('usdt-sepolia-address');
     expect(withEvmChain('arbitrum-fork', load)).toBe('usdt-arbitrum-address');
-    expect(withEvmChain('arbitrum-one', load)).toBe('usdt-arbitrum-address');
   });
 
   it('puts the variable back after loading another build', () => {

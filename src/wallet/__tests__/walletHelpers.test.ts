@@ -108,8 +108,8 @@ describe('isAllowedContractCall', () => {
     expect(isAllowedContractCall({ ...mint, data: `${mint.data}00` })).toBe(false);
   });
 
-  it.each(['arbitrum-fork', 'arbitrum-one'])('allows no contract call at all on an %s build: the faucet address is not Aave there', (chain) => {
-    const faucet = withEvmChain(chain, () => jest.requireActual<typeof import('../faucet')>('../faucet'));
+  it('allows no contract call at all on an arbitrum-fork build: the faucet address is not Aave there', () => {
+    const faucet = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../faucet')>('../faucet'));
     expect(faucet.isAllowedContractCall(faucet.usdtFaucetTransaction(ME))).toBe(false);
   });
 });

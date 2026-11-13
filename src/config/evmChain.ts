@@ -5,7 +5,6 @@
 // EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork: a local Anvil fork of Arbitrum One
 // on this computer, with USD₮0 (the token Bitkit's USD₮ uses), so this
 // wallet and Bitkit can pay each other USD₮ through Paykit in a demo.
-// EXPO_PUBLIC_EVM_CHAIN=arbitrum-one: Arbitrum One itself. Real money.
 // Any other value stops the app at launch: silently picking a network is
 // how money goes to the wrong place.
 //
@@ -20,10 +19,8 @@
 //
 // No native imports: unit tested in Node, like ./chains.ts.
 import {
-  ARBISCAN_EXPLORER,
   ARBITRUM_FORK_RPC,
   ARBITRUM_ONE_CHAIN_ID,
-  ARBITRUM_ONE_RPC,
   ARBITRUM_USDT0,
   SEPOLIA_BLOCKSCOUT_API,
   SEPOLIA_CHAIN_ID,
@@ -33,7 +30,7 @@ import {
   SEPOLIA_USDT,
 } from './chains';
 
-export type EvmChainId = 'sepolia' | 'arbitrum-fork' | 'arbitrum-one';
+export type EvmChainId = 'sepolia' | 'arbitrum-fork';
 
 /**
  * The Paykit endpoint ids for our USD₮ address, one per token.
@@ -44,16 +41,13 @@ export type UsdtEndpointId = 'usdt-sepolia-address' | 'usdt-arbitrum-address';
 
 /**
  * Where ETH for gas and USD₮ come from (You > Test funds): a public ETH
- * faucet plus Aave's test-token mint (Sepolia), scripts/fund-fork.mjs
- * against the local Anvil fork, or nowhere, because they are real funds.
- * Only 'aave-faucet' shows "Get test USD₮"; `testNetwork` names the network
- * in its words ("Aave’s Sepolia faucet"). Only 'real-funds' carries a
- * `warning`: what the Wallet tab and the Send review always say there.
+ * faucet plus Aave's test-token mint (Sepolia), or scripts/fund-fork.mjs
+ * against the local Anvil fork. Only 'aave-faucet' shows "Get test USD₮";
+ * `testNetwork` names the network in its words ("Aave’s Sepolia faucet").
  */
 export type EvmFunding =
   | { readonly kind: 'aave-faucet'; readonly ethFaucetUrl: string; readonly testNetwork: string }
-  | { readonly kind: 'anvil-fork' }
-  | { readonly kind: 'real-funds'; readonly warning: string };
+  | { readonly kind: 'anvil-fork' };
 
 /**
  * How the payee decides when a USD₮ payment was made, to refuse one from
@@ -185,42 +179,23 @@ const ARBITRUM_FORK: EvmChainProfile = {
   tokenLabel: 'USD₮ token (USD₮0, forked)',
 };
 
-const ARBITRUM_ONE: EvmChainProfile = {
-  id: 'arbitrum-one',
-  chainId: ARBITRUM_ONE_CHAIN_ID,
-  rpc: ARBITRUM_ONE_RPC,
-  usdtToken: ARBITRUM_USDT0,
-  explorer: ARBISCAN_EXPLORER,
-  // No Blockscout API for Arbitrum One has been checked yet.
-  activityApi: undefined,
-  endpointId: 'usdt-arbitrum-address',
-  funding: { kind: 'real-funds', warning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.' },
-  paymentTime: 'block-timestamp',
-  buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
-  ethAssetId: 'eth-arbitrum-one',
-  usdtAssetId: 'usdt-arbitrum-one',
-  ethAssetName: 'Ether (Arbitrum One)',
-  usdtAssetName: 'Tether USD (USD₮0, Arbitrum One)',
-  networkLabel: 'Arbitrum One',
-  networkName: 'Arbitrum One',
-  receiveNetwork: 'Arbitrum One (real money)',
-  receiveNote: 'ETH for gas arrives at this same address. Send only USD₮0 on Arbitrum One here.',
-  gasCoin: 'Arbitrum ETH',
-  // Arbitrum makes several blocks a second.
-  confirmsIn: 'a few seconds',
-  pendingUntil: 'the next Arbitrum block, in a few seconds',
-  addressHint: 'Any Ethereum address. The tokens move on Arbitrum One, as real USD₮0.',
-  wrongChainMessage: 'That code is for another Ethereum network. This wallet pays on Arbitrum One only.',
-  detailsLabel: 'Arbitrum One',
-  tokenLabel: 'USD₮ token (USD₮0)',
+/** Every EVM mode this build knows, by id. */
+export const EVM_CHAIN_PROFILES: Record<EvmChainId, EvmChainProfile> = {
+  sepolia: SEPOLIA,
+  'arbitrum-fork': ARBITRUM_FORK,
 };
+
+/** True for an id in EVM_CHAIN_PROFILES; own keys only, so "toString" is not a mode. */
+export function isEvmChainId(value: string): value is EvmChainId {
+  return Object.prototype.hasOwnProperty.call(EVM_CHAIN_PROFILES, value);
+}
 
 /** The profile for an EXPO_PUBLIC_EVM_CHAIN value. Throws for a value it does not know. */
 export function evmChainFromEnv(value: string | undefined): EvmChainProfile {
-  if (value === undefined || value === '') return SEPOLIA;
-  if (value === 'arbitrum-fork') return ARBITRUM_FORK;
-  if (value === 'arbitrum-one') return ARBITRUM_ONE;
-  throw new Error(`EXPO_PUBLIC_EVM_CHAIN is "${value}". Leave it unset for Sepolia, or set it to "arbitrum-fork" or "arbitrum-one".`);
+  if (value === undefined || value === '') return EVM_CHAIN_PROFILES.sepolia;
+  // Sepolia is the default: it is picked by leaving the variable unset, not by name.
+  if (value !== 'sepolia' && isEvmChainId(value)) return EVM_CHAIN_PROFILES[value];
+  throw new Error(`EXPO_PUBLIC_EVM_CHAIN is "${value}". Leave it unset for Sepolia, or set it to "arbitrum-fork".`);
 }
 
 // Dot access on purpose: Expo only inlines EXPO_PUBLIC_* variables written exactly this way.
@@ -232,30 +207,3 @@ export const EVM_CHAIN = evmChainFromEnv(process.env.EXPO_PUBLIC_EVM_CHAIN);
  * mint only when it is set.
  */
 export const AAVE_FAUCET_FUNDING = EVM_CHAIN.funding.kind === 'aave-faucet' ? EVM_CHAIN.funding : undefined;
-
-/**
- * True on a build whose ETH and USD₮ are real money (Arbitrum One). Its
- * Bitcoin is still on a test network. Screens that would otherwise say
- * "test" or "testnet" word themselves from this.
- */
-export const EVM_REAL_FUNDS = EVM_CHAIN.funding.kind === 'real-funds';
-
-/**
- * What the Wallet tab and the Send review always say on a real-funds build;
- * undefined on any other.
- */
-export const REAL_FUNDS_WARNING = EVM_CHAIN.funding.kind === 'real-funds' ? EVM_CHAIN.funding.warning : undefined;
-
-/**
- * Which funds are real on a real-funds build, opening the Welcome and
- * Backup phrase screens' warnings; undefined on any other.
- */
-export const REAL_FUNDS_SCOPE = EVM_REAL_FUNDS ? `Its Bitcoin is test money, but its USD₮ and ETH on ${EVM_CHAIN.networkName} are real.` : undefined;
-
-/**
- * Where ETH for gas comes from on a real-funds build, ending the Send
- * screen's "Not enough ETH for gas" (SendScreen.tsx, src/wallet/sendChecks.ts):
- * there are no test funds to point to, so it is bought, then sent here.
- * Undefined on any other build, which points to You > Test funds.
- */
-export const REAL_FUNDS_GAS_HINT = EVM_REAL_FUNDS ? `Send a little ${EVM_CHAIN.gasCoin} to your Ethereum address.` : undefined;

@@ -16,7 +16,7 @@
 // first address would send the tokens to the contract, where they are lost.
 import { BTC_CHAIN } from '../config/btcChain';
 import { AAVE_SEPOLIA_FAUCET } from '../config/chains';
-import { AAVE_FAUCET_FUNDING, EVM_CHAIN, EVM_REAL_FUNDS } from '../config/evmChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../config/evmChain';
 import type { Chain } from './assets';
 
 /** The build network's bech32 prefix, for messages: "tb1" or "bcrt1". */
@@ -112,8 +112,7 @@ export function payeeOfEthereumUri(rest: string): PayeeResult {
   }
   if (fn === undefined) return { ok: true, address: target };
   if (fn !== 'transfer' || !sameEvmAddress(target, EVM_CHAIN.usdtToken)) {
-    const holds = EVM_REAL_FUNDS ? `USD₮ on ${EVM_CHAIN.networkName}` : 'test USD₮';
-    return { ok: false, message: `That code asks for a token this wallet does not hold. It pays ${holds} only.` };
+    return { ok: false, message: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.' };
   }
   const payee = parseQueryParams(query).get('address') ?? '';
   return isEvmAddress(payee) ? { ok: true, address: payee } : { ok: false, message: 'That USD₮ request has no address to pay.' };

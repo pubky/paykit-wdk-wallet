@@ -14,7 +14,7 @@
 // - The local Arbitrum fork (src/config/evmChain.ts `funding`) has no
 //   faucet either: scripts/fund-fork.mjs sets its USD₮0 and ETH balances
 //   from the computer that runs it, so the section says so and shows the
-//   address. Arbitrum One has no faucet at all: its money is real.
+//   address.
 //
 // One Ethereum address holds both ETH and USD₮, so the text calls it "your
 // Ethereum address" and says once that USD₮ arrives there too.
@@ -65,16 +65,6 @@ function EvmTestFunds({ funding, address, gas }: { funding: EvmFunding; address?
           <Text color="graphite" variant="secondary">
             Gas: {gas}. The local fork has no faucet. Its USD₮0 and ETH come from running node scripts/fund-fork.mjs with this address on
             your computer:
-          </Text>
-          {addressText}
-        </>
-      );
-    case 'real-funds':
-      return (
-        <>
-          <Text color="graphite" variant="secondary">
-            Gas: {gas}. {EVM_CHAIN.networkName} has no faucet. Its USD₮ and ETH are real money: send this address only amounts you can
-            afford to lose.
           </Text>
           {addressText}
         </>

@@ -116,11 +116,4 @@ describe('the not-supported message per build', () => {
   it('says test network on the local fork, as on Sepolia', () => {
     expect(withEvmChain('arbitrum-fork', load).parseScannedCode('hello')).toEqual({ kind: 'unsupported', message: TEST_MESSAGE });
   });
-
-  it('says only Bitcoin is on a test network on Arbitrum One', () => {
-    expect(withEvmChain('arbitrum-one', load).parseScannedCode('hello')).toEqual({
-      kind: 'unsupported',
-      message: "This code isn't a pubky, a test-network Bitcoin address or a payment address on Arbitrum One.",
-    });
-  });
 });

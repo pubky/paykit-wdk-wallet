@@ -10,9 +10,6 @@
 // (`outcomeUnknown`), Send stays disabled for good and the only way on is
 // to close and check Activity: a second tap could pay twice.
 //
-// A real-funds build (EXPO_PUBLIC_EVM_CHAIN=arbitrum-one) says so above the
-// button, every time, whichever asset is sent.
-//
 // Paying a payment request (src/features/requests/PayRequestScreen.tsx)
 // uses this same review with the amount and recipient locked: no "Change"
 // button (`onEdit` left out), its own button label and a line saying which
@@ -21,7 +18,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
-import { EVM_CHAIN, REAL_FUNDS_WARNING } from '../../../config/evmChain';
+import { EVM_CHAIN } from '../../../config/evmChain';
 import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
 import { CONFIRMATION_TIME, formatAssetAmount, formatFee, type FeeQuote, type SendProblem } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
@@ -96,11 +93,6 @@ export function SendReview({ asset, amount, recipient, address, quote, problem, 
         <DetailRow label="Network" value={NETWORK[asset]} />
       </View>
 
-      {REAL_FUNDS_WARNING ? (
-        <Text variant="secondary" color="alert" testID="send-real-funds">
-          {REAL_FUNDS_WARNING}
-        </Text>
-      ) : null}
       {problem ? (
         <Text color="alert" testID="send-problem">
           {problem.message}

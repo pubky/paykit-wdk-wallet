@@ -22,11 +22,9 @@ describe('choosePrefill', () => {
     expect(choosePrefill(local, 'android', 'bitkit-regtest', 'sepolia')).toBeUndefined();
   });
 
-  it('prefills nothing on the Arbitrum modes: the demo identities run on Sepolia', () => {
-    for (const evm of ['arbitrum-fork', 'arbitrum-one'] as const) {
-      for (const btc of ['mutinynet', 'bitkit-regtest'] as const) {
-        for (const os of ['ios', 'android']) expect(choosePrefill(local, os, btc, evm)).toBeUndefined();
-      }
+  it('prefills nothing on the Arbitrum fork: the demo identities run on Sepolia', () => {
+    for (const btc of ['mutinynet', 'bitkit-regtest'] as const) {
+      for (const os of ['ios', 'android']) expect(choosePrefill(local, os, btc, 'arbitrum-fork')).toBeUndefined();
     }
   });
 });
