@@ -328,15 +328,18 @@ Run each EVM mode in its own install, on its own simulator, as
 the payment ledger and proofs stored under `usdt-sepolia-address` do not
 carry over to `usdt-arbitrum-address`.
 
-The wallet enforces this part. It records the EVM mode it was created or
+The wallet enforces this part. Each EVM mode keeps its seed under its
+own wallet id (`paykit-wdk-demo` on Sepolia, `paykit-wdk-demo-arbitrum-fork`
+on the fork), and the app records the EVM mode its wallet was created or
 restored under (`src/wallet/evmModeGuard.ts`, stored in the plain
 app-settings file). A build for another EVM mode does not open it, and
-shows "This wallet is on another network" with both modes named. A
-wallet with no record, from an install made before the record existed,
-counts as Sepolia, so it still opens on the default build only. On iOS,
-deleting the app keeps the wallet in the Keychain but loses the record,
-so a reinstall counts as Sepolia too. To start an Arbitrum install
-fresh, erase the simulator.
+shows "This wallet is on another network" with both modes named. With
+no record, a device with a seed under the Sepolia id counts as Sepolia:
+an install from before the record still opens on the default build
+only, and the fork build refuses it. On iOS, deleting the app keeps the
+seeds in the Keychain but loses the record, so a reinstalled fork build
+opens its own wallet again, unless a Sepolia seed is also on the device.
+To start an Arbitrum install fresh, erase the simulator.
 
 Use a separate identity too. Each build publishes only its own USD₮
 endpoint and removes the other (`syncPublicEndpoints` in

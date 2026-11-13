@@ -308,6 +308,14 @@ export async function verifyErc20ProofReadingBlockTime(
   readBlockTimeMs: (transaction: Extract<EvmTransaction, { state: 'succeeded' }>) => Promise<number | undefined>,
 ): Promise<Verdict> {
   const verdict = verifyErc20Proof(transaction, context);
-  if (transaction.state !== 'succeeded' || verdict.status !== 'pending' || verdict.reason !== CHECKING_PAYMENT_TIME) return verdict;
+  // Every other check passed (a mined transaction's only pending verdict
+  // is the time rule's), and the rule needs the block time, unknown so far.
+  const waitsOnBlockTime =
+    transaction.state === 'succeeded' &&
+    verdict.status === 'pending' &&
+    context.paymentTime === 'block-timestamp' &&
+    context.notBefore !== undefined &&
+    transaction.blockTimeMs === undefined;
+  if (!waitsOnBlockTime) return verdict;
   return verifyErc20Proof({ ...transaction, blockTimeMs: await readBlockTimeMs(transaction) }, context);
 }

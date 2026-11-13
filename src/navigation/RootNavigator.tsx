@@ -28,7 +28,6 @@ import { SendScreen } from '../features/wallet/SendScreen';
 import { EditProfileScreen } from '../features/you/EditProfileScreen';
 import { colors, Screen, Text } from '../ui';
 import { useWalletLifecycle } from '../wallet';
-import { WrongEvmModeError } from '../wallet/evmModeGuard';
 import { MainTabs } from './MainTabs';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import type { RootStackParamList } from './types';
@@ -46,9 +45,6 @@ export function RootNavigator() {
   // is still in the Keychain/Keystore; check the seed before onboarding.
   const launchUnlockDone = useRef(false);
   const [checkingStoredWallet, setCheckingStoredWallet] = useState(true);
-  // A seed WDK does not list stays 'no-wallet' when unlock refuses it, so
-  // the refusal is kept here.
-  const [launchWrongEvmMode, setLaunchWrongEvmMode] = useState<string>();
   const { hasStoredWallet } = wallet;
   useEffect(() => {
     if (launchUnlockDone.current || (status !== 'locked' && status !== 'no-wallet')) return;
@@ -56,9 +52,9 @@ export function RootNavigator() {
     void (async () => {
       try {
         if (status === 'locked' || (await hasStoredWallet())) await unlock();
-      } catch (e) {
-        if (e instanceof WrongEvmModeError) setLaunchWrongEvmMode(e.message);
-        // Anything else is shown as the wallet error state.
+      } catch {
+        // Shown through the wallet's status: 'wrong-evm-mode' when unlock
+        // refused another EVM mode's wallet, 'error' for anything else.
       } finally {
         setCheckingStoredWallet(false);
       }
@@ -69,11 +65,10 @@ export function RootNavigator() {
   // it mounted through transient states so onboarding keeps its place.
   const navigatorShown = useRef(false);
 
-  const wrongEvmMode = wallet.wrongEvmMode ?? launchWrongEvmMode;
-  if (wrongEvmMode !== undefined) {
+  if (status === 'wrong-evm-mode') {
     return (
       <Screen title="This wallet is on another network">
-        <Text color="graphite">{wrongEvmMode}</Text>
+        <Text color="graphite">{wallet.error}</Text>
       </Screen>
     );
   }

@@ -1,22 +1,16 @@
-// Which EVM mode (EXPO_PUBLIC_EVM_CHAIN) the wallet on this device was set
+// Which EVM mode (EXPO_PUBLIC_EVM_CHAIN) this device's app state was set
 // up under, and the refusal when this build runs another one.
 //
-// Every EVM mode uses the same wallet id (WALLET_ID in src/config/wdk.ts).
-// Without a record, an install restarted with another EXPO_PUBLIC_EVM_CHAIN
-// opens the same wallet there: a shared identity moves its published USD₮
-// endpoint to the local fork. So createWallet and restoreWallet record the
-// mode (src/wallet/useWalletLifecycle.ts), and a build for another mode does
-// not unlock the wallet.
-//
-// A wallet with no record was set up before the record existed, when
-// Sepolia was the only mode, so it counts as Sepolia: those installs keep
-// working on the default build.
+// Each EVM mode keeps its seed under its own wallet id (WALLET_ID in
+// src/config/wdk.ts), so a seed under this build's id is always this
+// mode's. The app's other persisted state (contacts, requests, the payment
+// ledger) is not keyed by mode, though: an install restarted with another
+// EXPO_PUBLIC_EVM_CHAIN would mix them. So createWallet and restoreWallet
+// record the mode (src/wallet/useWalletLifecycle.ts), and a build for
+// another mode does not unlock.
 //
 // No native imports: unit tested in Node.
 import { EVM_CHAIN_PROFILES, isEvmChainId, type EvmChainId, type EvmChainProfile } from '../config/evmChain';
-
-/** The mode of a wallet with no record: the only mode there was before the record. */
-export const UNRECORDED_EVM_MODE: EvmChainId = 'sepolia';
 
 /** Thrown by unlock when the wallet was set up under another EVM mode. Its message is safe to show. */
 export class WrongEvmModeError extends Error {
@@ -32,14 +26,30 @@ function networkNameOf(mode: string): string | undefined {
 }
 
 /**
- * Why this build must not open the wallet on this device, or undefined
- * when it may. `recordedMode` is the stored mode, undefined when there is
- * none. The text is shown as it is.
+ * The EVM mode this device's app state belongs to, or undefined when that
+ * is not known. `recordedMode` is the stored mode, undefined when there is
+ * none. `hasSepoliaSeed`: a seed exists under Sepolia's wallet id.
+ *
+ * Without a record, a Sepolia seed means a Sepolia install: either one
+ * from before the record existed, when Sepolia was the only mode, or one
+ * whose record an iOS reinstall deleted while the Keychain kept the seed.
+ * Anything else is unknown, such as an Arbitrum fork install after an iOS
+ * reinstall, whose seed is under its own id.
  */
-export function wrongEvmModeMessage(recordedMode: string | undefined, build: EvmChainProfile): string | undefined {
-  const walletMode = recordedMode ?? UNRECORDED_EVM_MODE;
-  if (walletMode === build.id) return undefined;
-  const walletNetwork = networkNameOf(walletMode);
+export function deviceEvmMode(recordedMode: string | undefined, hasSepoliaSeed: boolean): string | undefined {
+  if (recordedMode !== undefined) return recordedMode;
+  const sepolia: EvmChainId = 'sepolia';
+  return hasSepoliaSeed ? sepolia : undefined;
+}
+
+/**
+ * Why this build must not open the wallet on this device, or undefined
+ * when it may: only a known mode (deviceEvmMode) other than the build's is
+ * refused. The text is shown as it is.
+ */
+export function wrongEvmModeMessage(deviceMode: string | undefined, build: EvmChainProfile): string | undefined {
+  if (deviceMode === undefined || deviceMode === build.id) return undefined;
+  const walletNetwork = networkNameOf(deviceMode);
   const setUpFor = walletNetwork === undefined ? 'another network' : walletNetwork;
   const goBack = walletNetwork === undefined ? 'the build it was set up with' : `a build for ${walletNetwork}`;
   return (

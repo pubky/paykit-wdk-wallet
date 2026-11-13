@@ -274,6 +274,8 @@ describe('verifyErc20Proof', () => {
         expect((await verifyErc20ProofReadingBlockTime(wrongAmount, await context({ notBefore, paymentTime }), read)).status).toBe('rejected');
         expect((await verifyErc20ProofReadingBlockTime({ state: 'pending' }, await context({ notBefore, paymentTime }), read)).status).toBe('pending');
         expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ paymentTime }), read)).status).toBe('verified');
+        // The block time is already known.
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(NOW - 30_000), await context({ notBefore, paymentTime }), read)).status).toBe('verified');
         // Sepolia's slot rule needs no block time.
         expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined, 100), await context({ notBefore }), read)).status).toBe('verified');
         expect(read).not.toHaveBeenCalled();

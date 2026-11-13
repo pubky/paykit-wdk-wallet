@@ -7,17 +7,18 @@
 // Paykit (PaykitService.connect in src/paykit/PaykitService.ts), so "one recovery phrase restores
 // both" — testnet only, because the two key uses are not domain-separated.
 //
-// The wallet keeps the EVM mode it was set up under (./evmModeGuard.ts).
-// A build for another EVM mode reports 'error' and does not unlock it.
+// Each EVM mode has its own wallet id, and the app records the EVM mode
+// its state was set up under (./evmModeGuard.ts). A build for another EVM
+// mode does not unlock, and reports 'wrong-evm-mode'.
 //
 // Never log or render the mnemonic outside the explicit "reveal" screen.
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { createSecureStorage, useWalletManager, useWdkApp, validateMnemonic } from '@tetherto/wdk-react-native-core';
 
 import { EVM_CHAIN } from '../config/evmChain';
-import { WALLET_ID } from '../config/wdk';
+import { SEPOLIA_WALLET_ID, WALLET_ID } from '../config/wdk';
 import { appStorage } from '../settings/appSettings';
-import { WrongEvmModeError, wrongEvmModeMessage } from './evmModeGuard';
+import { deviceEvmMode, WrongEvmModeError, wrongEvmModeMessage } from './evmModeGuard';
 
 export type WalletStatus =
   /** The WDK worklet is starting (or restarting). */
@@ -28,24 +29,24 @@ export type WalletStatus =
   | 'locked'
   /** Unlocked and ready for balances, addresses and sends. */
   | 'ready'
+  /** This device's wallet was set up under another EVM mode; unlock refused it. */
+  | 'wrong-evm-mode'
   | 'error';
 
 export type WalletLifecycle = {
   status: WalletStatus;
-  /** Safe-to-show error text when status is 'error'. */
-  error?: string;
   /**
-   * Set when the wallet on this device was set up under another EVM mode:
-   * why this build does not open it (status is then 'error', and `error`
-   * holds the same text). unlock throws WrongEvmModeError with it too.
+   * Safe-to-show text when status is 'error', or, for 'wrong-evm-mode',
+   * why this build does not open the wallet.
    */
-  wrongEvmMode?: string;
+  error?: string;
   createWallet: () => Promise<void>;
   /**
    * Restore from a phrase. Deletes any wallet already on the device first,
    * without asking: the caller must confirm (onboarding does).
    */
   restoreWallet: (mnemonic: string) => Promise<void>;
+  /** Throws WrongEvmModeError, and the status becomes 'wrong-evm-mode', when this build must not open the wallet. */
   unlock: () => Promise<void>;
   /** The phrase, for deriving the Pubky identity or the reveal screen. Keep it out of state and logs. */
   getMnemonic: () => Promise<string>;
@@ -67,15 +68,39 @@ function hasStoredWallet(): Promise<boolean> {
 /** The EVM mode (EVM_CHAIN.id) the wallet was created or restored under, in the plain app settings file. */
 const WALLET_EVM_MODE = 'wallet-evm-mode-v1';
 
-/** Why this build must not open the wallet on this device, or undefined. Reads MMKV, which is synchronous. */
-function wrongEvmModeForThisBuild(): string | undefined {
-  return wrongEvmModeMessage(appStorage.getString(WALLET_EVM_MODE), EVM_CHAIN);
+/** Why this build must not open the wallet on this device, or undefined. */
+async function wrongEvmModeOnThisDevice(): Promise<string | undefined> {
+  const recordedMode = appStorage.getString(WALLET_EVM_MODE);
+  // A Sepolia build opens a Sepolia or unknown device alike, so it skips the Keychain read.
+  const hasSepoliaSeed =
+    recordedMode === undefined && WALLET_ID !== SEPOLIA_WALLET_ID && (await createSecureStorage().hasWallet(SEPOLIA_WALLET_ID));
+  return wrongEvmModeMessage(deviceEvmMode(recordedMode, hasSepoliaSeed), EVM_CHAIN);
 }
 
 /**
- * Recorded before WDK holds the new wallet, so the status never shows the
- * refusal in between. A create or restore that then fails leaves a record
- * without a wallet; the next one writes it again.
+ * unlock's refusal, shared by every user of the hook. Never cleared: the
+ * build's EVM mode does not change while the app runs.
+ */
+let evmModeRefusal: string | undefined;
+const evmModeRefusalListeners = new Set<() => void>();
+
+function refuseWallet(message: string): void {
+  evmModeRefusal = message;
+  evmModeRefusalListeners.forEach((listener) => listener());
+}
+
+function subscribeToEvmModeRefusal(listener: () => void): () => void {
+  evmModeRefusalListeners.add(listener);
+  return () => evmModeRefusalListeners.delete(listener);
+}
+
+function getEvmModeRefusal(): string | undefined {
+  return evmModeRefusal;
+}
+
+/**
+ * Recorded before WDK holds the new wallet. A create or restore that then
+ * fails leaves a record without a wallet; the next one writes it again.
  */
 function recordWalletEvmMode(): void {
   appStorage.set(WALLET_EVM_MODE, EVM_CHAIN.id);
@@ -90,13 +115,10 @@ export function useWalletLifecycle(): WalletLifecycle {
   const { state } = useWdkApp();
   const manager = useWalletManager();
 
-  // Only a wallet WDK holds can be the wrong one. A seed WDK does not list
-  // (status 'no-wallet') is refused by unlock instead.
-  const holdsWallet = state.status === 'LOCKED' || state.status === 'READY';
-  const wrongEvmMode = holdsWallet ? wrongEvmModeForThisBuild() : undefined;
+  const wrongEvmMode = useSyncExternalStore(subscribeToEvmModeRefusal, getEvmModeRefusal);
 
   const status: WalletStatus = (() => {
-    if (wrongEvmMode !== undefined) return 'error';
+    if (wrongEvmMode !== undefined) return 'wrong-evm-mode';
     switch (state.status) {
       case 'READY':
         return 'ready';
@@ -133,8 +155,11 @@ export function useWalletLifecycle(): WalletLifecycle {
   );
 
   const unlock = useCallback(async () => {
-    const wrongMode = wrongEvmModeForThisBuild();
-    if (wrongMode !== undefined) throw new WrongEvmModeError(wrongMode);
+    const wrongMode = await wrongEvmModeOnThisDevice();
+    if (wrongMode !== undefined) {
+      refuseWallet(wrongMode);
+      throw new WrongEvmModeError(wrongMode);
+    }
     await manager.unlock(WALLET_ID);
   }, [manager]);
 
@@ -150,7 +175,6 @@ export function useWalletLifecycle(): WalletLifecycle {
     () => ({
       status,
       error: wrongEvmMode ?? (state.status === 'ERROR' ? state.error.message : undefined),
-      wrongEvmMode,
       createWallet,
       restoreWallet,
       unlock,

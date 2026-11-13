@@ -4,9 +4,8 @@
 // wdk.config.js, which decides which wallet modules go into the worklet
 // bundle. Chain constants live in ./chains.ts. The Bitcoin network
 // (Mutinynet or Bitkit's regtest) is picked at build time in ./btcChain.ts,
-// and the EVM chain (Sepolia, a local Arbitrum fork or Arbitrum One) in
-// ./evmChain.ts. The 'ethereum' key names WDK's EVM module, whichever EVM
-// chain that is.
+// and the EVM chain (Sepolia or a local Arbitrum fork) in ./evmChain.ts.
+// The 'ethereum' key names WDK's EVM module, whichever EVM chain that is.
 import { BaseAsset, type WdkConfigs } from '@tetherto/wdk-react-native-core';
 
 import { BTC_CHAIN } from './btcChain';
@@ -16,11 +15,20 @@ export const BTC_NETWORK = 'bitcoin';
 export const EVM_NETWORK = 'ethereum';
 
 /**
- * The one WDK wallet (seed) this app manages. WDK stores the encrypted seed
- * in the Keychain/Keystore under this id. Do not change it: existing installs
- * would no longer find their wallet.
+ * The Sepolia wallet's id, the only id before other EVM modes existed. Do
+ * not change it: existing installs would no longer find their wallet.
  */
-export const WALLET_ID = 'paykit-wdk-demo';
+export const SEPOLIA_WALLET_ID = 'paykit-wdk-demo';
+
+/**
+ * The one WDK wallet (seed) this build manages. WDK stores the encrypted
+ * seed in the Keychain/Keystore under this id. Each EVM mode has its own:
+ * 'paykit-wdk-demo' on Sepolia, 'paykit-wdk-demo-arbitrum-fork' on the
+ * fork. So a seed under this id was always set up in this build's mode,
+ * even after an iOS reinstall that kept the Keychain but lost the mode
+ * record (src/wallet/evmModeGuard.ts).
+ */
+export const WALLET_ID = EVM_CHAIN.id === 'sepolia' ? SEPOLIA_WALLET_ID : `${SEPOLIA_WALLET_ID}-${EVM_CHAIN.id}`;
 
 /**
  * Electrum reconnects. WDK's Bitcoin client (@mempool/electrum-client)
