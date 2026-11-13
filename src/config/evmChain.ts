@@ -114,6 +114,8 @@ export type EvmChainProfile = {
   readonly addressHint: string;
   /** Why a scanned ethereum: code for another chain or token is refused. */
   readonly wrongChainMessage: string;
+  /** Why a scanned ethereum: code asking for another token is refused. */
+  readonly unknownTokenMessage: string;
   /** For You > Network details, before "(chain id …)": the network and what kind it is. */
   readonly detailsLabel: string;
   /** For You > Network details: the label of the USD₮ token row. */
@@ -144,6 +146,7 @@ const SEPOLIA: EvmChainProfile = {
   pendingUntil: 'the next Sepolia block, in about 12 seconds',
   addressHint: 'Any Ethereum address. The tokens move on Sepolia.',
   wrongChainMessage: 'That code is for another Ethereum network. This wallet pays on Sepolia only.',
+  unknownTokenMessage: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.',
   detailsLabel: 'Ethereum Sepolia',
   tokenLabel: 'USD₮ token (Aave test USDT)',
 };
@@ -175,6 +178,7 @@ const ARBITRUM_FORK: EvmChainProfile = {
   pendingUntil: 'the next fork block, in a few seconds',
   addressHint: 'Any Ethereum address. The tokens move on the local Arbitrum fork.',
   wrongChainMessage: 'That code is for another Ethereum network. This wallet pays on Arbitrum only.',
+  unknownTokenMessage: 'That code asks for a token this wallet does not hold. It pays USD₮0 only.',
   detailsLabel: 'Arbitrum (local Anvil fork of Arbitrum One)',
   tokenLabel: 'USD₮ token (USD₮0, forked)',
 };

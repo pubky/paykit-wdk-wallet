@@ -106,9 +106,14 @@ describe('the unknown-token message per build', () => {
   const otherToken = (format: typeof import('../addressFormat'), chainId: number) =>
     format.payeeOfEthereumUri(`${OTHER_TOKEN}@${chainId}/transfer?address=${PAYEE}`);
 
-  it('says test USD₮ on Sepolia and the local fork', () => {
-    const message = 'That code asks for a token this wallet does not hold. It pays test USD₮ only.';
-    expect(otherToken(load(), 11155111)).toEqual({ ok: false, message });
-    expect(otherToken(withEvmChain('arbitrum-fork', load), 42161)).toEqual({ ok: false, message });
+  it('says test USD₮ on Sepolia and USD₮0 on the local fork', () => {
+    expect(otherToken(load(), 11155111)).toEqual({
+      ok: false,
+      message: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.',
+    });
+    expect(otherToken(withEvmChain('arbitrum-fork', load), 42161)).toEqual({
+      ok: false,
+      message: 'That code asks for a token this wallet does not hold. It pays USD₮0 only.',
+    });
   });
 });

@@ -31,7 +31,7 @@
 import { parseArgs } from 'node:util';
 import { AbiCoder, Contract, JsonRpcProvider, getAddress, keccak256, parseUnits, toBeHex, toQuantity } from 'ethers';
 
-import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, formatUnits, loopbackHttpUrl } from './lib/fork.mjs';
+import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, fail, formatUnits, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/fund-fork.mjs <0x address>... [--usdt <USD₮, default 1000>] [--eth <ETH, default 1>] [--rpc <url, default ${ARBITRUM_FORK_RPC}>] [--sync-time]`;
 const USDT_DECIMALS = 6;
@@ -43,11 +43,6 @@ const MAX_ETH = parseUnits('1000000', ETH_DECIMALS);
 const MAX_CLOCK_DRIFT_SECONDS = 5 * 60;
 /** Storage slots tried for USD₮0's balance mapping, as bitkit-core's fork fixture does. */
 const MAPPING_SLOTS = 100;
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
 
 let args;
 try {
@@ -234,12 +229,16 @@ const slot = await findBalanceSlot(addresses[0]);
 const written = [];
 let step = 'Setting';
 let current;
+/** The address whose ETH is set but whose USD₮0 is not yet, while that is so. */
+let ethOnly;
 let failure;
 try {
   for (const address of addresses) {
     current = address;
     await provider.send('anvil_setBalance', [address, toQuantity(eth)]);
+    ethOnly = address;
     await setTokenStorage(balanceKey(address, slot), usdt);
+    ethOnly = undefined;
     written.push(address);
   }
   step = 'Reading back';
@@ -253,7 +252,8 @@ try {
 } catch (error) {
   failure =
     `${step} ${current} failed (${reason(error)}). ` +
-    `Already set: ${written.length > 0 ? written.join(', ') : 'none'}.`;
+    `Already set: ${written.length > 0 ? written.join(', ') : 'none'}.` +
+    (ethOnly ? ` ${ethOnly} got its ETH but not its USD₮0.` : '');
 } finally {
   provider.destroy();
 }

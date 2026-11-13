@@ -63,7 +63,8 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
     return isPayableBtcAddress(address) ? { identifier, asset: 'btc', address } : undefined;
   }
   if (identifier === ENDPOINT_USDT) {
-    const chainId = String(json.chain_id ?? '');
+    // A string, as Bitkit requires (`chain_id as? String`): a number is refused.
+    const chainId = typeof json.chain_id === 'string' ? json.chain_id : '';
     const token = typeof json.token === 'string' ? json.token : '';
     const ok =
       isEvmAddress(json.value) && chainId === String(EVM_CHAIN.chainId) && isEvmAddress(token) && sameEvmAddress(token, EVM_CHAIN.usdtToken);

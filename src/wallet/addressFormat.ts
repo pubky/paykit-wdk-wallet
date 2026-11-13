@@ -85,11 +85,12 @@ export function parseQueryParams(query: string): Map<string, string> {
  * money: tokens sent to them are lost, so they are never accepted as a
  * recipient.
  */
-const KNOWN_CONTRACTS = AAVE_FAUCET_FUNDING ? [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET] : [EVM_CHAIN.usdtToken];
-const KNOWN_CONTRACT_NAME = AAVE_FAUCET_FUNDING ? 'the test USD₮ token or faucet contract' : 'the USD₮ token contract';
+const KNOWN_CONTRACTS: { readonly addresses: readonly string[]; readonly name: string } = AAVE_FAUCET_FUNDING
+  ? { addresses: [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET], name: 'the test USD₮ token or faucet contract' }
+  : { addresses: [EVM_CHAIN.usdtToken], name: 'the USD₮ token contract' };
 
 export function isKnownContract(address: string): boolean {
-  return KNOWN_CONTRACTS.some((contract) => sameEvmAddress(contract, address));
+  return KNOWN_CONTRACTS.addresses.some((contract) => sameEvmAddress(contract, address));
 }
 
 export type PayeeResult = { ok: true; address: string } | { ok: false; message: string };
@@ -112,7 +113,7 @@ export function payeeOfEthereumUri(rest: string): PayeeResult {
   }
   if (fn === undefined) return { ok: true, address: target };
   if (fn !== 'transfer' || !sameEvmAddress(target, EVM_CHAIN.usdtToken)) {
-    return { ok: false, message: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.' };
+    return { ok: false, message: EVM_CHAIN.unknownTokenMessage };
   }
   const payee = parseQueryParams(query).get('address') ?? '';
   return isEvmAddress(payee) ? { ok: true, address: payee } : { ok: false, message: 'That USD₮ request has no address to pay.' };
@@ -196,7 +197,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
       return {
         ok: false,
         reason: 'contract',
-        message: `That is ${KNOWN_CONTRACT_NAME}, not someone's wallet. Money sent there is lost. Paste the payee's own address.`,
+        message: `That is ${KNOWN_CONTRACTS.name}, not someone's wallet. Money sent there is lost. Paste the payee's own address.`,
       };
     }
     return { ok: true, address };

@@ -20,7 +20,7 @@ import { Buffer } from 'node:buffer';
 import { createServer } from 'node:http';
 import { parseArgs } from 'node:util';
 
-import { ARBITRUM_FORK_RPC, loopbackHttpUrl } from './lib/fork.mjs';
+import { ARBITRUM_FORK_RPC, fail, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/arbitrum-fork-rpc.mjs [--port <port, default 18547>] [--upstream <url, default ${ARBITRUM_FORK_RPC}>]`;
 const LISTEN_HOST = '127.0.0.1';
@@ -28,11 +28,6 @@ const RECEIPT_METHOD = 'eth_getTransactionReceipt';
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
 /** How long Anvil gets to answer (a fork may fetch state from Arbitrum One first). */
 const UPSTREAM_TIMEOUT_MS = 30_000;
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
 
 let options;
 try {

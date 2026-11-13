@@ -54,6 +54,11 @@ describe('endpoint payloads', () => {
     }
   });
 
+  it('refuses a numeric chain id: Bitkit requires a string', () => {
+    const numeric = JSON.stringify({ value: EVM, chain_id: 11155111, token: SEPOLIA_USDT });
+    expect(parseEndpoint(ENDPOINT_USDT, numeric)).toBeUndefined();
+  });
+
   it('accepts the token address in any letter case', () => {
     const lower = JSON.stringify({ value: EVM, chain_id: '11155111', token: SEPOLIA_USDT.toLowerCase() });
     expect(parseEndpoint(ENDPOINT_USDT, lower)?.asset).toBe('usdt');
@@ -137,6 +142,8 @@ describe('the USD₮ endpoint on an Arbitrum fork build', () => {
       expect(fork.parseEndpoint('usdt-arbitrum-address', JSON.stringify({ value: EVM, chain_id: chainId, token: USDT0 }))).toBeUndefined();
     }
     expect(fork.parseEndpoint('usdt-arbitrum-address', JSON.stringify({ value: EVM, chain_id: '42161', token: SEPOLIA_USDT }))).toBeUndefined();
+    // Bitkit reads `chain_id as? String`, so a number is refused here too.
+    expect(fork.parseEndpoint('usdt-arbitrum-address', JSON.stringify({ value: EVM, chain_id: 42161, token: USDT0 }))).toBeUndefined();
   });
 
   it('leaves the default build on Sepolia', () => {

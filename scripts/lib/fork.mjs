@@ -1,4 +1,4 @@
-// Shared constants, the loopback check and formatUnits for the local
+// Shared constants, the loopback check, formatUnits and fail for the local
 // Arbitrum fork's scripts (scripts/fund-fork.mjs, scripts/arbitrum-fork-rpc.mjs).
 // lib/demo-wallets.mjs re-exports formatUnits for the other funding scripts.
 //
@@ -44,4 +44,10 @@ export function formatUnits(value, decimals) {
   const whole = value / base;
   const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
   return fraction ? `${whole}.${fraction}` : `${whole}`;
+}
+
+/** Print `message` to stderr and stop with exit code 1. */
+export function fail(message) {
+  console.error(message);
+  process.exit(1);
 }

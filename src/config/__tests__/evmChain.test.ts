@@ -40,6 +40,7 @@ describe('evmChainFromEnv', () => {
         pendingUntil: 'the next Sepolia block, in about 12 seconds',
         addressHint: 'Any Ethereum address. The tokens move on Sepolia.',
         wrongChainMessage: 'That code is for another Ethereum network. This wallet pays on Sepolia only.',
+        unknownTokenMessage: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.',
         detailsLabel: 'Ethereum Sepolia',
         tokenLabel: 'USD₮ token (Aave test USDT)',
       });
@@ -61,6 +62,7 @@ describe('evmChainFromEnv', () => {
       ethAssetId: 'eth-arbitrum-fork',
       usdtAssetId: 'usdt-arbitrum-fork',
       networkLabel: 'Arbitrum (local fork)',
+      unknownTokenMessage: 'That code asks for a token this wallet does not hold. It pays USD₮0 only.',
     });
   });
 
