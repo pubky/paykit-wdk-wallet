@@ -316,7 +316,10 @@ export async function verifyErc20ProofReadingBlockTime(
   readBlockTimeMs: (transaction: Extract<EvmTransaction, { state: 'succeeded' }>) => Promise<number | undefined>,
 ): Promise<Verdict> {
   const verdict = verifyErc20Proof(transaction, context);
-  // Only a mined transaction's verdict waits on its block time; the state check narrows the type.
-  if (verdict.status !== 'pending' || verdict.needs !== 'block-time' || transaction.state !== 'succeeded') return verdict;
-  return verifyErc20Proof({ ...transaction, blockTimeMs: await readBlockTimeMs(transaction) }, context);
+  // Only a mined transaction's verdict waits on its block time, and only with a
+  // notBefore to compare it to; these checks narrow the types.
+  if (verdict.status !== 'pending' || verdict.needs !== 'block-time' || transaction.state !== 'succeeded' || !context.notBefore) return verdict;
+  // Every other check already passed: only the time check runs again.
+  const mined = { ...transaction, blockTimeMs: await readBlockTimeMs(transaction) };
+  return erc20TimeProblem(mined, context.notBefore, context.paymentTime, context.nowMs) ?? { status: 'verified' };
 }

@@ -3,6 +3,7 @@ import { Wallet, id, type HDNodeWallet } from 'ethers';
 
 import { ARBITRUM_USDT0, SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../../config/chains';
 import { EVM_CHAIN } from '../../config/evmChain';
+import * as erc20PaymentProof from '../../wallet/erc20PaymentProof';
 import { ERC20_TRANSFER_TOPIC, erc20PaymentTypedData, type Erc20PaymentMessage, type Erc20RequestBinding } from '../../wallet/erc20PaymentProof';
 import { evmTransactionFrom, type EvmTransaction } from '../../wallet/paymentEvidence';
 import fixtures from '../../wallet/__tests__/fixtures/erc20-payment-proofs.json';
@@ -244,10 +245,14 @@ describe('verifyErc20Proof', () => {
         expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), fresh)).toEqual({ status: 'verified' });
         expect(fresh).toHaveBeenCalledTimes(1);
         const old = reader(notBefore.ms - 11 * 60_000);
+        // Reading the time re-runs only the time check, not the signature recovery.
+        const recover = jest.spyOn(erc20PaymentProof, 'erc20PaymentSigner');
         expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), old)).toEqual({
           status: 'rejected',
           reason: 'It was paid before you asked for it.',
         });
+        expect(recover).toHaveBeenCalledTimes(1);
+        recover.mockRestore();
       });
 
       it('rejects a bad signature without reading the block time', async () => {

@@ -18,17 +18,14 @@ const ZERO_ADDRESS = /^0x0{40}$/i;
  * address too, when it is bridged in, and that is not a test-token mint.
  */
 export function isFaucetMint(item: ActivityItem): boolean {
-  return (
-    AAVE_FAUCET_FUNDING !== undefined &&
-    item.asset === 'usdt' &&
-    item.direction === 'in' &&
-    (item.id.endsWith(':local:faucet') || (item.counterpartyAddress !== undefined && ZERO_ADDRESS.test(item.counterpartyAddress)))
-  );
+  return faucetMintSource(item) !== undefined;
 }
 
 /** Where a faucet mint came from, for Activity detail's "From" row; undefined for anything else. */
 export function faucetMintSource(item: ActivityItem): string | undefined {
-  return isFaucetMint(item) && AAVE_FAUCET_FUNDING ? `Aave’s ${AAVE_FAUCET_FUNDING.testNetwork} test-token faucet` : undefined;
+  if (!AAVE_FAUCET_FUNDING || item.asset !== 'usdt' || item.direction !== 'in') return undefined;
+  const minted = item.id.endsWith(':local:faucet') || (item.counterpartyAddress !== undefined && ZERO_ADDRESS.test(item.counterpartyAddress));
+  return minted ? `Aave’s ${AAVE_FAUCET_FUNDING.testNetwork} test-token faucet` : undefined;
 }
 
 /** "Sent", "Received", "Moved to main account", "Test USD₮ minted". */

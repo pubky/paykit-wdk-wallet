@@ -179,22 +179,11 @@ const ARBITRUM_FORK: EvmChainProfile = {
   tokenLabel: 'USD₮ token (USD₮0, forked)',
 };
 
-/** Every EVM mode this build knows, by id. */
-export const EVM_CHAIN_PROFILES: Record<EvmChainId, EvmChainProfile> = {
-  sepolia: SEPOLIA,
-  'arbitrum-fork': ARBITRUM_FORK,
-};
-
-/** True for an id in EVM_CHAIN_PROFILES; own keys only, so "toString" is not a mode. */
-export function isEvmChainId(value: string): value is EvmChainId {
-  return Object.prototype.hasOwnProperty.call(EVM_CHAIN_PROFILES, value);
-}
-
 /** The profile for an EXPO_PUBLIC_EVM_CHAIN value. Throws for a value it does not know. */
 export function evmChainFromEnv(value: string | undefined): EvmChainProfile {
-  if (value === undefined || value === '') return EVM_CHAIN_PROFILES.sepolia;
   // Sepolia is the default: it is picked by leaving the variable unset, not by name.
-  if (value !== 'sepolia' && isEvmChainId(value)) return EVM_CHAIN_PROFILES[value];
+  if (value === undefined || value === '') return SEPOLIA;
+  if (value === 'arbitrum-fork') return ARBITRUM_FORK;
   throw new Error(`EXPO_PUBLIC_EVM_CHAIN is "${value}". Leave it unset for Sepolia, or set it to "arbitrum-fork".`);
 }
 

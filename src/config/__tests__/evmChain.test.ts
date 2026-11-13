@@ -5,7 +5,7 @@ import {
   SEPOLIA_EXPLORER,
   SEPOLIA_RPC,
 } from '../chains';
-import { AAVE_FAUCET_FUNDING, EVM_CHAIN, EVM_CHAIN_PROFILES, evmChainFromEnv } from '../evmChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN, evmChainFromEnv } from '../evmChain';
 import { withEvmChain } from './withEnv';
 
 // USD₮0 on Arbitrum One, in lowercase, exactly as Bitkit publishes it.
@@ -88,11 +88,9 @@ describe('evmChainFromEnv', () => {
     );
   });
 
-  it('builds every profile from EVM_CHAIN_PROFILES, each under its own id', () => {
-    expect(Object.keys(EVM_CHAIN_PROFILES)).toEqual(['sepolia', 'arbitrum-fork']);
-    for (const [id, profile] of Object.entries(EVM_CHAIN_PROFILES)) expect(profile.id).toBe(id);
-    expect(evmChainFromEnv(undefined)).toBe(EVM_CHAIN_PROFILES.sepolia);
-    expect(evmChainFromEnv('arbitrum-fork')).toBe(EVM_CHAIN_PROFILES['arbitrum-fork']);
+  it('returns each profile under its own id', () => {
+    expect(evmChainFromEnv(undefined).id).toBe('sepolia');
+    expect(evmChainFromEnv('arbitrum-fork').id).toBe('arbitrum-fork');
   });
 
   it('is Sepolia in this test run (the variable is unset)', () => {
