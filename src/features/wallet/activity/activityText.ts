@@ -26,6 +26,11 @@ export function isFaucetMint(item: ActivityItem): boolean {
   );
 }
 
+/** Where a faucet mint came from, for Activity detail's "From" row; undefined for anything else. */
+export function faucetMintSource(item: ActivityItem): string | undefined {
+  return isFaucetMint(item) && AAVE_FAUCET_FUNDING ? `Aave’s ${AAVE_FAUCET_FUNDING.testNetwork} test-token faucet` : undefined;
+}
+
 /** "Sent", "Received", "Moved to main account", "Test USD₮ minted". */
 export function activityTitle(item: ActivityItem): string {
   if (isFaucetMint(item)) return 'Test USD₮ minted';

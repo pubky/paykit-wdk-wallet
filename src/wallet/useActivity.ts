@@ -109,7 +109,11 @@ async function fetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-/** ETH and USD₮ activity for an EVM address, from Blockscout. None, and no error, where the chain has no indexer. */
+/**
+ * ETH and USD₮ activity for an EVM address, from Blockscout. None, and no
+ * error, where the chain has no indexer: right for the list, but not proof
+ * that nothing was sent (findSentPayment checks EVM_CHAIN.activityApi itself).
+ */
 export async function fetchEvmActivity(address: string): Promise<ActivityItem[]> {
   const api = EVM_CHAIN.activityApi;
   if (api === undefined) return [];

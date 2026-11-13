@@ -115,8 +115,9 @@ USD₮ proofs compare the block's time with when the request was made.
 This wallet allows 10 minutes for clock differences (Bitkit allows 24
 hours). The fork's blocks carry the fork's own clock, which can lag real
 time, most of all when you pin an old `--fork-block-number`. A request
-paid on a lagging fork is refused: "It was paid before you asked for
-it."
+paid on a lagging fork is refused, and the refusal is final: "It was
+paid before you asked for it." See "When a payment was made" below for
+why the window is 10 minutes.
 
 Check the latest block's time against your Mac's:
 
@@ -246,6 +247,15 @@ Metro's:
 adb reverse tcp:18545 tcp:18545
 ```
 
+If a USD₮ payment you received stays at "Checking when it was paid",
+the wallet could not read the block's time from the RPC. WDK reads the
+chain from its own worklet, so balances and sends can work while this
+one read fails. The Metro console then shows a warning that starts with
+`USD₮ proof: could not read the block time from`, once per kind of
+failure. On Android, check the `adb reverse` above, and that the build
+allows plain HTTP (cleartext) to `127.0.0.1`: Android release builds
+block it by default.
+
 Check You > Network details: it shows "Arbitrum (local Anvil fork of
 Arbitrum One) (chain id 42161)", RPC `http://127.0.0.1:18545`, history
 "none" and the chain mode.
@@ -339,12 +349,22 @@ proof's signer is the `from` of the USD₮0 Transfer the proof names
 through the payee's checks").
 
 **When a payment was made.** Both sides read the block's timestamp. This
-wallet allows 10 minutes (`src/config/evmChain.ts`,
-`ARBITRUM_PAYMENT_TIME`) and stays at "Checking when it was paid" until
-it has read the block's time. Bitkit allows 24 hours, because Arbitrum's
-sequencer may set a timestamp up to a day behind
-(`PaykitUsdtPaymentService.swift@1b56274c1:72,77`). A fork whose clock
-lags more than 10 minutes passes Bitkit's check and fails this wallet's.
+wallet allows 10 minutes (`EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS` in
+`src/paykit/paymentProofs.ts`, used when `paymentTime` in
+`src/config/evmChain.ts` is `'block-timestamp'`) and stays at "Checking
+when it was paid" until it has read the block's time. Bitkit allows 24
+hours, because Arbitrum's sequencer may set a timestamp up to a day
+behind (`PaykitUsdtPaymentService.swift@1b56274c1:72,77`). A payment
+whose block lags more than 10 minutes passes Bitkit's check and fails
+this wallet's, for good: a too-early payment is refused, not retried.
+
+The shorter window is on purpose. Any transfer from the payer to the
+same address inside the window, not yet claimed by another payment,
+passes as payment for a new request. With 24 hours, a payer could pass
+off a whole day's earlier transfers, such as a plain private send, as
+payment for a new request. Real Arbitrum sequencer lag of more than 10
+minutes is rare. On the fork, keep the clock current with `--sync-time`
+(see "Check the fork's clock").
 
 ## Known gaps
 
@@ -352,8 +372,10 @@ lags more than 10 minutes passes Bitkit's check and fails this wallet's.
   this app made since it launched; the record is in memory. A received
   payment never gets a row: the balance moves, and that is all. A USD₮
   payment whose transaction hash was lost (the app stopped mid-send) is
-  found only within the same launch. After a relaunch the request stays
-  at "May have been paid. Check Activity".
+  found only within the same launch. After a relaunch the wallet cannot
+  tell whether it was sent, so it never decides "not sent": the request
+  stays as it was ("Paying…" or "May have been paid. Check Activity"),
+  and You > Sync status logs a failed look for it every 30 seconds.
 - **Bitkit's dollar requests are not payable.** Bitkit creates requests
   in `btc` or `usd` only (`CreatePaymentRequestView.swift@1b56274c1:311`,
   `PaykitAmount.swift@1b56274c1:3-6`), and pays a `usd` request in USD₮.

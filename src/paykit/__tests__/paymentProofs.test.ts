@@ -9,6 +9,7 @@ import fixtures from '../../wallet/__tests__/fixtures/erc20-payment-proofs.json'
 import {
   btcProofJson,
   erc20ProofJson,
+  EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS,
   latestSepoliaBlockTimeMs,
   parseProof,
   paymentNotBefore,
@@ -211,6 +212,16 @@ describe('verifyErc20Proof', () => {
         reason: 'It was paid before you asked for it.',
       });
       expect(verifyErc20Proof(minedAt(notBefore.ms - 9 * 60_000), await context({ notBefore, paymentTime })).status).toBe('verified');
+    });
+
+    it('allows exactly its 10-minute window, and a too-early verdict is final', async () => {
+      // Anti-replay vs sequencer lag: 10 minutes, not Bitkit's 24 h.
+      expect(EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS).toBe(10 * 60_000);
+      const edge = notBefore.ms - EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS;
+      expect(verifyErc20Proof(minedAt(edge), await context({ notBefore, paymentTime })).status).toBe('verified');
+      const early = verifyErc20Proof(minedAt(edge - 1), await context({ notBefore, paymentTime }));
+      expect(early.status).toBe('rejected');
+      expect(early).not.toHaveProperty('recheckMs');
     });
 
     it('waits, never verifies, while the block time is unknown', async () => {

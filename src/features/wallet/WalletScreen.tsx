@@ -103,6 +103,7 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
         <Text variant="caption" color="graphite" style={styles.gas} testID="balance-eth">
           gas {balances.eth === undefined ? '—' : formatAssetAmount(balances.eth, 'eth', { withSymbol: true })}
         </Text>
+        {/* The button renders nothing without the faucet, but its wrapper's margin would still show. */}
         {balances.usdt === 0n && AAVE_FAUCET_FUNDING ? (
           <View style={styles.faucet}>
             <GetTestUsdtButton compact />

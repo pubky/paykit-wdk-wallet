@@ -9,27 +9,13 @@
 //   only a block height.
 //
 // Parsers are pure and unit tested; the fetchers are thin. Each fetch gives
-// up after FETCH_TIMEOUT_MS: React Native's fetch never times out on its
-// own, and a stalled API must not leave the Send screen waiting forever.
-// Callers fall back (WDK estimates its own fee rate) when a fetch fails.
+// up after FETCH_TIMEOUT_MS (./http.ts): React Native's fetch never times
+// out on its own, and a stalled API must not leave the Send screen waiting
+// forever. Callers fall back (WDK estimates its own fee rate) when a fetch
+// fails.
 import { BTC_CHAIN } from '../config/btcChain';
+import { fetchJsonWithTimeout } from './http';
 import { isTxid } from './txid';
-
-export const FETCH_TIMEOUT_MS = 5_000;
-
-/** GET (or `init`, such as a JSON-RPC POST) and parse JSON; undefined on an HTTP error, throws on a network error or timeout. */
-export async function fetchJsonWithTimeout(url: string, init?: { method: 'POST'; body: string }): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const headers: Record<string, string> = init ? { accept: 'application/json', 'content-type': 'application/json' } : { accept: 'application/json' };
-    const response = await fetch(url, { ...init, headers, signal: controller.signal });
-    if (!response.ok) return undefined;
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 /** The minimum relay rate (Mutinynet and regtest alike). Also the fallback when the API is unsure. */
 export const MIN_BTC_FEE_RATE = 1n;

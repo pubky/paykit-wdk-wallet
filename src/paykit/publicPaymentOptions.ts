@@ -17,7 +17,7 @@
 //
 // This file has no native imports and is unit tested. The SDK enum is
 // mapped to `PublicPaymentStatus` in ./publicPayments.ts.
-import { EVM_CHAIN } from '../config/evmChain';
+import { EVM_CHAIN, EVM_REAL_FUNDS } from '../config/evmChain';
 import { ASSETS } from '../wallet/assets';
 import { parseEndpoint } from './endpoints';
 
@@ -88,7 +88,16 @@ export function cannotPayReason(options: PublicPaymentOptions, asset: PayeeAsset
     return `${name} doesn't accept ${ASSETS[asset].displayName} by pubky. Choose ${other} instead.`;
   }
   if (options.status === 'unsupported') {
-    return `${name} publishes payment details this wallet can't use. Ask them for ${EVM_CHAIN.realFundsWarning !== undefined ? 'an address' : 'a test-network address'} instead.`;
+    return `${name} publishes payment details this wallet can't use. Ask them for ${addressToAskFor(asset)} instead.`;
   }
   return `${name} doesn't publish any payment addresses. Ask them for an address, or add each other as contacts.`;
+}
+
+/**
+ * The address to ask a payee for in `asset`. On a real-funds build only
+ * USD₮ is real money: its Bitcoin is still on a test network.
+ */
+function addressToAskFor(asset: PayeeAsset): string {
+  if (!EVM_REAL_FUNDS) return 'a test-network address';
+  return asset === 'btc' ? 'a test-network Bitcoin address' : `a USD₮ address on ${EVM_CHAIN.networkName}`;
 }

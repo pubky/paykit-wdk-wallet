@@ -76,14 +76,21 @@ describe('cannotPayReason', () => {
 });
 
 describe('cannotPayReason for unusable payment details', () => {
-  const unusable = (load: typeof cannotPayReason) => load(options([], { status: 'unsupported' }), 'usdt', 'Ben');
+  const unusable = (load: typeof cannotPayReason, asset: 'btc' | 'usdt' = 'usdt') => load(options([], { status: 'unsupported' }), asset, 'Ben');
+  const loadOn = (chain: string) =>
+    withEvmChain(chain, () => jest.requireActual<typeof import('../publicPaymentOptions')>('../publicPaymentOptions')).cannotPayReason;
 
   it('asks for a test-network address on a test build', () => {
-    expect(unusable(cannotPayReason)).toBe("Ben publishes payment details this wallet can't use. Ask them for a test-network address instead.");
+    const message = "Ben publishes payment details this wallet can't use. Ask them for a test-network address instead.";
+    for (const reason of [cannotPayReason, loadOn('arbitrum-fork')]) {
+      expect(unusable(reason, 'usdt')).toBe(message);
+      expect(unusable(reason, 'btc')).toBe(message);
+    }
   });
 
-  it('asks for an address on a real-funds build, where USD₮ is not on a test network', () => {
-    const one = withEvmChain('arbitrum-one', () => jest.requireActual<typeof import('../publicPaymentOptions')>('../publicPaymentOptions'));
-    expect(unusable(one.cannotPayReason)).toBe("Ben publishes payment details this wallet can't use. Ask them for an address instead.");
+  it('asks for a real USD₮ address, but still test Bitcoin, on a real-funds build', () => {
+    const one = loadOn('arbitrum-one');
+    expect(unusable(one, 'usdt')).toBe("Ben publishes payment details this wallet can't use. Ask them for a USD₮ address on Arbitrum One instead.");
+    expect(unusable(one, 'btc')).toBe("Ben publishes payment details this wallet can't use. Ask them for a test-network Bitcoin address instead.");
   });
 });

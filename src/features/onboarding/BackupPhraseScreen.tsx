@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { EVM_CHAIN, EVM_REAL_FUNDS } from '../../config/evmChain';
 import type { OnboardingScreenProps } from '../../navigation/types';
 import { Button, RecoveryWords, Screen, Text, space, useForegroundSecret } from '../../ui';
 import { useWalletLifecycle } from '../../wallet';
@@ -56,9 +57,16 @@ export function BackupPhraseScreen({ navigation }: OnboardingScreenProps<'Backup
           <Button label={seen ? 'Show the words again' : 'Show my recovery phrase'} variant="secondary" compact onPress={onShow} testID="backup-show" />
         )}
         {error ? <Text color="alert">{error}</Text> : null}
-        <Text variant="caption" color="graphite">
-          This is a testnet wallet. Never put real funds on a phrase shown by a demo app.
-        </Text>
+        {EVM_REAL_FUNDS ? (
+          <Text variant="caption" color="alert" testID="backup-real-funds">
+            Its Bitcoin is test money, but its USD₮ and ETH on {EVM_CHAIN.networkName} are real. This demo app protects this phrase with
+            demo-grade security only: keep no more on it than you can afford to lose.
+          </Text>
+        ) : (
+          <Text variant="caption" color="graphite">
+            This is a testnet wallet. Never put real funds on a phrase shown by a demo app.
+          </Text>
+        )}
       </View>
     </Screen>
   );

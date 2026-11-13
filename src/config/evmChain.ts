@@ -236,3 +236,10 @@ export const EVM_CHAIN = evmChainFromEnv(process.env.EXPO_PUBLIC_EVM_CHAIN);
  * mint only when it is set.
  */
 export const AAVE_FAUCET_FUNDING = EVM_CHAIN.funding.kind === 'aave-faucet' ? EVM_CHAIN.funding : undefined;
+
+/**
+ * True on a build whose ETH and USD₮ are real money (Arbitrum One). Its
+ * Bitcoin is still on a test network. Screens that would otherwise say
+ * "test" or "testnet" word themselves from this.
+ */
+export const EVM_REAL_FUNDS = EVM_CHAIN.funding.kind === 'real-funds';

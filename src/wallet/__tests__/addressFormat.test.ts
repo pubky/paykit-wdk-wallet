@@ -91,3 +91,24 @@ describe('Ethereum payment codes on an Arbitrum fork build', () => {
     expect(isKnownContract(AAVE_SEPOLIA_FAUCET)).toBe(true);
   });
 });
+
+describe('the unknown-token message per build', () => {
+  const PAYEE = '0x83A881Ddad0F675A3d57d306F3F4E6b352b95CD0';
+  const OTHER_TOKEN = '0x1111111111111111111111111111111111111111';
+  const load = () => jest.requireActual<typeof import('../addressFormat')>('../addressFormat');
+  const otherToken = (format: typeof import('../addressFormat'), chainId: number) =>
+    format.payeeOfEthereumUri(`${OTHER_TOKEN}@${chainId}/transfer?address=${PAYEE}`);
+
+  it('says test USD₮ on Sepolia and the local fork', () => {
+    const message = 'That code asks for a token this wallet does not hold. It pays test USD₮ only.';
+    expect(otherToken(load(), 11155111)).toEqual({ ok: false, message });
+    expect(otherToken(withEvmChain('arbitrum-fork', load), 42161)).toEqual({ ok: false, message });
+  });
+
+  it('never calls real USD₮ test money on Arbitrum One', () => {
+    expect(otherToken(withEvmChain('arbitrum-one', load), 42161)).toEqual({
+      ok: false,
+      message: 'That code asks for a token this wallet does not hold. It pays USD₮ on Arbitrum One only.',
+    });
+  });
+});

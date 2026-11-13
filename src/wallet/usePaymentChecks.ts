@@ -18,7 +18,10 @@
 //                            getTransfers (mempool included), with block
 //                            times from the network's esplora; USD₮ from
 //                            Blockscout, since WDK's EVM module has no
-//                            history call
+//                            history call. On a chain with no indexer it
+//                            can only find this session's sends, and
+//                            throws rather than say "none"
+//                            (./sentPaymentSearch.ts)
 //   signErc20Payment(typed)  signTypedData with EVM account 0, for exactly
 //                            the Paykit ERC-20 proof domain on the build's
 //                            chain (EVM_CHAIN.chainId, the same id
@@ -37,7 +40,8 @@ import { EVM_CHAIN } from '../config/evmChain';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
-import { fetchBtcTransactionStatus, fetchJsonWithTimeout } from './esplora';
+import { fetchBtcTransactionStatus } from './esplora';
+import { fetchJsonWithTimeout } from './http';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,
@@ -52,6 +56,7 @@ import {
   type SentTransferQuery,
 } from './paymentEvidence';
 import { retryIfElectrumDropped } from './electrumRetry';
+import { matchSentUsdtPayment } from './sentPaymentSearch';
 import { sentTransactions } from './sentTransactions';
 import { fetchEvmActivity } from './useActivity';
 
@@ -101,8 +106,9 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
       findSentPayment: async (query) => {
         if (query.asset === 'usdt') {
           if (!evmAddress) throw new Error('The USD₮ account is not loaded yet');
-          // What this app sent this session (not indexed yet), then the indexer.
-          return matchSentTransfer([...sentTransactions(), ...(await fetchEvmActivity(evmAddress))], query);
+          // The indexer, if the chain has one, plus what this app sent this session (not indexed yet).
+          const indexed = EVM_CHAIN.activityApi === undefined ? undefined : await fetchEvmActivity(evmAddress);
+          return matchSentUsdtPayment(sentTransactions(), indexed, query);
         }
         const items = sentTransferCandidates(parseBtcTransfers(await retryIfElectrumDropped(() => btc().getTransfers({ limit: BTC_HISTORY_FETCH_LIMIT })), 0), query);
         // WDK's transfers carry a block height, not a time.
@@ -126,17 +132,44 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
  * A mined transaction's block time (ms), read with a JSON-RPC call to the
  * chain's RPC: by the receipt's block hash, or by number if it has none.
  * Undefined if that fails in any way, so the proof stays pending.
+ *
+ * WDK reads the same RPC from its worklet, so a failure here alone (an
+ * Android build without cleartext HTTP or `adb reverse` for the fork, say)
+ * would leave every such proof at "Checking when it was paid" with nothing
+ * to go on. Each kind of failure is warned about once.
  */
 async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: number }): Promise<number | undefined> {
   let request: { method: string; params: unknown[] };
   if (tx.blockHash !== undefined) request = { method: 'eth_getBlockByHash', params: [tx.blockHash, false] };
   else if (tx.blockNumber !== undefined) request = { method: 'eth_getBlockByNumber', params: [`0x${tx.blockNumber.toString(16)}`, false] };
-  else return undefined;
-  try {
-    return evmBlockTimeMsFrom(await fetchJsonWithTimeout(EVM_CHAIN.rpc, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) }), tx.blockHash);
-  } catch {
+  else {
+    warnBlockTimeFailure('no-block', 'the transaction names no block');
     return undefined;
   }
+  let response: unknown;
+  try {
+    response = await fetchJsonWithTimeout(EVM_CHAIN.rpc, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) });
+  } catch (error) {
+    warnBlockTimeFailure('request', error instanceof Error ? error.message : String(error));
+    return undefined;
+  }
+  if (response === undefined) {
+    warnBlockTimeFailure('http', 'the RPC answered with an HTTP error');
+    return undefined;
+  }
+  const blockTimeMs = evmBlockTimeMsFrom(response, tx.blockHash);
+  if (blockTimeMs === undefined) warnBlockTimeFailure('answer', 'the answer has no block time for that block');
+  return blockTimeMs;
+}
+
+/** Failure kinds already warned about, so a proof checked every minute does not repeat itself. */
+const warnedBlockTimeFailures = new Set<string>();
+
+/** EVM_CHAIN.rpc is a fixed public or local URL from src/config/chains.ts, with no key in it. */
+function warnBlockTimeFailure(kind: 'no-block' | 'request' | 'http' | 'answer', reason: string): void {
+  if (warnedBlockTimeFailures.has(kind)) return;
+  warnedBlockTimeFailures.add(kind);
+  console.warn(`USD₮ proof: could not read the block time from ${EVM_CHAIN.rpc}: ${reason}`);
 }
 
 /** A reader for one Bitcoin account: what a transaction paid into it. Undefined until the account is loaded. */

@@ -860,6 +860,9 @@ again. USD₮'s history comes from Blockscout, which can lag by hours, so a
 missing USD₮ payment stays reserved ("May have been paid. Check
 Activity") and the search goes on every five minutes. The Arbitrum modes
 have no history API, so the search sees only this launch's own sends.
+Finding nothing there is not "not sent" (after a relaunch the record is
+gone), so the search fails instead of answering "none"
+(`src/wallet/sentPaymentSearch.ts`), and the round tries again later.
 
 **"Dropped" is not failed.** WDK's EVM `getTransaction` says `dropped`
 when it finds the transaction but no receipt, and the sender's nonce has
@@ -928,11 +931,18 @@ the wallets. This app uses:
   mines on demand, so confirmations say nothing about time. There
   `evmTransaction` reads the block's timestamp with a JSON-RPC call to
   `EVM_CHAIN.rpc` (WDK returns only the block), with ten minutes'
-  allowance for the sequencer's and the phones' clocks. Until that time
-  is known the proof stays pending ("Checking when it was paid"), never
-  verified, so a payer cannot reuse an old transfer while the RPC is
-  down. Bitkit allows 24 hours here, so a fork whose clock lags more
-  than ten minutes passes Bitkit's check and fails ours. A proof after a
+  allowance for the sequencer's and the phones' clocks
+  (`EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS` in `src/paykit/paymentProofs.ts`).
+  Until that time is known the proof stays pending ("Checking when it
+  was paid"), never verified, so a payer cannot reuse an old transfer
+  while the RPC is down; each kind of failure to read it is logged once
+  with `console.warn`. Bitkit allows 24 hours here, so a block whose
+  time lags more than ten minutes passes Bitkit's check and fails ours,
+  for good (a too-early verdict is final). That is a trade-off: a longer
+  window would let a payer pass off any unclaimed transfer to the payee
+  from inside it as payment for a new request, and real Arbitrum
+  sequencer lag of more than ten minutes is rare. On the Anvil fork,
+  `scripts/fund-fork.mjs --sync-time` fixes a lagging clock. A proof after a
   cancellation is not rejected: the spec forbids rejecting a proof only because a
   cancellation came first, and the time bound can't tell "just before"
   from "just after" anyway.

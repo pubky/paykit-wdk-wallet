@@ -1,6 +1,6 @@
 import { withEvmChain } from '../../../config/__tests__/withEnv';
 import type { ActivityItem } from '../../../wallet';
-import { activityPersonHint, activityStatusWords, activityTitle, isFaucetMint } from '../activity/activityText';
+import { activityPersonHint, activityStatusWords, activityTitle, faucetMintSource, isFaucetMint } from '../activity/activityText';
 
 const base: ActivityItem = {
   id: 'ethereum:0x1:usdt:0',
@@ -19,6 +19,11 @@ describe('activity words', () => {
     expect(isFaucetMint({ ...base, id: 'ethereum:0x1:local:faucet' })).toBe(true);
     expect(isFaucetMint({ ...base, counterpartyAddress: '0x83A881Ddad0F675A3d57d306F3F4E6b352b95CD0' })).toBe(false);
     expect(activityTitle({ ...base, id: 'ethereum:0x1:local:faucet' })).toBe('Test USD₮ minted');
+  });
+
+  it("names the faucet as a mint's source, and nothing else", () => {
+    expect(faucetMintSource({ ...base, id: 'ethereum:0x1:local:faucet' })).toBe('Aave’s Sepolia test-token faucet');
+    expect(faucetMintSource({ ...base, counterpartyAddress: '0x83A881Ddad0F675A3d57d306F3F4E6b352b95CD0' })).toBeUndefined();
   });
 
   it('names sends, receipts and collects', () => {
@@ -56,6 +61,7 @@ describe('activity words on the local Arbitrum fork', () => {
     expect(text.isFaucetMint({ ...base, counterpartyAddress: ZERO })).toBe(false);
     expect(text.isFaucetMint({ ...base, id: 'ethereum:0x1:local:faucet' })).toBe(false);
     expect(text.activityTitle({ ...base, counterpartyAddress: ZERO })).toBe('Received');
+    expect(text.faucetMintSource({ ...base, counterpartyAddress: ZERO })).toBeUndefined();
   });
 
   it('names the fork as the network', () => {

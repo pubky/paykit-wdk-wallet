@@ -172,8 +172,21 @@ export const BTC_PAYMENT_TIME_ALLOWANCE_MS = 10 * 60_000;
 /** Sepolia's slot bound is safe on its own; this covers the two phones' clocks. */
 export const EVM_PAYMENT_TIME_ALLOWANCE_MS = 5 * 60_000;
 export const SEPOLIA_SLOT_MS = 12_000;
-/** EVM block timestamps ('block-timestamp' chains) trail real time like Bitcoin's, and phone clocks drift. */
-export const EVM_BLOCK_TIME_ALLOWANCE_MS = BTC_PAYMENT_TIME_ALLOWANCE_MS;
+/**
+ * How far before `notBefore` a 'block-timestamp' chain's (Arbitrum's) block
+ * time may be. Its own value on purpose, not Bitcoin's: it is a trade-off
+ * between two risks, and a too-early verdict is final (rejected).
+ * - Replay. Any unclaimed transfer from the payer to this address inside the
+ *   window passes as payment for a new request. Bitkit allows 24 h, which
+ *   would let a payer pass off a whole day's earlier transfers.
+ * - Lag. The sequencer's block timestamps and the two phones' clocks can
+ *   trail real time. Real Arbitrum lag beyond 10 minutes is rare; a local
+ *   Anvil fork whose clock fell behind is fixed with scripts/fund-fork.mjs
+ *   `--sync-time`.
+ * A payment whose block lags more than this passes Bitkit's check and
+ * fails ours (docs/BITKIT-USDT-FORK.md).
+ */
+export const EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS = 10 * 60_000;
 
 /**
  * The earliest a payment may be from: the later of when we asked
@@ -242,7 +255,7 @@ function erc20TimeProblem(
     return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
   }
   if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: 'Checking when it was paid.', recheckMs: DROPPED_PROOF_RECHECK_MS };
-  return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIME_ALLOWANCE_MS);
+  return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS);
 }
 
 export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20ProofContext): Verdict {

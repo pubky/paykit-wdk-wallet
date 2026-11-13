@@ -108,3 +108,19 @@ describe("parseScannedCode and Bitkit's USD₮ code on an Arbitrum fork build", 
     expect(fork.parseScannedCode(`ethereum:${USDT0}@42161`).kind).toBe('unsupported');
   });
 });
+
+describe('the not-supported message per build', () => {
+  const load = () => jest.requireActual<typeof import('../parseScannedCode')>('../parseScannedCode');
+  const TEST_MESSAGE = "This code isn't a pubky or a test-network payment address.";
+
+  it('says test network on the local fork, as on Sepolia', () => {
+    expect(withEvmChain('arbitrum-fork', load).parseScannedCode('hello')).toEqual({ kind: 'unsupported', message: TEST_MESSAGE });
+  });
+
+  it('says only Bitcoin is on a test network on Arbitrum One', () => {
+    expect(withEvmChain('arbitrum-one', load).parseScannedCode('hello')).toEqual({
+      kind: 'unsupported',
+      message: "This code isn't a pubky, a test-network Bitcoin address or a payment address on Arbitrum One.",
+    });
+  });
+});

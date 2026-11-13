@@ -125,6 +125,16 @@ describe('AAVE_FAUCET_FUNDING', () => {
   });
 });
 
+describe('EVM_REAL_FUNDS', () => {
+  const load = () => jest.requireActual<typeof import('../evmChain')>('../evmChain').EVM_REAL_FUNDS;
+
+  it('is set only on Arbitrum One', () => {
+    expect(load()).toBe(false);
+    expect(withEvmChain('arbitrum-fork', load)).toBe(false);
+    expect(withEvmChain('arbitrum-one', load)).toBe(true);
+  });
+});
+
 describe('the real-funds warning', () => {
   it('is set only where the funds are real', () => {
     for (const value of ['', 'arbitrum-fork', 'arbitrum-one']) {

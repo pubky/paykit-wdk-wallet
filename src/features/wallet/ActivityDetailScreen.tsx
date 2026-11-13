@@ -17,12 +17,11 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AAVE_FAUCET_FUNDING } from '../../config/evmChain';
 import type { RootScreenProps } from '../../navigation/types';
 import { AssetAmount, Chip, DetailRow, ExplorerButton, Divider, EmptyState, KeyText, PushedScreen, Text, formatDateTime, relativeTime, space } from '../../ui';
 import { fetchBtcTransactionStatus, formatFee, transactionUrl, useActivity, type ActivityItem } from '../../wallet';
 import { ActivityPaykitLinks, useRequestLinkFor } from './activity/ActivityPaykitLinks';
-import { activityPersonHint, activityStatusWords, activityTitleWithPerson, isFaucetMint, networkName } from './activity/activityText';
+import { activityPersonHint, activityStatusWords, activityTitleWithPerson, faucetMintSource, networkName } from './activity/activityText';
 import { useActivityPeople } from './activity/useActivityPeople';
 import { PersonSeal } from '../people/PersonSeal';
 import { usePersonName } from '../people/usePersonName';
@@ -71,6 +70,7 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
   const feeAsset = item.chain === 'bitcoin' ? 'btc' : 'eth';
   // None on the local Arbitrum fork: it has no explorer.
   const explorerUrl = transactionUrl(item.chain, item.hash);
+  const faucetSource = faucetMintSource(item);
 
   return (
     <PushedScreen title={activityTitleWithPerson(item, person ? { role: person.role, name } : undefined)} onBack={back} testID="activity-detail">
@@ -96,9 +96,9 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
             <Divider />
           </>
         ) : null}
-        {isFaucetMint(item) && AAVE_FAUCET_FUNDING ? (
+        {faucetSource ? (
           <>
-            <DetailRow label="From" value={`Aave’s ${AAVE_FAUCET_FUNDING.testNetwork} test-token faucet`} />
+            <DetailRow label="From" value={faucetSource} />
             <Divider />
           </>
         ) : item.counterpartyAddress ? (
