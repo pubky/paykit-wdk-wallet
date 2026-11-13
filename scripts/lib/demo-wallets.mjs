@@ -1,5 +1,5 @@
 // Shared helpers for the host-side funding scripts (scripts/fund-*.mjs).
-// The Arbitrum fork's constants and loopback check are in ./fork.mjs.
+// The Arbitrum fork's constants, loopback check and formatUnits are in ./fork.mjs.
 //
 // The two demo wallets are defined by the BIP-39 phrases in the git-ignored
 // .env.demo (IOS_MNEMONIC, ANDROID_MNEMONIC). These helpers derive the same
@@ -28,6 +28,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bech32, bech32m } from '@scure/base';
 import { HDNodeWallet, JsonRpcProvider, getBytes, ripemd160, sha256 } from 'ethers';
+
+// formatUnits lives in the dependency-free ./fork.mjs, so fund-fork.mjs need not load this file.
+export { formatUnits } from './fork.mjs';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ENV_PATH = join(ROOT, '.env.demo');
@@ -218,12 +221,4 @@ export function treasurySigner() {
 export function resolveTarget(text, chain) {
   if (text === 'ios' || text === 'android') return demoWallets()[text][chain];
   return text;
-}
-
-/** Format base units as a decimal string (bigint in, string out). */
-export function formatUnits(value, decimals) {
-  const base = 10n ** BigInt(decimals);
-  const whole = value / base;
-  const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
-  return fraction ? `${whole}.${fraction}` : `${whole}`;
 }

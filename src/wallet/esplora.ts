@@ -14,7 +14,7 @@
 // forever. Callers fall back (WDK estimates its own fee rate) when a fetch
 // fails.
 import { BTC_CHAIN } from '../config/btcChain';
-import { fetchJsonWithTimeout } from './http';
+import { fetchJsonWithTimeout, HttpStatusError } from './http';
 import { isTxid } from './txid';
 
 /** The minimum relay rate (Mutinynet and regtest alike). Also the fallback when the API is unsure. */
@@ -28,8 +28,18 @@ export function parseRecommendedFeeRate(json: unknown): bigint | undefined {
   return rate < MIN_BTC_FEE_RATE ? MIN_BTC_FEE_RATE : rate;
 }
 
+/** An esplora read: undefined on an HTTP error, throws on a network error or timeout. */
+async function fetchEsploraJson(path: string): Promise<unknown> {
+  try {
+    return await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}${path}`, 'esplora');
+  } catch (error) {
+    if (error instanceof HttpStatusError) return undefined;
+    throw error;
+  }
+}
+
 export async function fetchBtcFeeRate(): Promise<bigint | undefined> {
-  return parseRecommendedFeeRate(await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}/v1/fees/recommended`));
+  return parseRecommendedFeeRate(await fetchEsploraJson('/v1/fees/recommended'));
 }
 
 export type BtcTransactionStatus = { confirmed: boolean; blockHeight?: number; blockTime?: number };
@@ -47,5 +57,5 @@ export function parseTransactionStatus(json: unknown): BtcTransactionStatus | un
 
 export async function fetchBtcTransactionStatus(txid: string): Promise<BtcTransactionStatus | undefined> {
   if (!isTxid(txid)) return undefined;
-  return parseTransactionStatus(await fetchJsonWithTimeout(`${BTC_CHAIN.esploraApi}/tx/${txid}/status`));
+  return parseTransactionStatus(await fetchEsploraJson(`/tx/${txid}/status`));
 }

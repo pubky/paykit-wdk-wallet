@@ -31,8 +31,7 @@
 import { parseArgs } from 'node:util';
 import { AbiCoder, Contract, JsonRpcProvider, getAddress, keccak256, parseUnits, toBeHex, toQuantity } from 'ethers';
 
-import { formatUnits } from './lib/demo-wallets.mjs';
-import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, loopbackHttpUrl } from './lib/fork.mjs';
+import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, formatUnits, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/fund-fork.mjs <0x address>... [--usdt <USD₮, default 1000>] [--eth <ETH, default 1>] [--rpc <url, default ${ARBITRUM_FORK_RPC}>] [--sync-time]`;
 const USDT_DECIMALS = 6;
@@ -103,6 +102,14 @@ const provider = new JsonRpcProvider(rpc, Number(ARBITRUM_ONE_CHAIN_ID), { stati
 const token = new Contract(ARBITRUM_USDT0, ['function balanceOf(address) view returns (uint256)'], provider);
 const coder = AbiCoder.defaultAbiCoder();
 
+/** Close the connection to the node, then stop with `message`. */
+function stop(message) {
+  provider.destroy();
+  fail(message);
+}
+/** The one-line reason an RPC call failed, for the messages. */
+const reason = (error) => error.shortMessage ?? error.message;
+
 // Only a local Anvil fork of Arbitrum One, checked before any write (as
 // bitkit-core tests/usdt-fork/provider.mjs does).
 const expectedChainId = toQuantity(ARBITRUM_ONE_CHAIN_ID);
@@ -111,10 +118,10 @@ let chainId;
 try {
   [client, chainId] = await Promise.all([provider.send('web3_clientVersion', []), provider.send('eth_chainId', [])]);
 } catch (error) {
-  fail(`Could not reach a node at ${rpc} (${error.shortMessage ?? error.message}). Start Anvil first (docs/BITKIT-USDT-FORK.md).`);
+  stop(`Could not reach a node at ${rpc} (${reason(error)}). Start Anvil first (docs/BITKIT-USDT-FORK.md).`);
 }
-if (!/anvil/i.test(String(client))) fail(`${rpc} runs "${client}", not Anvil. This script only rewrites balances on a local Anvil fork.`);
-if (chainId !== expectedChainId) fail(`${rpc} is on chain ${chainId}, not Arbitrum One (${expectedChainId}). Fork https://arb1.arbitrum.io/rpc.`);
+if (!/anvil/i.test(String(client))) stop(`${rpc} runs "${client}", not Anvil. This script only rewrites balances on a local Anvil fork.`);
+if (chainId !== expectedChainId) stop(`${rpc} is on chain ${chainId}, not Arbitrum One (${expectedChainId}). Fork https://arb1.arbitrum.io/rpc.`);
 
 async function blockSeconds(tag) {
   const block = await provider.send('eth_getBlockByNumber', [tag, false]);
@@ -130,23 +137,32 @@ async function forkClock() {
   const pending = await blockSeconds('pending').catch(() => undefined);
   if (pending !== undefined) return { seconds: pending, measured: "the fork's next block would be" };
   const latest = await blockSeconds('latest');
-  if (latest === undefined) fail(`${rpc} returned no latest block.`);
+  if (latest === undefined) stop(`${rpc} returned no latest block.`);
   return { seconds: latest, measured: "the fork's latest block is" };
 }
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-let clock = await forkClock();
-if (options['sync-time']) {
-  const now = nowSeconds();
-  if (clock.seconds < now) {
-    await provider.send('evm_setNextBlockTimestamp', [toQuantity(now)]);
-    await provider.send('evm_mine', []);
-    const mined = await blockSeconds('latest');
-    console.log(`Mined a block at this computer's time, ${new Date((mined ?? now) * 1000).toISOString()}.`);
-    clock = await forkClock();
-  } else {
-    console.log("The fork's clock is not behind this computer's, so --sync-time mined nothing.");
+// An RPC failure here stops the script with one line that names the step.
+let clock;
+let clockStep = "Reading the fork's clock";
+try {
+  clock = await forkClock();
+  if (options['sync-time']) {
+    const now = nowSeconds();
+    if (clock.seconds < now) {
+      clockStep = "Mining a block at this computer's time (--sync-time)";
+      await provider.send('evm_setNextBlockTimestamp', [toQuantity(now)]);
+      await provider.send('evm_mine', []);
+      clockStep = "Reading the fork's clock after --sync-time";
+      const mined = await blockSeconds('latest');
+      console.log(`Mined a block at this computer's time, ${new Date((mined ?? now) * 1000).toISOString()}.`);
+      clock = await forkClock();
+    } else {
+      console.log("The fork's clock is not behind this computer's, so --sync-time mined nothing.");
+    }
   }
+} catch (error) {
+  stop(`${clockStep} failed (${reason(error)}). No balance was set.`);
 }
 const drift = clock.seconds - nowSeconds();
 if (Math.abs(drift) > MAX_CLOCK_DRIFT_SECONDS) {
@@ -164,28 +180,39 @@ const setTokenStorage = (key, value) => provider.send('anvil_setStorageAt', [ARB
 /**
  * The storage slot of USD₮0's balance mapping, ported from setMapping in
  * bitkit-core tests/usdt-fork/provider.mjs: write a probe to each candidate
- * key, keep the slot where balanceOf reads it back, and restore every miss.
- * The probe differs from the current balance, so a match is never a
- * coincidence. A probe whose write or read-back fails is restored too, and
- * the script stops; if a restore fails, it stops and names that slot.
+ * key, keep the slot where balanceOf reads it back, and restore every
+ * probe, the match included. The probe differs from the current balance, so
+ * a match is never a coincidence. A failed RPC call stops the script with
+ * one line that names the slot, after undoing that slot's probe; if a
+ * restore fails, it stops and names that slot.
  */
 async function findBalanceSlot(account) {
-  const probe = (await token.balanceOf(account)) + 1n;
+  let probe;
+  try {
+    probe = (await token.balanceOf(account)) + 1n;
+  } catch (error) {
+    stop(`Reading the USD₮0 balance of ${account} failed (${reason(error)}). No balance was set.`);
+  }
   for (let slot = 0; slot < MAPPING_SLOTS; slot++) {
     const key = balanceKey(account, slot);
-    const previous = await provider.send('eth_getStorageAt', [ARBITRUM_USDT0, key, 'latest']);
+    let previous;
+    try {
+      previous = await provider.send('eth_getStorageAt', [ARBITRUM_USDT0, key, 'latest']);
+    } catch (error) {
+      stop(`Reading USD₮0 balance slot ${slot} failed (${reason(error)}). Every probe was undone.`);
+    }
     let readBack;
     try {
       await setTokenStorage(key, probe);
       readBack = await token.balanceOf(account);
     } catch (error) {
       await undoProbe(key, previous, slot);
-      fail(`Probing slot ${slot} failed (${error.shortMessage ?? error.message}). Every probe was undone.`);
+      stop(`Probing slot ${slot} failed (${reason(error)}). Every probe was undone.`);
     }
-    if (readBack === probe) return slot;
     await undoProbe(key, previous, slot);
+    if (readBack === probe) return slot;
   }
-  fail(`Could not find USD₮0's balance storage in slots 0 to ${MAPPING_SLOTS - 1}. Every probe was undone.`);
+  stop(`Could not find USD₮0's balance storage in slots 0 to ${MAPPING_SLOTS - 1}. Every probe was undone.`);
 }
 
 /** Write `previous` back at `key`, or stop and say the probe at `slot` may still be there. */
@@ -193,8 +220,8 @@ async function undoProbe(key, previous, slot) {
   try {
     await provider.send('anvil_setStorageAt', [ARBITRUM_USDT0, key, previous]);
   } catch (error) {
-    fail(
-      `Could not undo the probe at USD₮0 balance slot ${slot} (${error.shortMessage ?? error.message}). ` +
+    stop(
+      `Could not undo the probe at USD₮0 balance slot ${slot} (${reason(error)}). ` +
         'That slot may still hold it; restarting Anvil clears it. Every earlier probe was undone.',
     );
   }
@@ -225,7 +252,7 @@ try {
   }
 } catch (error) {
   failure =
-    `${step} ${current} failed (${error.shortMessage ?? error.message}). ` +
+    `${step} ${current} failed (${reason(error)}). ` +
     `Already set: ${written.length > 0 ? written.join(', ') : 'none'}.`;
 } finally {
   provider.destroy();

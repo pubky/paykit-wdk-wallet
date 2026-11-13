@@ -43,7 +43,7 @@ import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
 import { fetchBtcTransactionStatus } from './esplora';
-import { fetchJsonWithTimeout } from './http';
+import { fetchJsonWithTimeout, HttpStatusError } from './http';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,
@@ -158,13 +158,12 @@ async function fetchEvmBlockTimeMs(tx: EvmBlockRef): Promise<number | undefined>
   const request = { method: 'eth_getBlockByHash', params: [blockHash, false] };
   let response: unknown;
   try {
-    response = await fetchJsonWithTimeout(EVM_CHAIN.rpc, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) });
+    response = await fetchJsonWithTimeout(EVM_CHAIN.rpc, 'the RPC', {
+      init: { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) },
+    });
   } catch (error) {
-    warnBlockTimeFailure('request', error instanceof Error ? error.message : String(error));
-    return undefined;
-  }
-  if (response === undefined) {
-    warnBlockTimeFailure('http', 'the RPC answered with an HTTP error');
+    if (error instanceof HttpStatusError) warnBlockTimeFailure('http', 'the RPC answered with an HTTP error');
+    else warnBlockTimeFailure('request', error instanceof Error ? error.message : String(error));
     return undefined;
   }
   const blockTimeMs = evmBlockTimeMsFrom(response, blockHash);

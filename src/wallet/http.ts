@@ -7,32 +7,35 @@
 // slow but working.
 export const FETCH_TIMEOUT_MS = 5_000;
 
-/** GET (or `init`, such as a JSON-RPC POST) and parse JSON; undefined on an HTTP error, throws on a network error or timeout. */
-export async function fetchJsonWithTimeout(url: string, init?: { method: 'POST'; body: string }, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown> {
-  return withTimeout(url, init, timeoutMs, async (response) => (response.ok ? response.json() : undefined));
+/** An HTTP error answer (not a network error or timeout), so a caller can treat it on its own. */
+export class HttpStatusError extends Error {
+  readonly status: number;
+
+  constructor(service: string, status: number) {
+    super(`${service} answered ${status}`);
+    this.name = 'HttpStatusError';
+    this.status = status;
+  }
 }
 
-/** GET and parse JSON; throws `<service> answered <status>` on an HTTP error, and on a network error or timeout. */
-export async function fetchJsonOrThrowWithTimeout(url: string, service: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown> {
-  return withTimeout(url, undefined, timeoutMs, async (response) => {
-    if (!response.ok) throw new Error(`${service} answered ${response.status}`);
-    return response.json();
-  });
-}
-
-/** Fetch and read the response, aborting both if they take longer than `timeoutMs`. */
-async function withTimeout<T>(
+/**
+ * GET (or `init`, such as a JSON-RPC POST) and parse JSON. Throws
+ * HttpStatusError (`<service> answered <status>`) on an HTTP error, and
+ * throws on a network error or timeout.
+ */
+export async function fetchJsonWithTimeout(
   url: string,
-  init: { method: 'POST'; body: string } | undefined,
-  timeoutMs: number,
-  read: (response: Response) => Promise<T>,
-): Promise<T> {
+  service: string,
+  options: { init?: { method: 'POST'; body: string }; timeoutMs?: number } = {},
+): Promise<unknown> {
+  const { init, timeoutMs = FETCH_TIMEOUT_MS } = options;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers: Record<string, string> = init ? { accept: 'application/json', 'content-type': 'application/json' } : { accept: 'application/json' };
     const response = await fetch(url, { ...init, headers, signal: controller.signal });
-    return await read(response);
+    if (!response.ok) throw new HttpStatusError(service, response.status);
+    return await response.json();
   } finally {
     clearTimeout(timer);
   }

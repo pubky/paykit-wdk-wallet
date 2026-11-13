@@ -227,12 +227,10 @@ describe('verifyErc20Proof', () => {
     });
 
     it('waits, never verifies, while the block time is unknown', async () => {
-      expect(verifyErc20Proof(minedAt(undefined), await context({ notBefore, paymentTime }))).toEqual({
-        status: 'pending',
-        reason: 'Checking when it was paid.',
-        recheckMs: 60_000,
-        needs: 'block-time',
-      });
+      const waiting = verifyErc20Proof(minedAt(undefined), await context({ notBefore, paymentTime }));
+      expect(waiting).toEqual({ status: 'pending', reason: 'Checking when it was paid.', needs: 'block-time' });
+      // Rechecked at the usual interval, not the 60 s one for a dropped transaction.
+      expect(waiting).not.toHaveProperty('recheckMs');
       // A request from before the rule has no time to compare.
       expect(verifyErc20Proof(minedAt(undefined), await context({ paymentTime })).status).toBe('verified');
     });
@@ -266,12 +264,9 @@ describe('verifyErc20Proof', () => {
 
       it('stays pending, never verified, when the time cannot be read', async () => {
         const unknown = reader(undefined);
-        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), unknown)).toEqual({
-          status: 'pending',
-          reason: 'Checking when it was paid.',
-          recheckMs: 60_000,
-          needs: 'block-time',
-        });
+        const waiting = await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), unknown);
+        expect(waiting).toEqual({ status: 'pending', reason: 'Checking when it was paid.', needs: 'block-time' });
+        expect(waiting).not.toHaveProperty('recheckMs');
         expect(unknown).toHaveBeenCalledTimes(1);
       });
 

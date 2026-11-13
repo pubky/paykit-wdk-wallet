@@ -186,7 +186,8 @@ The shim is a JSON-RPC proxy that adds `receiptLogIndex` (the log's
 position, as a decimal string) to every log of every receipt, single or
 batched. Everything else passes through unchanged. It listens on
 `127.0.0.1` only, forwards only to `127.0.0.1`, and refuses requests
-from a browser (any request with an `Origin` header).
+from a browser (any request with an `Origin` header). It will not start
+with an `--upstream` on its own `--port`, which would forward to itself.
 
 The wallet does not need the shim: it talks to Anvil directly.
 
@@ -370,16 +371,19 @@ What the script does:
 - It **sets** balances. Each address ends with exactly the amounts
   given, whatever it held before. Nothing is minted or sent.
 - ETH: `anvil_setBalance`. USD₮0: it finds the token's balance storage
-  slot (it tries slots 0 to 99, undoing every miss, as bitkit-core's
-  fixture does) and writes the balance with `anvil_setStorageAt`.
+  slot (it tries slots 0 to 99 and undoes every probe, the match
+  included, as bitkit-core's fixture undoes its misses) and writes the
+  balance with `anvil_setStorageAt`.
 - It never changes an address's code or nonce, so Bitkit's EIP-7702
   delegation survives.
 - Before it writes anything, it refuses an `--rpc` that is not
   `http://127.0.0.1`, and a node that is not Anvil on chain `0xa4b1`.
 - It takes `0x` addresses only. It reads no `.env.demo` and no secret.
 - It prints each address's balances afterwards, and exits with an error
-  if one does not match. If an RPC call fails part-way, it stops and
-  names the address it was on and the addresses already set.
+  if one does not match. If an RPC call fails, it stops with one line
+  that names the step: while checking the clock or finding the slot,
+  before any balance is set; while setting balances, with the address it
+  was on and the addresses already set.
 - It warns when the time the fork's next block would get is more than 5
   minutes from your Mac's clock. It reads that from the `pending` block,
   and uses the latest block only when Anvil gives no pending time; the

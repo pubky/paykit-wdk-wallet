@@ -53,6 +53,13 @@ try {
 } catch (error) {
   fail(error.message);
 }
+// The upstream is on 127.0.0.1 like the proxy, so the same port would make
+// the proxy forward every request to itself. loopbackHttpUrl allows http
+// only, whose default port is 80.
+const upstreamPort = Number(new URL(upstream).port || 80);
+if (upstreamPort === port) {
+  fail(`--upstream ${upstream} is this proxy's own address (${LISTEN_HOST}:${port}). Point it at Anvil, by default ${ARBITRUM_FORK_RPC}.`);
+}
 
 /** A receipt response with receiptLogIndex (the log's position, as a decimal string) on each log. */
 function withReceiptLogIndex(response) {

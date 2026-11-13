@@ -258,8 +258,10 @@ function erc20TimeProblem(
   if (paymentTime === 'slot-bound') {
     return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
   }
+  // No recheckMs: a failed block-time read is retried at the usual interval,
+  // not the dropped-transaction one.
   if (transaction.blockTimeMs === undefined) {
-    return { status: 'pending', reason: CHECKING_PAYMENT_TIME, recheckMs: DROPPED_PROOF_RECHECK_MS, needs: 'block-time' };
+    return { status: 'pending', reason: CHECKING_PAYMENT_TIME, needs: 'block-time' };
   }
   return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS);
 }

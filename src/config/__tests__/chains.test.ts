@@ -128,4 +128,18 @@ describe('EVM chain switch in the scripts', () => {
     expect(imports.filter((from) => !from.startsWith("from 'node:"))).toEqual(["from './lib/fork.mjs'"]);
     expect(scriptCode('lib/fork.mjs')).not.toMatch(/\bimport\b|\brequire\(/);
   });
+
+  // fund-fork.mjs loads ethers, Node built-ins and fork.mjs only: never
+  // lib/demo-wallets.mjs, the module that reads the demo phrases.
+  it('scripts/fund-fork.mjs imports only ethers, lib/fork.mjs and node: modules', () => {
+    const imports = scriptCode('fund-fork.mjs').match(/from '[^']*'/g) ?? [];
+    expect(imports).not.toContain("from './lib/demo-wallets.mjs'");
+    expect(imports.filter((from) => !from.startsWith("from 'node:"))).toEqual(["from 'ethers'", "from './lib/fork.mjs'"]);
+  });
+
+  // The proxy and its upstream are both on 127.0.0.1, so the same port
+  // would make it forward to itself.
+  it('scripts/arbitrum-fork-rpc.mjs refuses an --upstream on its own port', () => {
+    expect(scriptCode('arbitrum-fork-rpc.mjs')).toContain('if (upstreamPort === port) {');
+  });
 });

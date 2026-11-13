@@ -52,7 +52,7 @@ import {
 import { retryIfElectrumDropped } from './electrumRetry';
 import { nextFailureStreak, NO_FAILURES, shouldReportFailure, type FailureStreak } from './failureStreak';
 import { fetchBtcTransactionStatus } from './esplora';
-import { fetchJsonOrThrowWithTimeout } from './http';
+import { fetchJsonWithTimeout } from './http';
 import { evmTransactionFrom, sendOutcomeOf } from './paymentEvidence';
 import { markSentTransaction, sentTransactions, subscribeSentTransactions } from './sentTransactions';
 import { useAppActive } from './useAppActive';
@@ -120,8 +120,10 @@ export async function fetchEvmActivity(address: string): Promise<ActivityItem[]>
   const api = EVM_CHAIN.activityApi;
   if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
-    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout', BLOCKSCOUT_TIMEOUT_MS),
-    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout', BLOCKSCOUT_TIMEOUT_MS),
+    fetchJsonWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout', { timeoutMs: BLOCKSCOUT_TIMEOUT_MS }),
+    fetchJsonWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout', {
+      timeoutMs: BLOCKSCOUT_TIMEOUT_MS,
+    }),
   ]);
   return [
     ...parseBlockscoutTransactions(transactions, address),
@@ -182,14 +184,18 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
           .catch(() => track('btc', false))
           .then(() => fetchMissingBlockTimes([...lastFetched.btc, ...contactAccountActivity()]))
           .then((added) => added && setBlockTimesVersion((v) => v + 1)),
-        fetchEvmActivity(evmAddress)
-          .then((items) => {
-            lastFetched.evm = items;
-            setEvmItems(items);
-            track('evm', true);
-          })
-          .catch(() => track('evm', false))
-          .then(() => confirmPendingEvmSends(lastFetched.evm, evmExtension)),
+        // With no indexer there is no list to fetch: setting a fresh empty
+        // one every poll would only re-render for nothing.
+        (EVM_CHAIN.activityApi === undefined
+          ? Promise.resolve()
+          : fetchEvmActivity(evmAddress)
+              .then((items) => {
+                lastFetched.evm = items;
+                setEvmItems(items);
+                track('evm', true);
+              })
+              .catch(() => track('evm', false))
+        ).then(() => confirmPendingEvmSends(lastFetched.evm, evmExtension)),
       ]);
       // Older lists stay on screen; only a run of failures is worth a line.
       const failing = [

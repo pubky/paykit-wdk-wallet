@@ -1,5 +1,6 @@
-// Shared constants and the loopback check for the local Arbitrum fork's
-// scripts (scripts/fund-fork.mjs, scripts/arbitrum-fork-rpc.mjs).
+// Shared constants, the loopback check and formatUnits for the local
+// Arbitrum fork's scripts (scripts/fund-fork.mjs, scripts/arbitrum-fork-rpc.mjs).
+// lib/demo-wallets.mjs re-exports formatUnits for the other funding scripts.
 //
 // No dependencies and no file reads: the fork scripts read no .env.demo and
 // no secrets, and the RPC proxy loads nothing but this file and Node.
@@ -35,4 +36,12 @@ export function loopbackHttpUrl(text, flag) {
     throw new Error(`${flag} must be http://127.0.0.1:<port>, not "${text}": only a node on this computer is allowed.`);
   }
   return url.href;
+}
+
+/** Format base units as a decimal string (bigint in, string out). */
+export function formatUnits(value, decimals) {
+  const base = 10n ** BigInt(decimals);
+  const whole = value / base;
+  const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : `${whole}`;
 }
