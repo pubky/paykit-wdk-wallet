@@ -1392,6 +1392,9 @@ use `ethers` and `@scure/base` (pinned devDependencies); the app does not.
 balances on the local Arbitrum fork with Anvil's `anvil_setBalance` and
 `anvil_setStorageAt`, after checking that the RPC is on this computer
 and is Anvil on chain 42161 (`docs/BITKIT-USDT-FORK.md`). The fork
+scripts take their chain constants and that check from
+`scripts/lib/fork.mjs`, which imports nothing, so the RPC proxy loads
+neither `ethers` nor the demo-wallet helpers. The fork
 scripts and the Bitcoin funding scripts never read the app's chain
 switches, so exporting one is never needed;
 `src/config/__tests__/chains.test.ts` checks that.

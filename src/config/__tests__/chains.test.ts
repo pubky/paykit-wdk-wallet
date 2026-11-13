@@ -5,10 +5,12 @@ import { btcChainFromEnv } from '../btcChain';
 import * as chains from '../chains';
 
 // The funding scripts are plain Node and keep their own copy of the chain
-// constants (scripts/lib/demo-wallets.mjs). This test keeps the copy in
-// step with src/config/chains.ts, like versions.test.ts does for versions.
+// constants (scripts/lib/demo-wallets.mjs, and scripts/lib/fork.mjs for the
+// Arbitrum fork). This test keeps the copy in step with src/config/chains.ts,
+// like versions.test.ts does for versions.
 const scriptSource = (file: string) => readFileSync(join(__dirname, '..', '..', '..', 'scripts', file), 'utf8');
 const script = scriptSource('lib/demo-wallets.mjs');
+const forkScript = scriptSource('lib/fork.mjs');
 
 /**
  * A script's code without its whole comment lines, so comments may name
@@ -22,8 +24,8 @@ function scriptCode(file: string): string {
     .join('\n');
 }
 
-function scriptConstant(name: string): string | undefined {
-  const match = new RegExp(`export const ${name} = (?:'([^']*)'|(\\d+)n);`).exec(script);
+function scriptConstant(name: string, source = script): string | undefined {
+  const match = new RegExp(`export const ${name} = (?:'([^']*)'|(\\d+)n);`).exec(source);
   return match ? (match[1] ?? match[2]) : undefined;
 }
 
@@ -39,11 +41,16 @@ describe('chain constants in the funding scripts', () => {
     ['MUTINYNET_EXPLORER', chains.MUTINYNET_EXPLORER],
     ['BITKIT_REGTEST_EXPLORER', chains.BITKIT_REGTEST_EXPLORER],
     ['BITKIT_REGTEST_API', chains.BITKIT_REGTEST_API],
+  ])('%s matches src/config/chains.ts', (name, expected) => {
+    expect(scriptConstant(name)).toBe(expected);
+  });
+
+  it.each([
     ['ARBITRUM_ONE_CHAIN_ID', String(chains.ARBITRUM_ONE_CHAIN_ID)],
     ['ARBITRUM_USDT0', chains.ARBITRUM_USDT0],
     ['ARBITRUM_FORK_RPC', chains.ARBITRUM_FORK_RPC],
-  ])('%s matches src/config/chains.ts', (name, expected) => {
-    expect(scriptConstant(name)).toBe(expected);
+  ])('%s in scripts/lib/fork.mjs matches src/config/chains.ts', (name, expected) => {
+    expect(scriptConstant(name, forkScript)).toBe(expected);
   });
 });
 
@@ -69,16 +76,19 @@ describe('Bitcoin chain switch in the funding scripts', () => {
   // also makes `npm start` bundle regtest and breaks `npm test`. The name
   // must not appear in their code at all (so no `process.env.X`, `['X']`
   // or `const { X } = process.env`); comments may mention it.
-  it.each(['lib/demo-wallets.mjs', 'fund-btc.mjs', 'fund-status.mjs'])('scripts/%s never reads EXPO_PUBLIC_BTC_CHAIN', (file) => {
-    expect(scriptCode(file)).not.toMatch(/\bEXPO_PUBLIC_BTC_CHAIN\b/);
-  });
+  it.each(['lib/demo-wallets.mjs', 'lib/fork.mjs', 'fund-btc.mjs', 'fund-status.mjs'])(
+    'scripts/%s never reads EXPO_PUBLIC_BTC_CHAIN',
+    (file) => {
+      expect(scriptCode(file)).not.toMatch(/\bEXPO_PUBLIC_BTC_CHAIN\b/);
+    },
+  );
 });
 
 describe('EVM chain switch in the scripts', () => {
   // Same rule for the EVM switch: exporting EXPO_PUBLIC_EVM_CHAIN would make
   // `npm start` bundle the fork and break `npm test`. The fork scripts take
   // their node from --rpc and --upstream instead.
-  it.each(['lib/demo-wallets.mjs', 'fund-fork.mjs', 'arbitrum-fork-rpc.mjs', 'fund-btc.mjs', 'fund-status.mjs'])(
+  it.each(['lib/demo-wallets.mjs', 'lib/fork.mjs', 'fund-fork.mjs', 'arbitrum-fork-rpc.mjs', 'fund-btc.mjs', 'fund-status.mjs'])(
     'scripts/%s never reads EXPO_PUBLIC_EVM_CHAIN',
     (file) => {
       expect(scriptCode(file)).not.toMatch(/\bEXPO_PUBLIC_EVM_CHAIN\b/);
@@ -103,7 +113,19 @@ describe('EVM chain switch in the scripts', () => {
   });
 
   // Anvil listens on 127.0.0.1 only, and 'localhost' may resolve to ::1.
-  it('loopbackHttpUrl accepts 127.0.0.1 only', () => {
-    expect(scriptCode('lib/demo-wallets.mjs')).toContain("const LOOPBACK_HOSTS = ['127.0.0.1'];");
+  // Jest (jest-expo) cannot load an .mjs file without a config change, so
+  // this reads the check's source instead of calling it.
+  it('loopbackHttpUrl accepts http on 127.0.0.1 only', () => {
+    const code = scriptCode('lib/fork.mjs');
+    expect(code).toContain("const LOOPBACK_HOST = '127.0.0.1';");
+    expect(code).toContain("if (url.protocol !== 'http:' || url.hostname !== LOOPBACK_HOST) {");
+  });
+
+  // The proxy loads nothing but fork.mjs and Node built-ins (no ethers, no
+  // .env.demo), and fork.mjs itself imports nothing.
+  it('scripts/arbitrum-fork-rpc.mjs imports only lib/fork.mjs and node: modules', () => {
+    const imports = scriptCode('arbitrum-fork-rpc.mjs').match(/from '[^']*'/g) ?? [];
+    expect(imports.filter((from) => !from.startsWith("from 'node:"))).toEqual(["from './lib/fork.mjs'"]);
+    expect(scriptCode('lib/fork.mjs')).not.toMatch(/\bimport\b|\brequire\(/);
   });
 });

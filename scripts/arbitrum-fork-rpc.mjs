@@ -20,7 +20,7 @@ import { Buffer } from 'node:buffer';
 import { createServer } from 'node:http';
 import { parseArgs } from 'node:util';
 
-import { ARBITRUM_FORK_RPC, loopbackHttpUrl } from './lib/demo-wallets.mjs';
+import { ARBITRUM_FORK_RPC, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/arbitrum-fork-rpc.mjs [--port <port, default 18547>] [--upstream <url, default ${ARBITRUM_FORK_RPC}>]`;
 const LISTEN_HOST = '127.0.0.1';

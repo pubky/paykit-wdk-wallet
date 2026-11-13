@@ -31,7 +31,8 @@
 import { parseArgs } from 'node:util';
 import { AbiCoder, Contract, JsonRpcProvider, getAddress, keccak256, parseUnits, toBeHex, toQuantity } from 'ethers';
 
-import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, formatUnits, loopbackHttpUrl } from './lib/demo-wallets.mjs';
+import { formatUnits } from './lib/demo-wallets.mjs';
+import { ARBITRUM_FORK_RPC, ARBITRUM_ONE_CHAIN_ID, ARBITRUM_USDT0, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/fund-fork.mjs <0x address>... [--usdt <USD₮, default 1000>] [--eth <ETH, default 1>] [--rpc <url, default ${ARBITRUM_FORK_RPC}>] [--sync-time]`;
 const USDT_DECIMALS = 6;
@@ -201,14 +202,32 @@ async function undoProbe(key, previous, slot) {
 
 console.log(`Setting ${formatUnits(usdt, USDT_DECIMALS)} USD₮0 and ${formatUnits(eth, ETH_DECIMALS)} ETH (absolute balances, not added to what is there):`);
 const slot = await findBalanceSlot(addresses[0]);
-for (const address of addresses) {
-  await provider.send('anvil_setBalance', [address, toQuantity(eth)]);
-  await setTokenStorage(balanceKey(address, slot), usdt);
+// An RPC failure part-way stops the script with a message that names the
+// address and says which addresses were already set, not a stack trace.
+const written = [];
+let step = 'Setting';
+let current;
+let failure;
+try {
+  for (const address of addresses) {
+    current = address;
+    await provider.send('anvil_setBalance', [address, toQuantity(eth)]);
+    await setTokenStorage(balanceKey(address, slot), usdt);
+    written.push(address);
+  }
+  step = 'Reading back';
+  for (const address of addresses) {
+    current = address;
+    const [ethBalance, usdtBalance] = await Promise.all([provider.getBalance(address), token.balanceOf(address)]);
+    const matches = usdtBalance === usdt && ethBalance === eth;
+    if (!matches) process.exitCode = 1;
+    console.log(`  ${address}  ${formatUnits(usdtBalance, USDT_DECIMALS)} USD₮0  ${formatUnits(ethBalance, ETH_DECIMALS)} ETH${matches ? '' : '  (not the amount set: check the fork)'}`);
+  }
+} catch (error) {
+  failure =
+    `${step} ${current} failed (${error.shortMessage ?? error.message}). ` +
+    `Already set: ${written.length > 0 ? written.join(', ') : 'none'}.`;
+} finally {
+  provider.destroy();
 }
-for (const address of addresses) {
-  const [ethBalance, usdtBalance] = await Promise.all([provider.getBalance(address), token.balanceOf(address)]);
-  const matches = usdtBalance === usdt && ethBalance === eth;
-  if (!matches) process.exitCode = 1;
-  console.log(`  ${address}  ${formatUnits(usdtBalance, USDT_DECIMALS)} USD₮0  ${formatUnits(ethBalance, ETH_DECIMALS)} ETH${matches ? '' : '  (not the amount set: check the fork)'}`);
-}
-provider.destroy();
+if (failure) fail(failure);

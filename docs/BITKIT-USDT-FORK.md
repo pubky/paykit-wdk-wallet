@@ -378,7 +378,8 @@ What the script does:
   `http://127.0.0.1`, and a node that is not Anvil on chain `0xa4b1`.
 - It takes `0x` addresses only. It reads no `.env.demo` and no secret.
 - It prints each address's balances afterwards, and exits with an error
-  if one does not match.
+  if one does not match. If an RPC call fails part-way, it stops and
+  names the address it was on and the addresses already set.
 - It warns when the time the fork's next block would get is more than 5
   minutes from your Mac's clock. It reads that from the `pending` block,
   and uses the latest block only when Anvil gives no pending time; the
@@ -442,10 +443,12 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
 ## Known gaps
 
 - **No indexer on the fork.** Activity shows only the USD₮ and ETH sends
-  this app made since it launched; the record is in memory. A received
-  payment never gets a row: the balance moves, and that is all. A USD₮
-  payment whose transaction hash was lost (the app stopped mid-send) is
-  found only within the same launch. After a relaunch the wallet cannot
+  this app made since it launched; the record is in memory and keeps only
+  the latest 50 sends, Bitcoin and EVM together. A received payment never
+  gets a row: the balance moves, and that is all. A USD₮ payment whose
+  transaction hash was lost (the app stopped mid-send) is found only
+  within the same launch, and only while it is among that launch's latest
+  50 sends. After a relaunch, or once it drops out, the wallet cannot
   find it, but it never decides "not sent" for USD₮: the payment stays
   reserved and shows as "May have been paid. Check Activity". It cannot
   be linked to its transaction automatically.

@@ -6,7 +6,9 @@
 // (see mergeActivity in ./activity.ts). Lost on restart, which is fine
 // where an indexer exists: by then it has caught up. On a chain with no
 // indexer (the Arbitrum fork) these records are the only EVM history, and
-// a restart loses them: a known gap (docs/BITKIT-USDT-FORK.md, "Known gaps").
+// a restart loses them. The list keeps only the latest 50 sends, BTC and
+// EVM together, so older fork sends drop out of it within a launch too: a
+// known gap (docs/BITKIT-USDT-FORK.md, "Known gaps").
 //
 // Blockscout often lists a Sepolia transaction a minute or more after its
 // block. So that the sender does not watch "Pending" all that time,
