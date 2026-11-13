@@ -35,7 +35,6 @@ export function GetTestUsdtButton({ compact, faucetBelow }: GetTestUsdtButtonPro
   const inFlight = useRef(false);
 
   const noGas = balances.eth === 0n;
-  const explorerUrl = result?.explorerUrl;
   const onMint = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -81,7 +80,7 @@ export function GetTestUsdtButton({ compact, faucetBelow }: GetTestUsdtButtonPro
           <Text variant="caption" color="graphite">
             Minting. It arrives with {EVM_CHAIN.pendingUntil}.
           </Text>
-          <ExplorerButton url={explorerUrl} compact />
+          <ExplorerButton url={result.explorerUrl} compact />
         </View>
       ) : null}
       {error ? (
