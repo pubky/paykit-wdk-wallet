@@ -86,6 +86,7 @@ export function parseQueryParams(query: string): Map<string, string> {
  * recipient.
  */
 const KNOWN_CONTRACTS = AAVE_FAUCET_FUNDING ? [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET] : [EVM_CHAIN.usdtToken];
+const KNOWN_CONTRACT_NAME = AAVE_FAUCET_FUNDING ? 'the test USD₮ token or faucet contract' : 'the USD₮ token contract';
 
 export function isKnownContract(address: string): boolean {
   return KNOWN_CONTRACTS.some((contract) => sameEvmAddress(contract, address));
@@ -163,7 +164,8 @@ const PUBKY_KEY = /^(pubky)?[ybndrfg8ejkmcpqxot1uwisza345h769]{52}$/;
  * for other networks.
  *
  * EVM addresses look the same on every EVM chain, so "mainnet" cannot be
- * detected from a bare 0x address; WDK sends on Sepolia whatever the address.
+ * detected from a bare 0x address; WDK sends on the build's EVM chain
+ * whatever the address.
  */
 export function checkRecipientAddress(text: string, chain: Chain): RecipientCheck {
   if (text.trim() === '') return { ok: false, reason: 'empty', message: 'Enter an address.' };
@@ -195,7 +197,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
       return {
         ok: false,
         reason: 'contract',
-        message: "That is the test USD₮ token or faucet contract, not someone's wallet. Money sent there is lost. Paste the payee's own address.",
+        message: `That is ${KNOWN_CONTRACT_NAME}, not someone's wallet. Money sent there is lost. Paste the payee's own address.`,
       };
     }
     return { ok: true, address };

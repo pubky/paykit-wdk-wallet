@@ -42,7 +42,7 @@ import { toPaykitDecimal } from '../wallet/amounts';
 import { describeError } from './errors';
 import { bareKey, shortKey } from './keys';
 import type { PaykitService } from './PaykitService';
-import { erc20ProofJson, btcProofJson, parseProof, paymentNotBefore, transferKey, verifyBtcProof, verifyErc20Proof, type Verdict } from './paymentProofs';
+import { erc20ProofJson, btcProofJson, parseProof, paymentNotBefore, transferKey, verifyBtcProof, verifyErc20ProofReadingBlockTime, type Verdict } from './paymentProofs';
 import { isScheduledPeriod, parseTime, periodKey } from './recurrence';
 import {
   afterDroppedCheck,
@@ -377,8 +377,9 @@ async function verdictFor(service: PaykitService, requests: PaymentRequests, vie
   // The addresses load from WDK after the chain attaches: wait, don't reject.
   if (!ours) return { status: 'pending', reason: 'Waiting for the wallet to load your address.' };
   if (ours.toLowerCase() !== terms.endpoint.address.toLowerCase()) return { status: 'rejected', reason: 'The request names an address that is not ours.' };
-  // The block time is one more RPC call: fetch it only when there is a time to check it against.
-  return verifyErc20Proof(await chain.evmTransaction(parsed.transactionHash, { withBlockTime: context.notBefore !== undefined }), {
+  // The block time is one more RPC call: read only once every cheaper check has passed.
+  const transaction = await chain.evmTransaction(parsed.transactionHash);
+  const erc20Context = {
     ...context,
     proof: parsed,
     token: EVM_CHAIN.usdtToken,
@@ -396,7 +397,8 @@ async function verdictFor(service: PaykitService, requests: PaymentRequests, vie
       periodEndsAt: proof.period?.endsAt ?? '',
       conversionQuoteId: proof.conversionQuoteId ?? '',
     },
-  });
+  };
+  return verifyErc20ProofReadingBlockTime(transaction, erc20Context, (mined) => chain.evmBlockTimeMs(mined));
 }
 
 /**

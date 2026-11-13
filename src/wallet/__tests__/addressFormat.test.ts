@@ -86,7 +86,14 @@ describe('Ethereum payment codes on an Arbitrum fork build', () => {
 
   it('never pays the USD₮0 contract, and has no Aave faucet to guard', () => {
     expect(fork.isKnownContract(USDT0)).toBe(true);
-    expect(fork.checkRecipientAddress(`ethereum:${USDT0}@42161`, 'ethereum')).toMatchObject({ ok: false, reason: 'contract' });
+    expect(fork.checkRecipientAddress(`ethereum:${USDT0}@42161`, 'ethereum')).toEqual({
+      ok: false,
+      reason: 'contract',
+      message: "That is the USD₮ token contract, not someone's wallet. Money sent there is lost. Paste the payee's own address.",
+    });
+    expect(checkRecipientAddress(AAVE_SEPOLIA_FAUCET, 'ethereum')).toMatchObject({
+      message: "That is the test USD₮ token or faucet contract, not someone's wallet. Money sent there is lost. Paste the payee's own address.",
+    });
     expect(fork.isKnownContract(AAVE_SEPOLIA_FAUCET)).toBe(false);
     expect(isKnownContract(AAVE_SEPOLIA_FAUCET)).toBe(true);
   });

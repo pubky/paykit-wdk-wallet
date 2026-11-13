@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { EVM_CHAIN, EVM_REAL_FUNDS } from '../../config/evmChain';
+import { REAL_FUNDS_SCOPE } from '../../config/evmChain';
 import type { OnboardingScreenProps } from '../../navigation/types';
 import { Button, Screen, Seal, Text, space, type SealRing } from '../../ui';
 
@@ -39,12 +39,11 @@ export function WelcomeScreen({ navigation }: OnboardingScreenProps<'Welcome'>) 
             <Seal key={key} pubky={key} size={SEAL_SIZE} ring={ring} />
           ))}
         </View>
-        {EVM_REAL_FUNDS ? (
+        {REAL_FUNDS_SCOPE ? (
           <>
             <Text variant="title">A demo wallet where you pay people, not addresses.</Text>
             <Text variant="secondary" color="alert" testID="welcome-real-funds">
-              Its Bitcoin is test money, but its USD₮ and ETH on {EVM_CHAIN.networkName} are real. Keys are stored with demo-grade
-              protection.
+              {REAL_FUNDS_SCOPE} Keys are stored with demo-grade protection.
             </Text>
           </>
         ) : (

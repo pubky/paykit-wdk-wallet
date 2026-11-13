@@ -108,8 +108,10 @@ to start clean.
 
 The same holds for the EVM mode (`EXPO_PUBLIC_EVM_CHAIN`): an install
 on the Arbitrum fork needs its own simulator, and its own identity. The
-dev prefill below picks its identity by `EXPO_PUBLIC_BTC_CHAIN` only, so
-it does not keep EVM modes apart.
+wallet records the EVM mode it was set up under, and a build for another
+EVM mode does not open it (a wallet from before the record counts as
+Sepolia). The dev prefill below is off on every EVM mode other than
+Sepolia, so on the fork you create a new wallet and identity.
 [BITKIT-USDT-FORK.md](BITKIT-USDT-FORK.md) says why, and what to do.
 
 ## The demo identity

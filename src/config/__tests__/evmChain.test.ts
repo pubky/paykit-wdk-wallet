@@ -142,6 +142,22 @@ describe('REAL_FUNDS_WARNING', () => {
   });
 });
 
+describe('real-funds copy', () => {
+  const load = () => {
+    const { REAL_FUNDS_SCOPE, REAL_FUNDS_GAS_HINT } = jest.requireActual<typeof import('../evmChain')>('../evmChain');
+    return { REAL_FUNDS_SCOPE, REAL_FUNDS_GAS_HINT };
+  };
+
+  it('is set only on Arbitrum One', () => {
+    expect(load()).toEqual({ REAL_FUNDS_SCOPE: undefined, REAL_FUNDS_GAS_HINT: undefined });
+    expect(withEvmChain('arbitrum-fork', load)).toEqual({ REAL_FUNDS_SCOPE: undefined, REAL_FUNDS_GAS_HINT: undefined });
+    expect(withEvmChain('arbitrum-one', load)).toEqual({
+      REAL_FUNDS_SCOPE: 'Its Bitcoin is test money, but its USD₮ and ETH on Arbitrum One are real.',
+      REAL_FUNDS_GAS_HINT: 'Send a little Arbitrum ETH to your Ethereum address.',
+    });
+  });
+});
+
 describe('Paykit USD₮ endpoint id', () => {
   it('follows the build', () => {
     const load = () => jest.requireActual<typeof import('../paykit')>('../paykit').ENDPOINT_USDT;

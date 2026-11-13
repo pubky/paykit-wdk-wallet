@@ -8,20 +8,22 @@
 //                            account index each), plus the block's time
 //                            from the network's esplora
 //   evmTransaction(hash)     getTransaction on the build's EVM chain:
-//                            finality, success, logs. With `withBlockTime`
-//                            on a 'block-timestamp' chain
-//                            (src/config/evmChain.ts), also the block's
-//                            time, read from the chain's RPC (WDK does not
-//                            return it); only the payee's time check needs it
+//                            finality, success, logs
+//   evmBlockTimeMs(tx)       a mined transaction's block time, read from
+//                            the chain's RPC (WDK does not return it), and
+//                            kept per block hash; only the payee's time
+//                            check on a 'block-timestamp' chain
+//                            (src/config/evmChain.ts) needs it
 //   findSentPayment(query)   a payment the app lost track of (no hash):
 //                            account 0's sent transfers. Bitcoin from WDK's
 //                            getTransfers (mempool included), with block
 //                            times from the network's esplora; USD₮ from
 //                            Blockscout, since WDK's EVM module has no
-//                            history call. On a chain with no indexer it
-//                            can only find this session's sends, and
-//                            throws rather than say "none"
-//                            (./sentPaymentSearch.ts)
+//                            history call. With no indexer it returns
+//                            "none" after a relaunch even if the payment is
+//                            on chain, and that is safe only because
+//                            findLostPayment never frees a USD₮ payment on
+//                            "none"
 //   signErc20Payment(typed)  signTypedData with EVM account 0, for exactly
 //                            the Paykit ERC-20 proof domain on the build's
 //                            chain (EVM_CHAIN.chainId, the same id
@@ -56,7 +58,6 @@ import {
   type SentTransferQuery,
 } from './paymentEvidence';
 import { retryIfElectrumDropped } from './electrumRetry';
-import { matchSentUsdtPayment } from './sentPaymentSearch';
 import { sentTransactions } from './sentTransactions';
 import { fetchEvmActivity } from './useActivity';
 
@@ -71,7 +72,9 @@ type EvmExtension = {
 
 export type AccountZeroPaymentChecks = {
   btcSent(txid: string): Promise<BtcSendStatus>;
-  evmTransaction(hash: string, options?: { withBlockTime?: boolean }): Promise<EvmTransaction>;
+  evmTransaction(hash: string): Promise<EvmTransaction>;
+  /** Undefined if it can't be read: the caller keeps the proof pending. */
+  evmBlockTimeMs(block: EvmBlockRef): Promise<number | undefined>;
   /** Throws when a source can't be read: the caller must not take that as "not sent". */
   findSentPayment(query: SentTransferQuery): Promise<SentTransferMatch>;
   signErc20Payment(typedData: Erc20PaymentTypedData): Promise<string>;
@@ -92,23 +95,24 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
           return { found: false, confirmed: false };
         }
       },
-      evmTransaction: async (hash, options) => {
-        let tx: EvmTransaction;
+      evmTransaction: async (hash) => {
         try {
-          tx = evmTransactionFrom(await evm().getTransaction(hash));
+          return evmTransactionFrom(await evm().getTransaction(hash));
         } catch {
           return { state: 'unknown' };
         }
-        // The payee checks when it was paid (paymentProofs.ts); WDK gives only the block.
-        if (options?.withBlockTime && tx.state === 'succeeded' && EVM_CHAIN.paymentTime === 'block-timestamp') tx.blockTimeMs = await fetchEvmBlockTimeMs(tx);
-        return tx;
       },
+      // The payee checks when it was paid (paymentProofs.ts); WDK gives only the block.
+      evmBlockTimeMs: fetchEvmBlockTimeMs,
       findSentPayment: async (query) => {
         if (query.asset === 'usdt') {
           if (!evmAddress) throw new Error('The USD₮ account is not loaded yet');
-          // The indexer, if the chain has one, plus what this app sent this session (not indexed yet).
-          const indexed = EVM_CHAIN.activityApi === undefined ? undefined : await fetchEvmActivity(evmAddress);
-          return matchSentUsdtPayment(sentTransactions(), indexed, query);
+          // What this app sent this session (not indexed yet), plus the chain's indexer.
+          // A chain with no indexer (the Arbitrum fork, Arbitrum One) has only this
+          // session's sends: after a relaunch "none" does not mean "not sent". That is
+          // safe only because findLostPayment (src/paykit/requestRounds.ts) never frees
+          // a USD₮ payment on "none": it stays reserved, shown as "may have been paid".
+          return matchSentTransfer([...sentTransactions(), ...(await fetchEvmActivity(evmAddress))], query);
         }
         const items = sentTransferCandidates(parseBtcTransfers(await retryIfElectrumDropped(() => btc().getTransfers({ limit: BTC_HISTORY_FETCH_LIMIT })), 0), query);
         // WDK's transfers carry a block height, not a time.
@@ -128,17 +132,23 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
   );
 }
 
+/** Where a mined transaction is: its receipt's block hash, or the number if it has none. */
+type EvmBlockRef = { blockHash?: string; blockNumber?: number };
+
 /**
  * A mined transaction's block time (ms), read with a JSON-RPC call to the
  * chain's RPC: by the receipt's block hash, or by number if it has none.
- * Undefined if that fails in any way, so the proof stays pending.
+ * Undefined if that fails in any way, so the proof stays pending. A block's
+ * time never changes, so it is kept per block hash (blockTimesByHash).
  *
  * WDK reads the same RPC from its worklet, so a failure here alone (an
  * Android build without cleartext HTTP or `adb reverse` for the fork, say)
  * would leave every such proof at "Checking when it was paid" with nothing
  * to go on. Each kind of failure is warned about once, until a read works again.
  */
-async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: number }): Promise<number | undefined> {
+async function fetchEvmBlockTimeMs(tx: EvmBlockRef): Promise<number | undefined> {
+  const known = tx.blockHash === undefined ? undefined : blockTimesByHash.get(tx.blockHash);
+  if (known !== undefined) return known;
   let request: { method: string; params: unknown[] };
   if (tx.blockHash !== undefined) request = { method: 'eth_getBlockByHash', params: [tx.blockHash, false] };
   else if (tx.blockNumber !== undefined) request = { method: 'eth_getBlockByNumber', params: [`0x${tx.blockNumber.toString(16)}`, false] };
@@ -158,10 +168,24 @@ async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: numbe
     return undefined;
   }
   const blockTimeMs = evmBlockTimeMsFrom(response, tx.blockHash);
-  if (blockTimeMs === undefined) warnBlockTimeFailure('answer', 'the answer has no block time for that block');
+  if (blockTimeMs === undefined) {
+    warnBlockTimeFailure('answer', 'the answer has no block time for that block');
+    return undefined;
+  }
   // It works again: a failure that comes back later is worth a new warning.
-  else warnedBlockTimeFailures.clear();
+  warnedBlockTimeFailures.clear();
+  if (tx.blockHash !== undefined) rememberBlockTime(tx.blockHash, blockTimeMs);
   return blockTimeMs;
+}
+
+/** Block times read so far, by block hash. Bounded: each proof check needs only its own block. */
+const blockTimesByHash = new Map<string, number>();
+const BLOCK_TIMES_KEPT = 256;
+
+function rememberBlockTime(blockHash: string, blockTimeMs: number): void {
+  // A Map iterates in insertion order: the first key is the oldest.
+  if (blockTimesByHash.size >= BLOCK_TIMES_KEPT) blockTimesByHash.delete(blockTimesByHash.keys().next().value!);
+  blockTimesByHash.set(blockHash, blockTimeMs);
 }
 
 /** Failure kinds warned about since the last block time read, so a proof checked every minute does not repeat itself. */

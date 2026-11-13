@@ -17,6 +17,7 @@ import {
   transferKey,
   verifyBtcProof,
   verifyErc20Proof,
+  verifyErc20ProofReadingBlockTime,
 } from '../paymentProofs';
 import { withBtcChain, withEvmChain } from '../../config/__tests__/withEnv';
 
@@ -232,6 +233,51 @@ describe('verifyErc20Proof', () => {
       });
       // A request from before the rule has no time to compare.
       expect(verifyErc20Proof(minedAt(undefined), await context({ paymentTime })).status).toBe('verified');
+    });
+
+    describe('reading the block time only when the verdict waits on it', () => {
+      const reader = (blockTimeMs: number | undefined) => jest.fn(async () => blockTimeMs);
+
+      it('reads it after every cheaper check passed, then verifies or rejects', async () => {
+        const fresh = reader(NOW - 30_000);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), fresh)).toEqual({ status: 'verified' });
+        expect(fresh).toHaveBeenCalledTimes(1);
+        const old = reader(notBefore.ms - 11 * 60_000);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), old)).toEqual({
+          status: 'rejected',
+          reason: 'It was paid before you asked for it.',
+        });
+      });
+
+      it('checks the signature on the second pass', async () => {
+        const verdict = await verifyErc20ProofReadingBlockTime(
+          minedAt(undefined),
+          await context({ notBefore, paymentTime, proof: await proofFor(Wallet.createRandom()) }),
+          reader(NOW - 30_000),
+        );
+        expect(verdict).toEqual({ status: 'rejected', reason: 'The signature is not from the account that paid.' });
+      });
+
+      it('stays pending, never verified, when the time cannot be read', async () => {
+        const unknown = reader(undefined);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), unknown)).toEqual({
+          status: 'pending',
+          reason: 'Checking when it was paid.',
+          recheckMs: 60_000,
+        });
+        expect(unknown).toHaveBeenCalledTimes(1);
+      });
+
+      it('makes no call when a cheaper check already decides, or there is no time to check', async () => {
+        const read = reader(NOW);
+        const wrongAmount: EvmTransaction = { state: 'succeeded', confirmations: 1, logs: [otherLog as never, transferLog(payer.address, PAYEE_EVM, 1n)] };
+        expect((await verifyErc20ProofReadingBlockTime(wrongAmount, await context({ notBefore, paymentTime }), read)).status).toBe('rejected');
+        expect((await verifyErc20ProofReadingBlockTime({ state: 'pending' }, await context({ notBefore, paymentTime }), read)).status).toBe('pending');
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ paymentTime }), read)).status).toBe('verified');
+        // Sepolia's slot rule needs no block time.
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined, 100), await context({ notBefore }), read)).status).toBe('verified');
+        expect(read).not.toHaveBeenCalled();
+      });
     });
 
     it("leaves Sepolia's slot rule as it was: confirmations, not the block time", async () => {

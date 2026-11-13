@@ -55,7 +55,7 @@ This app has two engines and one UI:
 | `src/config/sync.ts` | Poll intervals, call timeout, link retry backoff. |
 | `src/config/demo.ts` | Dev-only prefill from the git-ignored `demo.local.ts`. |
 | `src/config/versions.ts` | WDK and Paykit package versions for You > Network details; a unit test keeps them in step with `package.json`. |
-| `src/settings/appSettings.ts` | Non-secret flags in plain MMKV (onboarding complete). |
+| `src/settings/appSettings.ts` | Non-secret flags in plain MMKV (onboarding complete; the EVM mode the wallet was set up under, written by `useWalletLifecycle`). |
 | `src/wallet/` | The wallet service (see below). |
 | `src/paykit/` | The Paykit service (see below). |
 | `src/ui/` | Design system from `docs/DESIGN.md`, including the seal (`src/ui/seal/`). |
@@ -119,6 +119,17 @@ WDK's asset ids differ per profile (`usdt-sepolia`, `usdt-arbitrum-fork`,
 (contacts, requests, the ledger) is not keyed by chain, so each mode
 needs its own install, and its own identity (`docs/BITKIT-USDT-FORK.md`).
 
+The wallet id is the same in every EVM mode, so the wallet records the
+mode it was set up under. `createWallet` and `restoreWallet` write
+`EVM_CHAIN.id` to the app-settings MMKV file (`wallet-evm-mode-v1`)
+before WDK holds the wallet. When a wallet exists and its mode is not
+the build's, `useWalletLifecycle` reports `'error'` with
+`wrongEvmMode` set, `unlock` throws `WrongEvmModeError`, and
+RootNavigator shows why instead of opening it
+(`src/wallet/evmModeGuard.ts`). A wallet with no record counts as
+Sepolia, the only mode before the record, so existing Sepolia installs
+open as before.
+
 ## Wallet service (`src/wallet`)
 
 WDK's React Native package is hook-based, so the wallet service is a set of
@@ -130,6 +141,7 @@ micro-units, wei); `amounts.ts` formats and parses them.
 useWalletLifecycle(): {
   status: 'starting' | 'no-wallet' | 'locked' | 'ready' | 'error';
   error?: string;
+  wrongEvmMode?: string;                            // set up under another EVM mode: why it stays closed
   createWallet(): Promise<void>;
   restoreWallet(mnemonic: string): Promise<void>;   // deletes any existing wallet first; callers confirm
   unlock(): Promise<void>;
@@ -860,8 +872,8 @@ again. USD₮'s history comes from Blockscout, which can lag by hours, so a
 missing USD₮ payment stays reserved ("May have been paid. Check
 Activity") and the search goes on every five minutes. The Arbitrum modes
 have no history API, so the search sees only this launch's own sends
-(`src/wallet/sentPaymentSearch.ts`). After a relaunch that record is
-gone, so a USD₮ payment lost across a relaunch is never found: like any
+(`findSentPayment` in `src/wallet/usePaymentChecks.ts`). After a
+relaunch that record is gone, so a USD₮ payment lost across a relaunch is never found: like any
 missing USD₮ payment it stays reserved and shows as "may have been
 paid", but it cannot be linked to its transaction automatically.
 

@@ -92,6 +92,13 @@ async function fetchMissingBlockTimes(items: ActivityItem[]): Promise<boolean> {
 const HISTORY_LIMIT = 25;
 
 /**
+ * How long to wait for Blockscout. Sepolia's token-transfers call often
+ * takes longer than the 5 s esplora gets (FETCH_TIMEOUT_MS): a shorter
+ * limit would fail every poll of a slow but working indexer.
+ */
+const BLOCKSCOUT_TIMEOUT_MS = 30_000;
+
+/**
  * The last fetched lists, shared by every useActivity() caller. The Wallet
  * tab and Activity detail both use the hook; with this, a pushed detail
  * screen starts from the list the person just tapped instead of an empty
@@ -107,14 +114,14 @@ function cachedFor(owner: string | null) {
 /**
  * ETH and USD₮ activity for an EVM address, from Blockscout. None, and no
  * error, where the chain has no indexer: right for the list, but not proof
- * that nothing was sent (findSentPayment checks EVM_CHAIN.activityApi itself).
+ * that nothing was sent (see findSentPayment in ./usePaymentChecks.ts).
  */
 export async function fetchEvmActivity(address: string): Promise<ActivityItem[]> {
   const api = EVM_CHAIN.activityApi;
   if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
-    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout'),
-    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout'),
+    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout', BLOCKSCOUT_TIMEOUT_MS),
+    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout', BLOCKSCOUT_TIMEOUT_MS),
   ]);
   return [
     ...parseBlockscoutTransactions(transactions, address),

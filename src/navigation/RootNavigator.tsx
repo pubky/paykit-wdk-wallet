@@ -3,6 +3,7 @@
 //   WDK starting           -> a quiet splash
 //   wallet locked          -> unlock automatically once at launch (no PIN in this demo)
 //   worklet error          -> "restart the app" (WDK cannot recover in-process)
+//   other EVM mode's wallet -> why this build does not open it (src/wallet/evmModeGuard.ts)
 //   onboarding incomplete  -> Onboarding stack
 //   otherwise              -> Tabs, plus modal and pushed routes
 //
@@ -27,6 +28,7 @@ import { SendScreen } from '../features/wallet/SendScreen';
 import { EditProfileScreen } from '../features/you/EditProfileScreen';
 import { colors, Screen, Text } from '../ui';
 import { useWalletLifecycle } from '../wallet';
+import { WrongEvmModeError } from '../wallet/evmModeGuard';
 import { MainTabs } from './MainTabs';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import type { RootStackParamList } from './types';
@@ -44,6 +46,9 @@ export function RootNavigator() {
   // is still in the Keychain/Keystore; check the seed before onboarding.
   const launchUnlockDone = useRef(false);
   const [checkingStoredWallet, setCheckingStoredWallet] = useState(true);
+  // A seed WDK does not list stays 'no-wallet' when unlock refuses it, so
+  // the refusal is kept here.
+  const [launchWrongEvmMode, setLaunchWrongEvmMode] = useState<string>();
   const { hasStoredWallet } = wallet;
   useEffect(() => {
     if (launchUnlockDone.current || (status !== 'locked' && status !== 'no-wallet')) return;
@@ -51,8 +56,9 @@ export function RootNavigator() {
     void (async () => {
       try {
         if (status === 'locked' || (await hasStoredWallet())) await unlock();
-      } catch {
-        // Shown as the wallet error state.
+      } catch (e) {
+        if (e instanceof WrongEvmModeError) setLaunchWrongEvmMode(e.message);
+        // Anything else is shown as the wallet error state.
       } finally {
         setCheckingStoredWallet(false);
       }
@@ -63,6 +69,14 @@ export function RootNavigator() {
   // it mounted through transient states so onboarding keeps its place.
   const navigatorShown = useRef(false);
 
+  const wrongEvmMode = wallet.wrongEvmMode ?? launchWrongEvmMode;
+  if (wrongEvmMode !== undefined) {
+    return (
+      <Screen title="This wallet is on another network">
+        <Text color="graphite">{wrongEvmMode}</Text>
+      </Screen>
+    );
+  }
   if (status === 'error') {
     return (
       <Screen title="Something went wrong">

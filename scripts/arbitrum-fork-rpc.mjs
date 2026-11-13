@@ -26,6 +26,8 @@ const USAGE = `Usage: node scripts/arbitrum-fork-rpc.mjs [--port <port, default 
 const LISTEN_HOST = '127.0.0.1';
 const RECEIPT_METHOD = 'eth_getTransactionReceipt';
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
+/** How long Anvil gets to answer (a fork may fetch state from Arbitrum One first). */
+const UPSTREAM_TIMEOUT_MS = 30_000;
 
 function fail(message) {
   console.error(message);
@@ -79,15 +81,26 @@ function addReceiptLogIndexes(requestText, responseText) {
   return JSON.stringify(Array.isArray(response) ? response.map(patch) : patch(response));
 }
 
-/** The request body, or undefined when it is larger than MAX_REQUEST_BYTES. */
-async function readBody(request) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of request) {
-    size += chunk.length;
-    if (size <= MAX_REQUEST_BYTES) chunks.push(chunk);
-  }
-  return size <= MAX_REQUEST_BYTES ? Buffer.concat(chunks).toString('utf8') : undefined;
+/**
+ * The request body, or undefined as soon as it grows past MAX_REQUEST_BYTES:
+ * reading then stops (the caller answers and closes the connection), so an
+ * oversized body is never read to its end.
+ */
+function readBody(request) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    const onData = (chunk) => {
+      size += chunk.length;
+      if (size <= MAX_REQUEST_BYTES) return chunks.push(chunk);
+      request.off('data', onData);
+      request.pause();
+      resolve(undefined);
+    };
+    request.on('data', onData);
+    request.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    request.on('error', reject);
+  });
 }
 
 function reply(response, status, body, contentType = 'text/plain; charset=utf-8') {
@@ -99,16 +112,31 @@ async function handle(request, response) {
   if (request.method !== 'POST') return reply(response, 405, 'POST JSON-RPC only.\n');
   if (request.headers.origin !== undefined) return reply(response, 403, 'Browser requests are refused.\n');
   const requestText = await readBody(request);
-  if (requestText === undefined) return reply(response, 413, 'Request too large.\n');
+  if (requestText === undefined) {
+    response.writeHead(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' });
+    // The rest of the body is never read: drop the connection once the answer is out.
+    response.end('Request too large.\n', () => request.destroy());
+    return;
+  }
 
   let upstreamResponse;
+  let responseText;
   try {
-    upstreamResponse = await fetch(upstream, { method: 'POST', headers: { 'content-type': 'application/json' }, body: requestText });
+    upstreamResponse = await fetch(upstream, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: requestText,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    responseText = await upstreamResponse.text();
   } catch (error) {
+    if (error.name === 'TimeoutError') {
+      console.error(`${upstream} did not answer within ${UPSTREAM_TIMEOUT_MS / 1000} s.`);
+      return reply(response, 504, `${upstream} did not answer in time.\n`);
+    }
     console.error(`Could not reach ${upstream}: ${error.cause?.code ?? error.message}`);
     return reply(response, 502, `Could not reach ${upstream}.\n`);
   }
-  const responseText = await upstreamResponse.text();
   let body = responseText;
   try {
     body = addReceiptLogIndexes(requestText, responseText);

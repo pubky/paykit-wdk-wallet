@@ -251,14 +251,73 @@ Metro's:
 adb reverse tcp:18545 tcp:18545
 ```
 
-If a USD₮ payment you received stays at "Checking when it was paid",
-the wallet could not read the block's time from the RPC. WDK reads the
-chain from its own worklet, so balances and sends can work while this
-one read fails. The Metro console then shows a warning that starts with
-`USD₮ proof: could not read the block time from`, once per kind of
-failure. On Android, check the `adb reverse` above, and that the build
-allows plain HTTP (cleartext) to `127.0.0.1`: Android release builds
-block it by default.
+### Plain HTTP to the fork
+
+The fork's RPC is plain HTTP (`http://127.0.0.1:18545`). The wallet
+reads it in two ways, and the operating system treats them differently:
+
+- WDK (balances, sends, receipts) reads it from its Bare worklet, over
+  the worklet's own sockets.
+- The wallet reads a block's time for a USD₮ proof with React Native's
+  `fetch`, which goes through the platform's HTTP stack. iOS App
+  Transport Security (ATS) and Android's cleartext rule apply to that
+  read. If the platform blocks it, a USD₮ payment you received stays at
+  "Checking when it was paid", while balances and sends keep working.
+
+What this repository sets, checked in `app.json`, `plugins/` and
+`node_modules`:
+
+- Neither `app.json` nor a plugin in `plugins/` sets an ATS key
+  (`NSAppTransportSecurity`) or Android's `usesCleartextTraffic`. The
+  `expo-build-properties` options in `app.json` leave
+  `android.usesCleartextTraffic` unset, and the plugin then changes
+  nothing (`withAndroidCleartextTraffic` in
+  `node_modules/expo-build-properties/src/android.ts`). So both come from
+  the native template that `npx expo prebuild` writes.
+- On Android 9 (API 28) and later, an app that does not allow cleartext
+  traffic cannot use plain HTTP to any host, `127.0.0.1` included
+  (`expo-build-properties` documents the default as `false`). This app's
+  minimum is API 29.
+
+What that means per build:
+
+| Build | The block-time read over plain HTTP |
+|---|---|
+| iOS simulator, Debug or Release | Expected to work. Not checked: see below. |
+| Android Debug | Expected to work. Not checked: see below. |
+| Android Release | Blocked, unless you allow cleartext for the build. |
+
+Not checked here, because the native template is not in this repository
+(`ios/` and `android/` are generated and git-ignored) and nothing in this
+guide has run:
+
+- The ATS keys in the generated iOS `Info.plist`. Expo's template is
+  understood to allow local networking (`NSAllowsLocalNetworking`). Check
+  it after a prebuild:
+  `plutil -extract NSAppTransportSecurity json -o - ios/<app name>/Info.plist`.
+- That Android Debug allows cleartext. React Native's Android template
+  is understood to allow it in Debug only, which is how Metro's plain
+  HTTP works. Look for `android:usesCleartextTraffic` in
+  `android/app/src/debug/AndroidManifest.xml` and
+  `android/app/src/main/AndroidManifest.xml` after a prebuild.
+- That the worklet's own sockets are outside ATS and the cleartext rule.
+
+For an Android Release build on the fork, allow cleartext for that build
+only: set `"usesCleartextTraffic": true` under `android` in the
+`expo-build-properties` options in `app.json`, then prebuild and build
+again. That allows plain HTTP to every host, not only the fork, so do not
+commit it.
+
+When the read fails, the Metro console (or the device log on a Release
+build) shows a warning, once per kind of failure until a read works
+again:
+
+```text
+USD₮ proof: could not read the block time from http://127.0.0.1:18545: <reason>
+```
+
+The reason is the platform's error. On Android, also check the
+`adb reverse` above.
 
 Check You > Network details: it shows "Arbitrum (local Anvil fork of
 Arbitrum One) (chain id 42161)", RPC `http://127.0.0.1:18545`, history
@@ -270,6 +329,16 @@ Run each EVM mode in its own install, on its own simulator, as
 [BITKIT-DEMO.md](BITKIT-DEMO.md) says for the Bitcoin modes. Requests,
 the payment ledger and proofs stored under `usdt-sepolia-address` do not
 carry over to `usdt-arbitrum-address`.
+
+The wallet enforces this part. It records the EVM mode it was created or
+restored under (`src/wallet/evmModeGuard.ts`, stored in the plain
+app-settings file). A build for another EVM mode does not open it, and
+shows "This wallet is on another network" with both modes named. A
+wallet with no record, from an install made before the record existed,
+counts as Sepolia, so it still opens on the default build only. On iOS,
+deleting the app keeps the wallet in the Keychain but loses the record,
+so a reinstall counts as Sepolia too. To start an Arbitrum install
+fresh, erase the simulator.
 
 Use a separate identity too. Each build publishes only its own USD₮
 endpoint and removes the other (`syncPublicEndpoints` in
@@ -388,7 +457,8 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
 - **Recurring USD₮ requests to Bitkit, probably not payable.** From
   reading the code only: Bitkit picks no endpoint for a recurring request
   in `usdt` (`PaykitRequestPricing.swift@1b56274c1:97`).
-- **A separate install and identity per EVM mode**, as above. The dev
+- **A separate install and identity per EVM mode**, as above. The
+  wallet refuses to open under another EVM mode than its own. The dev
   prefill is off on non-Sepolia EVM builds.
 - **Anvil forgets everything when it stops.** Keep it running for the
   whole demo.
@@ -414,9 +484,9 @@ following has run:
 - The scripts against a live Anvil: `fund-fork.mjs` and
   `arbitrum-fork-rpc.mjs` are checked by reading and by lint only.
 - WDK's worklet reaching `http://127.0.0.1:18545`, and the wallet reading
-  a block's time over plain HTTP: iOS App Transport Security is assumed
-  to allow local addresses, and Android release builds may block plain
-  HTTP.
+  a block's time over plain HTTP (see "Plain HTTP to the fork": the iOS
+  ATS keys and Android Debug's cleartext setting are not checked, and
+  Android Release blocks it).
 - The Android emulator with `adb reverse`.
 - Bitkit's history on the fork. For blocks from before the fork, Anvil
   may pass Bitkit's log queries on to the rate-limited public RPC.

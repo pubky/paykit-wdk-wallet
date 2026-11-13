@@ -245,3 +245,17 @@ export const EVM_REAL_FUNDS = EVM_CHAIN.funding.kind === 'real-funds';
  * undefined on any other.
  */
 export const REAL_FUNDS_WARNING = EVM_CHAIN.funding.kind === 'real-funds' ? EVM_CHAIN.funding.warning : undefined;
+
+/**
+ * Which funds are real on a real-funds build, opening the Welcome and
+ * Backup phrase screens' warnings; undefined on any other.
+ */
+export const REAL_FUNDS_SCOPE = EVM_REAL_FUNDS ? `Its Bitcoin is test money, but its USD₮ and ETH on ${EVM_CHAIN.networkName} are real.` : undefined;
+
+/**
+ * Where ETH for gas comes from on a real-funds build, ending the Send
+ * screen's "Not enough ETH for gas" (SendScreen.tsx, src/wallet/sendChecks.ts):
+ * there are no test funds to point to, so it is bought, then sent here.
+ * Undefined on any other build, which points to You > Test funds.
+ */
+export const REAL_FUNDS_GAS_HINT = EVM_REAL_FUNDS ? `Send a little ${EVM_CHAIN.gasCoin} to your Ethereum address.` : undefined;

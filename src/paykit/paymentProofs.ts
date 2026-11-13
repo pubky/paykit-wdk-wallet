@@ -222,7 +222,7 @@ export function verifyBtcProof(receipt: BtcReceipt, context: ProofContext): Verd
   if (receipt.received < context.amount) return { status: 'rejected', reason: 'It paid less than the request asked for.' };
   if (!receipt.confirmed) return { status: 'pending', reason: 'Waiting for the next block.' };
   if (context.notBefore) {
-    if (receipt.blockTimeMs === undefined) return { status: 'pending', reason: 'Checking when it was paid.', recheckMs: DROPPED_PROOF_RECHECK_MS };
+    if (receipt.blockTimeMs === undefined) return { status: 'pending', reason: CHECKING_PAYMENT_TIME, recheckMs: DROPPED_PROOF_RECHECK_MS };
     const early = tooEarly(receipt.blockTimeMs, context.notBefore, BTC_PAYMENT_TIME_ALLOWANCE_MS);
     if (early) return early;
   }
@@ -254,9 +254,12 @@ function erc20TimeProblem(
   if (paymentTime === 'slot-bound') {
     return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
   }
-  if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: 'Checking when it was paid.', recheckMs: DROPPED_PROOF_RECHECK_MS };
+  if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: CHECKING_PAYMENT_TIME, recheckMs: DROPPED_PROOF_RECHECK_MS };
   return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS);
 }
+
+/** The pending reason while a payment's block time is not known yet. */
+const CHECKING_PAYMENT_TIME = 'Checking when it was paid.';
 
 export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20ProofContext): Verdict {
   const claimed = claimProblem(context);
@@ -290,4 +293,21 @@ export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20Proo
   const signer = erc20PaymentSigner(typed, context.proof.signature);
   if (!signer || signer !== transfer.from) return { status: 'rejected', reason: 'The signature is not from the account that paid.' };
   return { status: 'verified' };
+}
+
+/**
+ * verifyErc20Proof, reading the block's time (`readBlockTimeMs`, one RPC
+ * call) only when the verdict waits on it: the claim, chain, token,
+ * recipient and amount checks run first, so a proof that fails them costs
+ * no call, and neither does a chain whose rule needs no block time
+ * ('slot-bound'). Still pending, never verified, if the time can't be read.
+ */
+export async function verifyErc20ProofReadingBlockTime(
+  transaction: EvmTransaction,
+  context: Erc20ProofContext,
+  readBlockTimeMs: (transaction: Extract<EvmTransaction, { state: 'succeeded' }>) => Promise<number | undefined>,
+): Promise<Verdict> {
+  const verdict = verifyErc20Proof(transaction, context);
+  if (transaction.state !== 'succeeded' || verdict.status !== 'pending' || verdict.reason !== CHECKING_PAYMENT_TIME) return verdict;
+  return verifyErc20Proof({ ...transaction, blockTimeMs: await readBlockTimeMs(transaction) }, context);
 }
