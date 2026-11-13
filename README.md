@@ -340,6 +340,24 @@ run `npm start`, and use a Mutinynet install on its own simulator (or
 erase the simulator first); never reload the regtest install on Mutinynet.
 No cache clear is needed (BITKIT-DEMO.md says why).
 
+Bitkit's USD₮ runs on Arbitrum One only. To pay USD₮ with Bitkit as well,
+also set `EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork`: `npm run start:bitkit-demo`
+sets both switches (`npm run start:arbitrum-fork` sets only the EVM one).
+USD₮ then runs on a local Anvil fork of Arbitrum One and publishes
+Bitkit's `usdt-arbitrum-address` endpoint. There is no mode for Arbitrum
+One with real funds (the guide's "Not in this change" says why).
+[`docs/BITKIT-USDT-FORK.md`](docs/BITKIT-USDT-FORK.md) covers the fork,
+bitkit-core's bundler fixture, the `receiptLogIndex` shim
+(`scripts/arbitrum-fork-rpc.mjs`), launching Bitkit against them, and
+funding both sides with `scripts/fund-fork.mjs`. Not run end to end yet:
+whether Bitkit can send USD₮ on the fork is still open. Use a separate
+install and identity per EVM mode (a fresh install, or erase the
+simulator), as for the Bitcoin modes. Switching `EXPO_PUBLIC_EVM_CHAIN`
+on an existing install, or restoring a Paykit backup made under the
+other mode, mixes the two modes' contacts, requests and proofs; USD₮
+proofs from the other mode are then rejected as "The proof names
+another network".
+
 ### Checks
 
 ```sh

@@ -5,14 +5,15 @@
 // - BTC: WDK's BTC account has `getTransfers`, which reads Electrum. One call
 //   per account index (account 0 plus each contact's account).
 // - EVM: WDK's EVM account has no history call. We read the keyless
-//   Blockscout API for Sepolia (ETH transactions and USD₮ token transfers),
+//   Blockscout API for the build's EVM chain, where there is one
+//   (src/config/evmChain.ts; ETH transactions and USD₮ token transfers),
 //   and keep a local record of transactions this app sent, so a fresh send
 //   shows up before Blockscout has indexed it. That is the simplest approach
 //   that works without an API key; the WDK Indexer does not cover testnets.
 //
 // The parsers are pure so they can be unit tested; the hook that calls them
 // is in ./useActivity.ts.
-import { SEPOLIA_USDT } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { sameEvmAddress } from './addressFormat';
 import type { AssetId, Chain } from './assets';
 
@@ -170,7 +171,7 @@ export function parseBlockscoutTokenTransfers(json: unknown, owner: string, sent
   const items: ActivityItem[] = [];
   for (const transfer of list) {
     const token = transfer.token?.address_hash ?? transfer.token?.address ?? '';
-    if (!sameEvmAddress(token, SEPOLIA_USDT)) continue;
+    if (!sameEvmAddress(token, EVM_CHAIN.usdtToken)) continue;
     const from = transfer.from?.hash ?? '';
     const outgoing = sameEvmAddress(from, owner);
     items.push({

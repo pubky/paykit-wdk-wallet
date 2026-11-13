@@ -8,6 +8,7 @@
 //
 // Pure functions, unit tested. Messages follow docs/DESIGN.md "Writing":
 // say what happened and what to do, never an SDK error code.
+import { EVM_CHAIN } from '../config/evmChain';
 import { formatAssetAmount } from './amounts';
 import { ASSETS, feeAssetFor, type AssetId } from './assets';
 
@@ -55,7 +56,7 @@ export function checkAffordable(input: { asset: AssetId; amount: bigint; balance
       fee !== undefined
         ? `The network fee is ${formatFee(fee, feeAsset)} and you have ${formatFee(gas, feeAsset)}.`
         : `You have ${formatFee(gas, feeAsset)}.`;
-    return { kind: 'gas', message: `Not enough ETH for gas. ${detail} Get a little Sepolia ETH for your Ethereum address in You > Test funds.` };
+    return { kind: 'gas', message: `Not enough ETH for gas. ${detail} Get a little ${EVM_CHAIN.gasCoin} for your Ethereum address in You > Test funds.` };
   }
   return undefined;
 }

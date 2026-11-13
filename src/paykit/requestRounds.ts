@@ -34,7 +34,7 @@ import {
   FfiReceiptRetrievalStatus,
 } from '@synonymdev/react-native-paykit';
 
-import { SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { PAYKIT_APP_ID } from '../config/paykit';
 import { erc20PaymentTypedData } from '../wallet/erc20PaymentProof';
 import { findErc20TransferLog } from '../wallet/paymentEvidence';
@@ -42,7 +42,7 @@ import { toPaykitDecimal } from '../wallet/amounts';
 import { describeError } from './errors';
 import { bareKey, shortKey } from './keys';
 import type { PaykitService } from './PaykitService';
-import { erc20ProofJson, btcProofJson, parseProof, paymentNotBefore, transferKey, verifyBtcProof, verifyErc20Proof, type Verdict } from './paymentProofs';
+import { erc20ProofJson, btcProofJson, parseProof, paymentNotBefore, transferKey, verifyBtcProof, verifyErc20ProofReadingBlockTime, type Verdict } from './paymentProofs';
 import { isScheduledPeriod, parseTime, periodKey } from './recurrence';
 import {
   afterDroppedCheck,
@@ -225,7 +225,7 @@ async function finishUsdtPayment(service: PaykitService, requests: PaymentReques
     requests.book.updateOutgoing(key, { outcome: 'succeeded', droppedSince: undefined, droppedChecks: undefined });
   }
   if (!needsProof) return;
-  const logIndex = findErc20TransferLog(tx.logs, { token: SEPOLIA_USDT, from, to: payment.address, amount: BigInt(payment.amount) });
+  const logIndex = findErc20TransferLog(tx.logs, { token: EVM_CHAIN.usdtToken, from, to: payment.address, amount: BigInt(payment.amount) });
   if (logIndex === undefined) {
     requests.book.updateOutgoing(key, { nextCheckAt: Date.now() + FAILURE_BACKOFF_MS, problem: "Couldn't find the transfer in the transaction." });
     return;
@@ -233,7 +233,8 @@ async function finishUsdtPayment(service: PaykitService, requests: PaymentReques
   const record = service.getState()?.paymentRequests.find((r) => r.counterparty === payment.counterparty && r.paymentRequestId === payment.requestId);
   const reference = record?.terms?.paymentReference.exportText();
   if (!reference) return;
-  const typed = erc20PaymentTypedData(SEPOLIA_CHAIN_ID, {
+  // The chain id the signing guard (usePaymentChecks.ts) expects: both read EVM_CHAIN.
+  const typed = erc20PaymentTypedData(EVM_CHAIN.chainId, {
     transactionHash: txHash.toLowerCase(),
     receiptLogIndex: String(logIndex),
     request: {
@@ -376,11 +377,14 @@ async function verdictFor(service: PaykitService, requests: PaymentRequests, vie
   // The addresses load from WDK after the chain attaches: wait, don't reject.
   if (!ours) return { status: 'pending', reason: 'Waiting for the wallet to load your address.' };
   if (ours.toLowerCase() !== terms.endpoint.address.toLowerCase()) return { status: 'rejected', reason: 'The request names an address that is not ours.' };
-  return verifyErc20Proof(await chain.evmTransaction(parsed.transactionHash), {
+  // The block time is one more RPC call: read only once every cheaper check has passed.
+  const transaction = await chain.evmTransaction(parsed.transactionHash);
+  const erc20Context = {
     ...context,
     proof: parsed,
-    token: SEPOLIA_USDT,
-    chainId: SEPOLIA_CHAIN_ID,
+    token: EVM_CHAIN.usdtToken,
+    chainId: EVM_CHAIN.chainId,
+    paymentTime: EVM_CHAIN.paymentTime,
     // Rebuilt from what we know (the link and the request), never from the proof.
     binding: {
       payer: bareKey(view.counterparty),
@@ -393,7 +397,8 @@ async function verdictFor(service: PaykitService, requests: PaymentRequests, vie
       periodEndsAt: proof.period?.endsAt ?? '',
       conversionQuoteId: proof.conversionQuoteId ?? '',
     },
-  });
+  };
+  return verifyErc20ProofReadingBlockTime(transaction, erc20Context, (mined) => chain.evmBlockTimeMs(mined));
 }
 
 /**

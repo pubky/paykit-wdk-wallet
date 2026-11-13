@@ -1,7 +1,8 @@
 // Receive (modal): pick an asset, then show its receive card (address, QR,
 // copy, share, explorer), or pick "Pay-me code" to show your pubky as a QR.
 // Next to USD₮ sits "Get test USD₮", because a new wallet's first question
-// is where test money comes from.
+// is where test money comes from (only where Aave's faucet funds the build,
+// src/config/evmChain.ts AAVE_FAUCET_FUNDING).
 //
 // Only account 0 is shown here: it is the public address. Contacts get
 // their own BTC addresses through private payment lists. The
@@ -10,6 +11,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AAVE_FAUCET_FUNDING } from '../../config/evmChain';
 import type { RootScreenProps } from '../../navigation/types';
 import { AssetDot, SegmentedControl, SheetScreen, Text, space } from '../../ui';
 import { useWalletAddresses } from '../../wallet';
@@ -45,11 +47,11 @@ export function ReceiveScreen({ navigation, route }: RootScreenProps<'Receive'>)
         ) : (
           <ReceiveCard asset={choice} address={choice === 'btc' ? addresses.btc : addresses.evm} />
         )}
-        {choice === 'usdt' ? (
+        {choice === 'usdt' && AAVE_FAUCET_FUNDING ? (
           <View style={styles.faucet}>
             <Text variant="bodyStrong">Need test USD₮?</Text>
             <Text color="graphite" variant="secondary">
-              Mint it yourself from Aave’s Sepolia faucet. Anyone can mint test tokens.
+              Mint it yourself from Aave’s {AAVE_FAUCET_FUNDING.testNetwork} faucet. Anyone can mint test tokens.
             </Text>
             <GetTestUsdtButton compact />
           </View>

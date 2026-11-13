@@ -43,11 +43,12 @@ module.exports = {
         'getTransaction',
         // EIP-712 signatures can authorize spending off chain (an ERC-20
         // permit, for one), so the app signs exactly one domain with it:
-        // {"name":"Paykit ERC20 Payment","version":"1","chainId":11155111}
+        // {"name":"Paykit ERC20 Payment","version":"1","chainId":<the build's EVM chain>}
+        // (11155111 on Sepolia, 42161 on Arbitrum; src/config/evmChain.ts)
         // with the Erc20Payment / RequestBinding types, the payment proof
         // of specs/erc20-payment-proofs.md. Every call goes through
         // isErc20PaymentTypedData (src/wallet/erc20PaymentProof.ts) in
-        // src/features/requests/PaymentChainBridge.tsx.
+        // signErc20Payment (src/wallet/usePaymentChecks.ts).
         'signTypedData',
       ],
     },

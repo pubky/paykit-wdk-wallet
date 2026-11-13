@@ -10,14 +10,18 @@
 // signs ANY call data, including an ERC-20 approve() that hands the
 // wallet's tokens to someone else. This file is the only place that sends
 // call data, and isAllowedContractCall says exactly which call that is:
-// the faucet's mint, with no ETH attached. useUsdtFaucet checks it before
-// it signs. Plain ETH sends go through WDK's `send`, which takes no data.
+// the faucet's mint, with no ETH attached, and only on a build whose test
+// USD₮ comes from the Aave faucet (Sepolia). On any other chain, nothing:
+// what lives at the faucet's address there is unknown. useUsdtFaucet
+// checks it before it signs. Plain ETH sends go through WDK's `send`,
+// which takes no data.
 import {
   AAVE_FAUCET_MAX_MINT_UNITS,
   AAVE_FAUCET_MINT_SELECTOR,
   AAVE_SEPOLIA_FAUCET,
   SEPOLIA_USDT,
 } from '../config/chains';
+import { AAVE_FAUCET_FUNDING } from '../config/evmChain';
 import { isEvmAddress, sameEvmAddress } from './addressFormat';
 
 /** Default amount for "Get test USD₮": 1,000 USD₮ in micro-units. */
@@ -54,10 +58,12 @@ export function usdtFaucetTransaction(to: string, amount: bigint = DEFAULT_FAUCE
 
 /**
  * The one contract call this app may sign: the Aave faucet's mint, sending
- * no ETH. Anything else with `data` is refused (see the header).
+ * no ETH, on an Aave faucet build. Anything else with `data` is refused
+ * (see the header).
  */
 export function isAllowedContractCall(tx: { to: string; value: string; data: string }): boolean {
   return (
+    AAVE_FAUCET_FUNDING !== undefined &&
     sameEvmAddress(tx.to, AAVE_SEPOLIA_FAUCET) &&
     tx.value === '0' &&
     tx.data.toLowerCase().startsWith(AAVE_FAUCET_MINT_SELECTOR) &&

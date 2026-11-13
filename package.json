@@ -10,6 +10,8 @@
     "demo-env": "node scripts/demo-env.mjs",
     "start": "expo start --dev-client",
     "start:bitkit-regtest": "EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest expo start --dev-client --clear",
+    "start:arbitrum-fork": "EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork expo start --dev-client --clear",
+    "start:bitkit-demo": "EXPO_PUBLIC_BTC_CHAIN=bitkit-regtest EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork expo start --dev-client --clear",
     "prebuild": "expo prebuild --clean",
     "ios": "expo run:ios",
     "android": "expo run:android",

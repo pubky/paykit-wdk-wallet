@@ -1,7 +1,7 @@
 // Renders nothing: hands the payment request module (src/paykit/requests.ts)
 // the WDK calls it needs in the background, which only exist as hooks.
 //
-//   account 0      did our payment confirm; Sepolia transactions; sign a
+//   account 0      did our payment confirm; EVM transactions; sign a
 //                  USD₮ payment proof (src/wallet/usePaymentChecks.ts)
 //   automatic      a fee quote checked against the balance, and the send
 //   payments       itself, for payments made under an Allowance from a

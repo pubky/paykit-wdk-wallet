@@ -15,7 +15,8 @@
 // names the token contract first and the payee in `address=`; paying the
 // first address would send the tokens to the contract, where they are lost.
 import { BTC_CHAIN } from '../config/btcChain';
-import { AAVE_SEPOLIA_FAUCET, SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../config/chains';
+import { AAVE_SEPOLIA_FAUCET } from '../config/chains';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../config/evmChain';
 import type { Chain } from './assets';
 
 /** The build network's bech32 prefix, for messages: "tb1" or "bcrt1". */
@@ -79,21 +80,26 @@ export function parseQueryParams(query: string): Map<string, string> {
 }
 
 /**
- * Contracts this wallet talks to. They hold no one's money: tokens sent to
- * them are lost, so they are never accepted as a recipient.
+ * Contracts this wallet talks to: the build's USD₮ token, plus the Aave
+ * faucet where test USD₮ comes from it (Sepolia). They hold no one's
+ * money: tokens sent to them are lost, so they are never accepted as a
+ * recipient.
  */
-const KNOWN_CONTRACTS = [SEPOLIA_USDT, AAVE_SEPOLIA_FAUCET];
+const KNOWN_CONTRACTS: { readonly addresses: readonly string[]; readonly name: string } = AAVE_FAUCET_FUNDING
+  ? { addresses: [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET], name: 'the test USD₮ token or faucet contract' }
+  : { addresses: [EVM_CHAIN.usdtToken], name: 'the USD₮ token contract' };
 
 export function isKnownContract(address: string): boolean {
-  return KNOWN_CONTRACTS.some((contract) => sameEvmAddress(contract, address));
+  return KNOWN_CONTRACTS.addresses.some((contract) => sameEvmAddress(contract, address));
 }
 
 export type PayeeResult = { ok: true; address: string } | { ok: false; message: string };
 
 /**
- * The payee of an EIP-681 URI (the text after "ethereum:"):
- *   0x…[@11155111]                                   pay that address
- *   <USD₮ token>[@11155111]/transfer?address=0x…     pay `address=`, never the token
+ * The payee of an EIP-681 URI (the text after "ethereum:"), on the build's
+ * EVM chain (11155111 on Sepolia, 42161 on Arbitrum):
+ *   0x…[@<chain id>]                                 pay that address
+ *   <USD₮ token>[@<chain id>]/transfer?address=0x…   pay `address=`, never the token
  * Other chain ids and other functions (approve, other tokens) are refused.
  * Amounts are ignored: the person types the amount and reviews the fee.
  */
@@ -102,12 +108,12 @@ export function payeeOfEthereumUri(rest: string): PayeeResult {
   const match = /^(?:pay-)?(0x[0-9a-fA-F]{40})(?:@(\d+))?(?:\/([A-Za-z]+))?(?:\?(.*))?$/.exec(rest.trim());
   if (!match) return { ok: false, message: 'That Ethereum code is not an address this wallet can pay.' };
   const [, target = '', chainId, fn, query = ''] = match;
-  if (chainId !== undefined && chainId !== String(SEPOLIA_CHAIN_ID)) {
-    return { ok: false, message: 'That code is for another Ethereum network. This wallet pays on Sepolia only.' };
+  if (chainId !== undefined && chainId !== String(EVM_CHAIN.chainId)) {
+    return { ok: false, message: EVM_CHAIN.wrongChainMessage };
   }
   if (fn === undefined) return { ok: true, address: target };
-  if (fn !== 'transfer' || !sameEvmAddress(target, SEPOLIA_USDT)) {
-    return { ok: false, message: 'That code asks for a token this wallet does not hold. It pays test USD₮ only.' };
+  if (fn !== 'transfer' || !sameEvmAddress(target, EVM_CHAIN.usdtToken)) {
+    return { ok: false, message: EVM_CHAIN.unknownTokenMessage };
   }
   const payee = parseQueryParams(query).get('address') ?? '';
   return isEvmAddress(payee) ? { ok: true, address: payee } : { ok: false, message: 'That USD₮ request has no address to pay.' };
@@ -158,7 +164,8 @@ const PUBKY_KEY = /^(pubky)?[ybndrfg8ejkmcpqxot1uwisza345h769]{52}$/;
  * for other networks.
  *
  * EVM addresses look the same on every EVM chain, so "mainnet" cannot be
- * detected from a bare 0x address; WDK sends on Sepolia whatever the address.
+ * detected from a bare 0x address; WDK sends on the build's EVM chain
+ * whatever the address.
  */
 export function checkRecipientAddress(text: string, chain: Chain): RecipientCheck {
   if (text.trim() === '') return { ok: false, reason: 'empty', message: 'Enter an address.' };
@@ -190,7 +197,7 @@ export function checkRecipientAddress(text: string, chain: Chain): RecipientChec
       return {
         ok: false,
         reason: 'contract',
-        message: "That is the test USD₮ token or faucet contract, not someone's wallet. Money sent there is lost. Paste the payee's own address.",
+        message: `That is ${KNOWN_CONTRACTS.name}, not someone's wallet. Money sent there is lost. Paste the payee's own address.`,
       };
     }
     return { ok: true, address };

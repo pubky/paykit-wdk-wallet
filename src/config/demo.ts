@@ -7,7 +7,8 @@
 // (a fresh clone), the app simply has no prefill.
 import { Platform } from 'react-native';
 
-import { BTC_CHAIN } from './btcChain';
+import { BTC_CHAIN, type BtcChainId } from './btcChain';
+import { EVM_CHAIN, type EvmChainId } from './evmChain';
 
 export type DemoPrefill = {
   mnemonic?: string;
@@ -16,7 +17,7 @@ export type DemoPrefill = {
   peerPubky?: string;
 };
 
-type DemoLocal = { ios?: DemoPrefill; android?: DemoPrefill; bitkitRegtest?: DemoPrefill };
+export type DemoLocal = { ios?: DemoPrefill; android?: DemoPrefill; bitkitRegtest?: DemoPrefill };
 
 function loadDemoLocal(): DemoLocal {
   // The require must sit INSIDE `if (__DEV__)`. Metro collects a bundle's
@@ -39,13 +40,18 @@ function loadDemoLocal(): DemoLocal {
 
 const local = loadDemoLocal();
 
+// The demo identities run on Sepolia, so any other EVM mode gets no
+// prefill: restoring one there would publish its usdt-arbitrum-address
+// and remove usdt-sepolia-address from that shared identity
+// (docs/BITKIT-USDT-FORK.md).
 // A regtest build on iOS uses the regtest identity: its wallet holds
 // regtest coins and pairs with Bitkit, which the demo runs on iOS
 // (docs/BITKIT-DEMO.md), not with the other simulator. A regtest build on
 // Android gets no prefill: the same identity on two devices at once would
 // diverge its contact links, ledger and Allowances.
-function platformPrefill(): DemoPrefill | undefined {
-  if (BTC_CHAIN.id === 'bitkit-regtest') return Platform.OS === 'ios' ? local.bitkitRegtest : undefined;
-  return Platform.OS === 'ios' ? local.ios : Platform.OS === 'android' ? local.android : undefined;
+export function choosePrefill(demoLocal: DemoLocal, os: string, btcChain: BtcChainId, evmChain: EvmChainId): DemoPrefill | undefined {
+  if (evmChain !== 'sepolia') return undefined;
+  if (btcChain === 'bitkit-regtest') return os === 'ios' ? demoLocal.bitkitRegtest : undefined;
+  return os === 'ios' ? demoLocal.ios : os === 'android' ? demoLocal.android : undefined;
 }
-export const demoPrefill: DemoPrefill = platformPrefill() ?? {};
+export const demoPrefill: DemoPrefill = choosePrefill(local, Platform.OS, BTC_CHAIN.id, EVM_CHAIN.id) ?? {};

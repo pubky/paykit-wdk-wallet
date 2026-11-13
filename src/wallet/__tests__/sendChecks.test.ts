@@ -1,6 +1,9 @@
 import { AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '../../config/chains';
+import { withEvmChain } from '../../config/__tests__/withEnv';
+import { CONFIRMATION_TIME } from '../assets';
 import { addressFromPaymentText, checkRecipientAddress } from '../addressFormat';
 import { parseRecommendedFeeRate, parseTransactionStatus } from '../esplora';
+import { addressUrl, transactionUrl } from '../explorers';
 import { checkAffordable, formatFee, MAY_HAVE_BEEN_SENT, sendErrorMessage, sendFailureFor } from '../sendChecks';
 
 const TB1 = 'tb1qh3z4yzs97s9sq9awmgm55t3auxjuc4j5srz0pg';
@@ -158,5 +161,35 @@ describe('Mutinynet API parsing', () => {
     });
     expect(parseTransactionStatus({ confirmed: false })).toEqual({ confirmed: false, blockHeight: undefined, blockTime: undefined });
     expect(parseTransactionStatus('nope')).toBeUndefined();
+  });
+});
+
+describe('the EVM chain in send words and links', () => {
+  const NO_GAS = { asset: 'usdt', amount: 1_000_000n, balances: { usdt: 5_000_000n, eth: 0n } } as const;
+  const HASH = '0x5e8c5d7f9b1c3a2e4d6f8a0b2c4e6f8a0b2c4e6f8a0b2c4e6f8a0b2c4e6f8a0b';
+
+  it('points a Sepolia build to Sepolia ETH, Sepolia blocks and Etherscan, as before', () => {
+    expect(checkAffordable(NO_GAS)?.message).toBe(
+      'Not enough ETH for gas. You have 0 ETH. Get a little Sepolia ETH for your Ethereum address in You > Test funds.',
+    );
+    expect(CONFIRMATION_TIME.ethereum).toBe('about 12 seconds');
+    expect(transactionUrl('ethereum', HASH)).toBe(`https://sepolia.etherscan.io/tx/${HASH}`);
+    expect(addressUrl('ethereum', EVM)).toBe(`https://sepolia.etherscan.io/address/${EVM}`);
+  });
+
+  it('never says Sepolia on the local Arbitrum fork, and links no explorer there', () => {
+    const fork = withEvmChain('arbitrum-fork', () => ({
+      checks: jest.requireActual<typeof import('../sendChecks')>('../sendChecks'),
+      explorers: jest.requireActual<typeof import('../explorers')>('../explorers'),
+      assets: jest.requireActual<typeof import('../assets')>('../assets'),
+    }));
+    const message = fork.checks.checkAffordable(NO_GAS)?.message;
+    expect(message).toBe('Not enough ETH for gas. You have 0 ETH. Get a little ETH on the local fork for your Ethereum address in You > Test funds.');
+    expect(message).not.toMatch(/sepolia/i);
+    expect(fork.assets.CONFIRMATION_TIME.ethereum).toBe('a few seconds');
+    expect(fork.explorers.transactionUrl('ethereum', HASH)).toBeUndefined();
+    expect(fork.explorers.addressUrl('ethereum', EVM)).toBeUndefined();
+    // Bitcoin keeps its explorer whatever the EVM chain.
+    expect(fork.explorers.transactionUrl('bitcoin', 'abc')).toBe('https://mutinynet.com/tx/abc');
   });
 });

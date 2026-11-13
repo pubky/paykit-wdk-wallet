@@ -4,6 +4,7 @@ export { colors, tints, assetColors, fonts, radii, space, typography, sheetShado
 export { useAppFonts } from './fonts';
 export { Text, type TextProps } from './Text';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
+export { ExplorerButton, type ExplorerButtonProps } from './ExplorerButton';
 export { Row, type RowProps } from './Row';
 export { Divider } from './Divider';
 export { Input, type InputProps } from './Input';
