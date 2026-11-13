@@ -136,7 +136,7 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
  * WDK reads the same RPC from its worklet, so a failure here alone (an
  * Android build without cleartext HTTP or `adb reverse` for the fork, say)
  * would leave every such proof at "Checking when it was paid" with nothing
- * to go on. Each kind of failure is warned about once.
+ * to go on. Each kind of failure is warned about once, until a read works again.
  */
 async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: number }): Promise<number | undefined> {
   let request: { method: string; params: unknown[] };
@@ -159,10 +159,12 @@ async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: numbe
   }
   const blockTimeMs = evmBlockTimeMsFrom(response, tx.blockHash);
   if (blockTimeMs === undefined) warnBlockTimeFailure('answer', 'the answer has no block time for that block');
+  // It works again: a failure that comes back later is worth a new warning.
+  else warnedBlockTimeFailures.clear();
   return blockTimeMs;
 }
 
-/** Failure kinds already warned about, so a proof checked every minute does not repeat itself. */
+/** Failure kinds warned about since the last block time read, so a proof checked every minute does not repeat itself. */
 const warnedBlockTimeFailures = new Set<string>();
 
 /** EVM_CHAIN.rpc is a fixed public or local URL from src/config/chains.ts, with no key in it. */

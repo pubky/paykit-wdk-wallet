@@ -21,7 +21,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
-import { EVM_CHAIN } from '../../../config/evmChain';
+import { EVM_CHAIN, REAL_FUNDS_WARNING } from '../../../config/evmChain';
 import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
 import { CONFIRMATION_TIME, formatAssetAmount, formatFee, type FeeQuote, type SendProblem } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
@@ -96,9 +96,9 @@ export function SendReview({ asset, amount, recipient, address, quote, problem, 
         <DetailRow label="Network" value={NETWORK[asset]} />
       </View>
 
-      {EVM_CHAIN.realFundsWarning ? (
+      {REAL_FUNDS_WARNING ? (
         <Text variant="secondary" color="alert" testID="send-real-funds">
-          {EVM_CHAIN.realFundsWarning}
+          {REAL_FUNDS_WARNING}
         </Text>
       ) : null}
       {problem ? (

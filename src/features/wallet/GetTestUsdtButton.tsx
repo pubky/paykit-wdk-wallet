@@ -9,13 +9,14 @@
 //
 // Used on Receive (next to USD₮), on the Wallet tab when USD₮ is empty, and
 // in You &gt; Test funds. Only builds whose USD₮ comes from Aave's faucet
-// (src/config/evmChain.ts AAVE_FAUCET_FUNDING) show it; on any other it
-// renders nothing, and those screens leave out the text around it too.
+// (src/config/evmChain.ts AAVE_FAUCET_FUNDING) show it: each of those
+// screens checks that before rendering it, with the text around it.
+// (useUsdtFaucet also refuses to mint on any other build.)
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../../config/evmChain';
+import { EVM_CHAIN } from '../../config/evmChain';
 import { Button, ExplorerButton, Text, space } from '../../ui';
 import { DEFAULT_FAUCET_MINT_UNITS, formatAssetAmount, sendFailureFor, useUsdtFaucet, useWalletBalances } from '../../wallet';
 
@@ -24,11 +25,7 @@ const MINT_LABEL = `Get ${formatAssetAmount(DEFAULT_FAUCET_MINT_UNITS, 'usdt').r
 
 type GetTestUsdtButtonProps = { compact?: boolean; /** In You > Test funds, where the ETH faucet link is right below. */ faucetBelow?: boolean };
 
-export function GetTestUsdtButton(props: GetTestUsdtButtonProps) {
-  return AAVE_FAUCET_FUNDING ? <MintButton {...props} /> : null;
-}
-
-function MintButton({ compact, faucetBelow }: GetTestUsdtButtonProps) {
+export function GetTestUsdtButton({ compact, faucetBelow }: GetTestUsdtButtonProps) {
   const faucet = useUsdtFaucet();
   const { balances, refresh } = useWalletBalances();
   const [minting, setMinting] = useState(false);

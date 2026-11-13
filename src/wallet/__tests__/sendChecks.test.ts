@@ -193,6 +193,13 @@ describe('the EVM chain in send words and links', () => {
     expect(fork.explorers.transactionUrl('bitcoin', 'abc')).toBe('https://mutinynet.com/tx/abc');
   });
 
+  it('never points to Test funds on Arbitrum One, where the ETH is real', () => {
+    const checks = withEvmChain('arbitrum-one', () => jest.requireActual<typeof import('../sendChecks')>('../sendChecks'));
+    const message = checks.checkAffordable(NO_GAS)?.message;
+    expect(message).toBe('Not enough ETH for gas. You have 0 ETH. Send a little Arbitrum ETH to your Ethereum address.');
+    expect(message).not.toMatch(/test/i);
+  });
+
   it('links Arbiscan on Arbitrum One', () => {
     const explorers = withEvmChain('arbitrum-one', () => jest.requireActual<typeof import('../explorers')>('../explorers'));
     expect(explorers.transactionUrl('ethereum', HASH)).toBe(`https://arbiscan.io/tx/${HASH}`);

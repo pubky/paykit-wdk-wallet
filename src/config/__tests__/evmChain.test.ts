@@ -27,7 +27,6 @@ describe('evmChainFromEnv', () => {
         endpointId: 'usdt-sepolia-address',
         funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
         paymentTime: 'slot-bound',
-        realFundsWarning: undefined,
         buildSwitch: undefined,
         // These key WDK's balance cache: changing them would orphan existing installs' balances.
         ethAssetId: 'eth-sepolia',
@@ -60,7 +59,6 @@ describe('evmChainFromEnv', () => {
       endpointId: 'usdt-arbitrum-address',
       funding: { kind: 'anvil-fork' },
       paymentTime: 'block-timestamp',
-      realFundsWarning: undefined,
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
       ethAssetId: 'eth-arbitrum-fork',
       usdtAssetId: 'usdt-arbitrum-fork',
@@ -77,9 +75,8 @@ describe('evmChainFromEnv', () => {
       explorer: ARBISCAN_EXPLORER,
       activityApi: undefined,
       endpointId: 'usdt-arbitrum-address',
-      funding: { kind: 'real-funds' },
+      funding: { kind: 'real-funds', warning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.' },
       paymentTime: 'block-timestamp',
-      realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
       ethAssetId: 'eth-arbitrum-one',
       usdtAssetId: 'usdt-arbitrum-one',
@@ -135,12 +132,13 @@ describe('EVM_REAL_FUNDS', () => {
   });
 });
 
-describe('the real-funds warning', () => {
-  it('is set only where the funds are real', () => {
-    for (const value of ['', 'arbitrum-fork', 'arbitrum-one']) {
-      const profile = evmChainFromEnv(value);
-      expect(profile.realFundsWarning !== undefined).toBe(profile.funding.kind === 'real-funds');
-    }
+describe('REAL_FUNDS_WARNING', () => {
+  const load = () => jest.requireActual<typeof import('../evmChain')>('../evmChain').REAL_FUNDS_WARNING;
+
+  it('is set only on Arbitrum One, the one build whose funds are real', () => {
+    expect(load()).toBeUndefined();
+    expect(withEvmChain('arbitrum-fork', load)).toBeUndefined();
+    expect(withEvmChain('arbitrum-one', load)).toBe('Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.');
   });
 });
 

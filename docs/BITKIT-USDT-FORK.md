@@ -94,8 +94,12 @@ running for the whole demo.
 ## 1. Start the fork
 
 ```sh
-anvil --fork-url https://arb1.arbitrum.io/rpc --host 127.0.0.1 --port 18545
+anvil --fork-url https://arb1.arbitrum.io/rpc --host 127.0.0.1 --port 18545 --no-cors
 ```
+
+`--no-cors` turns off Anvil's default permissive CORS. Without it, any web
+page open on the Mac could call the fork's `anvil_*` methods and rewrite
+balances or the clock.
 
 Without `--fork-block-number`, Anvil forks the latest block. For runs
 you can repeat, pin a block:
@@ -273,11 +277,10 @@ endpoint and removes the other (`syncPublicEndpoints` in
 identity runs in two EVM modes, the install that synced last decides
 which USD₮ endpoint payers see.
 
-The dev prefill (`src/config/demo.ts`) picks its identity by
-`EXPO_PUBLIC_BTC_CHAIN` only. So a fork build offers the same phrase as
-the Sepolia build of the same Bitcoin mode. If that identity already
-runs on Sepolia, do not restore it on the fork: create a new wallet and
-sign up with a new staging signup code.
+The dev prefill (`src/config/demo.ts`) is off on every EVM mode other
+than Sepolia: its demo identities run on Sepolia, and restoring one on
+the fork would move its USD₮ endpoint away from Sepolia payers. On the
+fork, create a new wallet and sign up with a new staging signup code.
 
 ## 6. Fund both wallets
 
@@ -373,9 +376,9 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
   payment never gets a row: the balance moves, and that is all. A USD₮
   payment whose transaction hash was lost (the app stopped mid-send) is
   found only within the same launch. After a relaunch the wallet cannot
-  tell whether it was sent, so it never decides "not sent": the request
-  stays as it was ("Paying…" or "May have been paid. Check Activity"),
-  and You > Sync status logs a failed look for it every 30 seconds.
+  find it, but it never decides "not sent" for USD₮: the payment stays
+  reserved and shows as "May have been paid. Check Activity". It cannot
+  be linked to its transaction automatically.
 - **Bitkit's dollar requests are not payable.** Bitkit creates requests
   in `btc` or `usd` only (`CreatePaymentRequestView.swift@1b56274c1:311`,
   `PaykitAmount.swift@1b56274c1:3-6`), and pays a `usd` request in USD₮.
@@ -386,7 +389,7 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
   reading the code only: Bitkit picks no endpoint for a recurring request
   in `usdt` (`PaykitRequestPricing.swift@1b56274c1:97`).
 - **A separate install and identity per EVM mode**, as above. The dev
-  prefill does not separate EVM modes.
+  prefill is off on non-Sepolia EVM builds.
 - **Anvil forgets everything when it stops.** Keep it running for the
   whole demo.
 - **`arbitrum-one` is real money.** It has no npm script, so real funds

@@ -34,9 +34,11 @@ describe('matchSentUsdtPayment', () => {
       expect(matchSentUsdtPayment([sent({ timestamp: undefined })], undefined, query)).toEqual({ state: 'unsure' });
     });
 
-    it('never answers "none": after a relaunch the payment may be on chain with no record of it here', () => {
-      expect(() => matchSentUsdtPayment([], undefined, query)).toThrow('cannot tell whether it was sent');
-      expect(() => matchSentUsdtPayment([sent({ amount: 1n })], undefined, query)).toThrow();
+    // After a relaunch the payment may be on chain with no record of it here. "none" keeps a
+    // USD₮ payment reserved ("may have been paid"), so it is safe; throwing would stall the search.
+    it('answers "none" without throwing when this session sent nothing that matches', () => {
+      expect(matchSentUsdtPayment([], undefined, query)).toEqual({ state: 'none' });
+      expect(matchSentUsdtPayment([sent({ amount: 1n })], undefined, query)).toEqual({ state: 'none' });
     });
   });
 });

@@ -47,12 +47,13 @@ export type UsdtEndpointId = 'usdt-sepolia-address' | 'usdt-arbitrum-address';
  * faucet plus Aave's test-token mint (Sepolia), scripts/fund-fork.mjs
  * against the local Anvil fork, or nowhere, because they are real funds.
  * Only 'aave-faucet' shows "Get test USD₮"; `testNetwork` names the network
- * in its words ("Aave’s Sepolia faucet").
+ * in its words ("Aave’s Sepolia faucet"). Only 'real-funds' carries a
+ * `warning`: what the Wallet tab and the Send review always say there.
  */
 export type EvmFunding =
   | { readonly kind: 'aave-faucet'; readonly ethFaucetUrl: string; readonly testNetwork: string }
   | { readonly kind: 'anvil-fork' }
-  | { readonly kind: 'real-funds' };
+  | { readonly kind: 'real-funds'; readonly warning: string };
 
 /**
  * How the payee decides when a USD₮ payment was made, to refuse one from
@@ -87,8 +88,6 @@ export type EvmChainProfile = {
   readonly endpointId: UsdtEndpointId;
   readonly funding: EvmFunding;
   readonly paymentTime: EvmPaymentTime;
-  /** Set exactly when ETH and USD₮ are real money: what the Wallet tab and the Send review always say. */
-  readonly realFundsWarning: string | undefined;
   /** The build-time switch that picked this chain, shown in Network details; none for the default. */
   readonly buildSwitch: string | undefined;
   /** WDK's asset ids; they key WDK's balance cache, so each chain has its own. */
@@ -137,7 +136,6 @@ const SEPOLIA: EvmChainProfile = {
   endpointId: 'usdt-sepolia-address',
   funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
   paymentTime: 'slot-bound',
-  realFundsWarning: undefined,
   buildSwitch: undefined,
   ethAssetId: 'eth-sepolia',
   usdtAssetId: 'usdt-sepolia',
@@ -167,7 +165,6 @@ const ARBITRUM_FORK: EvmChainProfile = {
   endpointId: 'usdt-arbitrum-address',
   funding: { kind: 'anvil-fork' },
   paymentTime: 'block-timestamp',
-  realFundsWarning: undefined,
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
   // Not Arbitrum One's ids: the fork's balances must never land in the real chain's cache entry.
   ethAssetId: 'eth-arbitrum-fork',
@@ -197,9 +194,8 @@ const ARBITRUM_ONE: EvmChainProfile = {
   // No Blockscout API for Arbitrum One has been checked yet.
   activityApi: undefined,
   endpointId: 'usdt-arbitrum-address',
-  funding: { kind: 'real-funds' },
+  funding: { kind: 'real-funds', warning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.' },
   paymentTime: 'block-timestamp',
-  realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
   ethAssetId: 'eth-arbitrum-one',
   usdtAssetId: 'usdt-arbitrum-one',
@@ -243,3 +239,9 @@ export const AAVE_FAUCET_FUNDING = EVM_CHAIN.funding.kind === 'aave-faucet' ? EV
  * "test" or "testnet" word themselves from this.
  */
 export const EVM_REAL_FUNDS = EVM_CHAIN.funding.kind === 'real-funds';
+
+/**
+ * What the Wallet tab and the Send review always say on a real-funds build;
+ * undefined on any other.
+ */
+export const REAL_FUNDS_WARNING = EVM_CHAIN.funding.kind === 'real-funds' ? EVM_CHAIN.funding.warning : undefined;

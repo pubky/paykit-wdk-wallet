@@ -3,10 +3,12 @@
 // session (./sentTransactions.ts, in memory only), and the chain's indexer.
 //
 // A chain with no indexer (EVM_CHAIN.activityApi undefined: the Arbitrum
-// fork and Arbitrum One) has no history to search. There, finding nothing
-// in this session's sends is not "not sent": after a relaunch those records
-// are gone while the payment may well be on chain. So that case throws, and
-// the caller treats it as "can't tell yet" and looks again later.
+// fork and Arbitrum One) has only this session's sends to search. After a
+// relaunch those records are gone while the payment may well be on chain,
+// so "none" there does not mean "not sent". That is safe: the caller never
+// frees a USD₮ payment on "none" (findLostPayment in
+// src/paykit/requestRounds.ts). It stays reserved and shows as "may have
+// been paid"; it just cannot be linked to its transaction automatically.
 //
 // Pure: no native imports, unit tested.
 import type { ActivityItem } from './activity';
@@ -14,8 +16,5 @@ import { matchSentTransfer, type SentTransferMatch, type SentTransferQuery } fro
 
 /** `indexed` is the chain's USD₮ history from its indexer, or undefined when the chain has none. */
 export function matchSentUsdtPayment(sessionSends: ActivityItem[], indexed: ActivityItem[] | undefined, query: SentTransferQuery): SentTransferMatch {
-  if (indexed !== undefined) return matchSentTransfer([...sessionSends, ...indexed], query);
-  const match = matchSentTransfer(sessionSends, query);
-  if (match.state === 'none') throw new Error('No USD₮ history on this chain to search: cannot tell whether it was sent');
-  return match;
+  return matchSentTransfer([...sessionSends, ...(indexed ?? [])], query);
 }

@@ -52,6 +52,7 @@ import {
 import { retryIfElectrumDropped } from './electrumRetry';
 import { nextFailureStreak, NO_FAILURES, shouldReportFailure, type FailureStreak } from './failureStreak';
 import { fetchBtcTransactionStatus } from './esplora';
+import { fetchJsonOrThrowWithTimeout } from './http';
 import { evmTransactionFrom, sendOutcomeOf } from './paymentEvidence';
 import { markSentTransaction, sentTransactions, subscribeSentTransactions } from './sentTransactions';
 import { useAppActive } from './useAppActive';
@@ -103,12 +104,6 @@ function cachedFor(owner: string | null) {
   return owner && lastFetched.owner === owner ? lastFetched : { btc: [], evm: [] };
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
-  if (!response.ok) throw new Error(`Blockscout answered ${response.status}`);
-  return response.json();
-}
-
 /**
  * ETH and USD₮ activity for an EVM address, from Blockscout. None, and no
  * error, where the chain has no indexer: right for the list, but not proof
@@ -118,8 +113,8 @@ export async function fetchEvmActivity(address: string): Promise<ActivityItem[]>
   const api = EVM_CHAIN.activityApi;
   if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
-    fetchJson(`${api}/addresses/${address}/transactions`),
-    fetchJson(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`),
+    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout'),
+    fetchJsonOrThrowWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout'),
   ]);
   return [
     ...parseBlockscoutTransactions(transactions, address),

@@ -859,10 +859,11 @@ means it never left: Failed is recorded and the request can be paid
 again. USD₮'s history comes from Blockscout, which can lag by hours, so a
 missing USD₮ payment stays reserved ("May have been paid. Check
 Activity") and the search goes on every five minutes. The Arbitrum modes
-have no history API, so the search sees only this launch's own sends.
-Finding nothing there is not "not sent" (after a relaunch the record is
-gone), so the search fails instead of answering "none"
-(`src/wallet/sentPaymentSearch.ts`), and the round tries again later.
+have no history API, so the search sees only this launch's own sends
+(`src/wallet/sentPaymentSearch.ts`). After a relaunch that record is
+gone, so a USD₮ payment lost across a relaunch is never found: like any
+missing USD₮ payment it stays reserved and shows as "may have been
+paid", but it cannot be linked to its transaction automatically.
 
 **"Dropped" is not failed.** WDK's EVM `getTransaction` says `dropped`
 when it finds the transaction but no receipt, and the sender's nonce has
