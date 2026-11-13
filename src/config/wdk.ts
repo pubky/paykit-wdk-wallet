@@ -1,13 +1,16 @@
-// WDK runtime configuration: which testnets the wallet talks to.
+// WDK runtime configuration: which networks the wallet talks to.
 //
 // The network keys ('bitcoin', 'ethereum') must match `networks` in
 // wdk.config.js, which decides which wallet modules go into the worklet
-// bundle. Chain constants live in ./chains.ts, and the Bitcoin network
-// (Mutinynet or Bitkit's regtest) is picked at build time in ./btcChain.ts.
+// bundle. Chain constants live in ./chains.ts. The Bitcoin network
+// (Mutinynet or Bitkit's regtest) is picked at build time in ./btcChain.ts,
+// and the EVM chain (Sepolia, a local Arbitrum fork or Arbitrum One) in
+// ./evmChain.ts. The 'ethereum' key names WDK's EVM module, whichever EVM
+// chain that is.
 import { BaseAsset, type WdkConfigs } from '@tetherto/wdk-react-native-core';
 
 import { BTC_CHAIN } from './btcChain';
-import { SEPOLIA_CHAIN_ID, SEPOLIA_RPC, SEPOLIA_USDT } from './chains';
+import { EVM_CHAIN } from './evmChain';
 
 export const BTC_NETWORK = 'bitcoin';
 export const EVM_NETWORK = 'ethereum';
@@ -46,8 +49,8 @@ export const wdkConfigs: WdkConfigs = {
     [EVM_NETWORK]: {
       blockchain: EVM_NETWORK,
       config: {
-        provider: SEPOLIA_RPC,
-        chainId: SEPOLIA_CHAIN_ID,
+        provider: EVM_CHAIN.rpc,
+        chainId: EVM_CHAIN.chainId,
       },
     },
   },
@@ -65,21 +68,21 @@ export const BTC = new BaseAsset({
 });
 
 export const ETH = new BaseAsset({
-  id: 'eth-sepolia',
+  id: EVM_CHAIN.ethAssetId,
   network: EVM_NETWORK,
   symbol: 'ETH',
-  name: 'Ether (Sepolia)',
+  name: EVM_CHAIN.ethAssetName,
   decimals: 18,
   isNative: true,
   address: null,
 });
 
 export const USDT = new BaseAsset({
-  id: 'usdt-sepolia',
+  id: EVM_CHAIN.usdtAssetId,
   network: EVM_NETWORK,
   symbol: 'USDT',
-  name: 'Tether USD (Sepolia, Aave test token)',
+  name: EVM_CHAIN.usdtAssetName,
   decimals: 6,
   isNative: false,
-  address: SEPOLIA_USDT,
+  address: EVM_CHAIN.usdtToken,
 });

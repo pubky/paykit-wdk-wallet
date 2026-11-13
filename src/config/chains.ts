@@ -1,10 +1,12 @@
-// Chain constants for the test networks the wallet uses.
+// Chain constants for the networks the wallet uses: test networks, plus
+// Arbitrum One for the opt-in EXPO_PUBLIC_EVM_CHAIN=arbitrum-one build.
 //
 // This file has no imports on purpose: pure logic (amount formatting,
 // endpoint payload checks, faucet call data) imports it and is unit tested
 // in Node, where the WDK and Paykit native modules do not exist.
 // src/config/wdk.ts builds the WDK runtime configuration from these values,
-// and src/config/btcChain.ts picks which Bitcoin network is active.
+// and src/config/btcChain.ts and src/config/evmChain.ts pick which Bitcoin
+// and EVM networks are active.
 
 /**
  * Bitcoin on Mutinynet, a signet with 30 s blocks.
@@ -47,6 +49,21 @@ export const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 export const SEPOLIA_USDT = '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
 
 /**
+ * Arbitrum One, the chain Bitkit's USD₮ runs on. The local fork
+ * (EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork) is Anvil forking it on this
+ * computer, so it keeps the same chain id and token.
+ */
+export const ARBITRUM_ONE_CHAIN_ID = 42161;
+export const ARBITRUM_ONE_RPC = 'https://arb1.arbitrum.io/rpc';
+export const ARBITRUM_FORK_RPC = 'http://127.0.0.1:18545';
+
+/**
+ * USD₮0 on Arbitrum One (6 decimals). Lowercase on purpose: it goes into
+ * our published endpoint payload exactly as Bitkit writes it (PaykitUsdt.token).
+ */
+export const ARBITRUM_USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+
+/**
  * Aave V3 Sepolia faucet. `mint(address token, address to, uint256 amount)` is
  * permissionless on Sepolia; one call mints at most 10,000 tokens. The caller
  * pays gas in Sepolia ETH.
@@ -66,6 +83,7 @@ export const MUTINYNET_FAUCET_URL = 'https://faucet.mutinynet.com';
 /** Block explorers, for links the user can open. */
 export const MUTINYNET_EXPLORER = 'https://mutinynet.com';
 export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
+export const ARBISCAN_EXPLORER = 'https://arbiscan.io';
 
 /**
  * Mutinynet's keyless esplora API (the mempool.space software). WDK has no
