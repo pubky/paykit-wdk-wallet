@@ -230,6 +230,7 @@ describe('verifyErc20Proof', () => {
         status: 'pending',
         reason: 'Checking when it was paid.',
         recheckMs: 60_000,
+        needs: 'block-time',
       });
       // A request from before the rule has no time to compare.
       expect(verifyErc20Proof(minedAt(undefined), await context({ paymentTime })).status).toBe('verified');
@@ -264,6 +265,7 @@ describe('verifyErc20Proof', () => {
           status: 'pending',
           reason: 'Checking when it was paid.',
           recheckMs: 60_000,
+          needs: 'block-time',
         });
         expect(unknown).toHaveBeenCalledTimes(1);
       });

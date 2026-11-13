@@ -3,8 +3,10 @@
 // Blockscout needs a few seconds to index a new Sepolia transaction, and an
 // unconfirmed BTC send may not be in Electrum's history immediately. The
 // activity list merges these records in until the indexer has the same hash
-// (see mergeActivity in ./activity.ts). Lost on restart, which is fine: by
-// then the indexers have caught up.
+// (see mergeActivity in ./activity.ts). Lost on restart, which is fine
+// where an indexer exists: by then it has caught up. On a chain with no
+// indexer (the Arbitrum fork) these records are the only EVM history, and
+// a restart loses them: a known gap (docs/BITKIT-USDT-FORK.md, "Known gaps").
 //
 // Blockscout often lists a Sepolia transaction a minute or more after its
 // block. So that the sender does not watch "Pending" all that time,

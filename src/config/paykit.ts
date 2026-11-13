@@ -19,7 +19,7 @@ export const PAYKIT_APP_NAME = 'Paykit WDK example wallet';
  * the build's networks. Bitcoin (./btcChain.ts): 'btc-mutinynet-p2wpkh', or
  * Bitkit's own 'btc-regtest-p2wpkh' on Bitkit's regtest. USD₮
  * (./evmChain.ts): 'usdt-sepolia-address', or Bitkit's own
- * 'usdt-arbitrum-address' on the Arbitrum fork and Arbitrum One.
+ * 'usdt-arbitrum-address' on the Arbitrum fork.
  */
 export const ENDPOINT_BTC = BTC_CHAIN.endpointId;
 export const ENDPOINT_USDT = EVM_CHAIN.endpointId;

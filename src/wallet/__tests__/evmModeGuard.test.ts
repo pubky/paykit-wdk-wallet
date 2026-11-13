@@ -43,6 +43,11 @@ describe('opening the wallet on a device', () => {
     expect(refusal('sepolia', false)).toMatch(/^This wallet was set up for Ethereum Sepolia\./);
   });
 
+  it('refuses to set up the Arbitrum fork build over a Sepolia seed that outlived its record (iOS reinstall)', () => {
+    // createWallet and restoreWallet run this check too, so onboarding cannot record the fork's mode over a Sepolia device.
+    expect(refusal(undefined, true, ARBITRUM_FORK)).toMatch(/^This wallet was set up for Ethereum Sepolia\./);
+  });
+
   it('refuses an Arbitrum fork install on the Sepolia build', () => {
     expect(refusal('arbitrum-fork', false, SEPOLIA)).toMatch(/^This wallet was set up for Arbitrum \(local fork\)\. This build runs Ethereum Sepolia/);
   });

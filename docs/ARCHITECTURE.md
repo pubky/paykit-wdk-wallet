@@ -129,8 +129,10 @@ the Keychain. The rest of the app's state is guarded by a record:
 app-settings MMKV file (`wallet-evm-mode-v1`) before WDK holds the
 wallet. The device's mode is the record if there is one; else Sepolia if
 a seed exists under `paykit-wdk-demo` (an install from before the
-record); else unknown. When it is known and not the build's, `unlock`
-throws `WrongEvmModeError`, `useWalletLifecycle` reports
+record); else unknown. When it is known and not the build's, `unlock`,
+`createWallet` and `restoreWallet` throw `WrongEvmModeError` (create and
+restore check first, so onboarding cannot record the build's mode over a
+Sepolia seed that an iOS reinstall kept), `useWalletLifecycle` reports
 `'wrong-evm-mode'` with the reason in `error`, and RootNavigator shows it
 instead of opening the wallet (`src/wallet/evmModeGuard.ts`). Existing
 Sepolia installs open as before.
@@ -946,10 +948,12 @@ the wallets. This app uses:
   ago; five minutes' allowance covers the phones' clocks. On Arbitrum
   (`block-timestamp`) blocks come several a second and an Anvil fork
   mines on demand, so confirmations say nothing about time. There
-  `evmTransaction` reads the block's timestamp with a JSON-RPC call to
-  `EVM_CHAIN.rpc` (WDK returns only the block), with ten minutes'
-  allowance for the sequencer's and the phones' clocks
-  (`EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS` in `src/paykit/paymentProofs.ts`).
+  `evmBlockTimeMs` reads the timestamp of the receipt's block, by its
+  hash, with a JSON-RPC call to `EVM_CHAIN.rpc` (WDK returns only the
+  block), with ten minutes' allowance for the sequencer's and the phones'
+  clocks (`EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS` in
+  `src/paykit/paymentProofs.ts`). A receipt without a block hash leaves
+  the proof pending.
   Until that time is known the proof stays pending ("Checking when it
   was paid"), never verified, so a payer cannot reuse an old transfer
   while the RPC is down; each kind of failure to read it is logged once

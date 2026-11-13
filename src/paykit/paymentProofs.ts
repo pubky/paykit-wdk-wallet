@@ -61,7 +61,7 @@ import { BTC_CHAIN } from '../config/btcChain';
 import { EVM_CHAIN, type EvmPaymentTime } from '../config/evmChain';
 import { ERC20_PROOF_TYPE, erc20PaymentSigner, erc20PaymentTypedData, isCanonicalLogIndex, type Erc20RequestBinding } from '../wallet/erc20PaymentProof';
 import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../wallet/paymentEvidence';
-import { isLowercaseTxid } from '../wallet/txid';
+import { isLowercaseEvmHash32, isLowercaseTxid } from '../wallet/txid';
 
 export const BTC_PROOF_TYPE = 'bitcoin-onchain-tx';
 export const BTC_PROOF_NETWORK = 'mutinynet';
@@ -113,7 +113,7 @@ export function parseProof(json: string): ParsedProof | undefined {
   if (proof.type === ERC20_PROOF_TYPE) {
     const { chain_id: chainId, transaction_hash: transactionHash, receipt_log_index: receiptLogIndex, signature } = proof;
     if (typeof chainId !== 'string' || !/^[1-9]\d*$/.test(chainId)) return undefined;
-    if (typeof transactionHash !== 'string' || !/^0x[0-9a-f]{64}$/.test(transactionHash)) return undefined;
+    if (!isLowercaseEvmHash32(transactionHash)) return undefined;
     if (typeof receiptLogIndex !== 'string' || !isCanonicalLogIndex(receiptLogIndex)) return undefined;
     if (typeof signature !== 'string' || !/^0x[0-9a-f]{130}$/.test(signature)) return undefined;
     return { kind: 'erc20', chainId, transactionHash, receiptLogIndex, signature };
@@ -138,8 +138,12 @@ export function transferKey(proof: ParsedProof): string {
 
 export type Verdict =
   | { status: 'verified' }
-  /** `recheckMs`: look again after this long instead of the usual interval. */
-  | { status: 'pending'; reason: string; recheckMs?: number }
+  /**
+   * `recheckMs`: look again after this long instead of the usual interval.
+   * `needs: 'block-time'`: every other check passed, and the verdict waits
+   * only on the block's time (verifyErc20ProofReadingBlockTime reads it).
+   */
+  | { status: 'pending'; reason: string; recheckMs?: number; needs?: 'block-time' }
   | { status: 'rejected'; reason: string };
 
 /**
@@ -254,7 +258,9 @@ function erc20TimeProblem(
   if (paymentTime === 'slot-bound') {
     return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
   }
-  if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: CHECKING_PAYMENT_TIME, recheckMs: DROPPED_PROOF_RECHECK_MS };
+  if (transaction.blockTimeMs === undefined) {
+    return { status: 'pending', reason: CHECKING_PAYMENT_TIME, recheckMs: DROPPED_PROOF_RECHECK_MS, needs: 'block-time' };
+  }
   return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS);
 }
 
@@ -308,14 +314,7 @@ export async function verifyErc20ProofReadingBlockTime(
   readBlockTimeMs: (transaction: Extract<EvmTransaction, { state: 'succeeded' }>) => Promise<number | undefined>,
 ): Promise<Verdict> {
   const verdict = verifyErc20Proof(transaction, context);
-  // Every other check passed (a mined transaction's only pending verdict
-  // is the time rule's), and the rule needs the block time, unknown so far.
-  const waitsOnBlockTime =
-    transaction.state === 'succeeded' &&
-    verdict.status === 'pending' &&
-    context.paymentTime === 'block-timestamp' &&
-    context.notBefore !== undefined &&
-    transaction.blockTimeMs === undefined;
-  if (!waitsOnBlockTime) return verdict;
+  // Only a mined transaction's verdict waits on its block time; the state check narrows the type.
+  if (verdict.status !== 'pending' || verdict.needs !== 'block-time' || transaction.state !== 'succeeded') return verdict;
   return verifyErc20Proof({ ...transaction, blockTimeMs: await readBlockTimeMs(transaction) }, context);
 }

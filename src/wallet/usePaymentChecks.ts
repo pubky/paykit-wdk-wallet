@@ -108,7 +108,7 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
         if (query.asset === 'usdt') {
           if (!evmAddress) throw new Error('The USD₮ account is not loaded yet');
           // What this app sent this session (not indexed yet), plus the chain's indexer.
-          // A chain with no indexer (the Arbitrum fork, Arbitrum One) has only this
+          // A chain with no indexer (the Arbitrum fork) has only this
           // session's sends: after a relaunch "none" does not mean "not sent". That is
           // safe only because findLostPayment (src/paykit/requestRounds.ts) never frees
           // a USD₮ payment on "none": it stays reserved, shown as "may have been paid".
@@ -132,14 +132,15 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
   );
 }
 
-/** Where a mined transaction is: its receipt's block hash, or the number if it has none. */
-type EvmBlockRef = { blockHash?: string; blockNumber?: number };
+/** Where a mined transaction is: its receipt's block hash. */
+type EvmBlockRef = { blockHash?: string };
 
 /**
  * A mined transaction's block time (ms), read with a JSON-RPC call to the
- * chain's RPC: by the receipt's block hash, or by number if it has none.
- * Undefined if that fails in any way, so the proof stays pending. A block's
- * time never changes, so it is kept per block hash (blockTimesByHash).
+ * chain's RPC by the receipt's block hash. Undefined if the receipt has no
+ * block hash, or the read fails in any way, so the proof stays pending: a
+ * block read by number could be another one after a reorg. A block's time
+ * never changes, so it is kept per block hash (blockTimesByHash).
  *
  * WDK reads the same RPC from its worklet, so a failure here alone (an
  * Android build without cleartext HTTP or `adb reverse` for the fork, say)
@@ -147,15 +148,14 @@ type EvmBlockRef = { blockHash?: string; blockNumber?: number };
  * to go on. Each kind of failure is warned about once, until a read works again.
  */
 async function fetchEvmBlockTimeMs(tx: EvmBlockRef): Promise<number | undefined> {
-  const known = tx.blockHash === undefined ? undefined : blockTimesByHash.get(tx.blockHash);
-  if (known !== undefined) return known;
-  let request: { method: string; params: unknown[] };
-  if (tx.blockHash !== undefined) request = { method: 'eth_getBlockByHash', params: [tx.blockHash, false] };
-  else if (tx.blockNumber !== undefined) request = { method: 'eth_getBlockByNumber', params: [`0x${tx.blockNumber.toString(16)}`, false] };
-  else {
-    warnBlockTimeFailure('no-block', 'the transaction names no block');
+  const { blockHash } = tx;
+  if (blockHash === undefined) {
+    warnBlockTimeFailure('no-block', 'the receipt names no block hash');
     return undefined;
   }
+  const known = blockTimesByHash.get(blockHash);
+  if (known !== undefined) return known;
+  const request = { method: 'eth_getBlockByHash', params: [blockHash, false] };
   let response: unknown;
   try {
     response = await fetchJsonWithTimeout(EVM_CHAIN.rpc, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) });
@@ -167,14 +167,14 @@ async function fetchEvmBlockTimeMs(tx: EvmBlockRef): Promise<number | undefined>
     warnBlockTimeFailure('http', 'the RPC answered with an HTTP error');
     return undefined;
   }
-  const blockTimeMs = evmBlockTimeMsFrom(response, tx.blockHash);
+  const blockTimeMs = evmBlockTimeMsFrom(response, blockHash);
   if (blockTimeMs === undefined) {
     warnBlockTimeFailure('answer', 'the answer has no block time for that block');
     return undefined;
   }
   // It works again: a failure that comes back later is worth a new warning.
   warnedBlockTimeFailures.clear();
-  if (tx.blockHash !== undefined) rememberBlockTime(tx.blockHash, blockTimeMs);
+  rememberBlockTime(blockHash, blockTimeMs);
   return blockTimeMs;
 }
 

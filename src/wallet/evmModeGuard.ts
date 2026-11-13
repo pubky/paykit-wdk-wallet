@@ -7,12 +7,12 @@
 // ledger) is not keyed by mode, though: an install restarted with another
 // EXPO_PUBLIC_EVM_CHAIN would mix them. So createWallet and restoreWallet
 // record the mode (src/wallet/useWalletLifecycle.ts), and a build for
-// another mode does not unlock.
+// another mode does not unlock, create or restore.
 //
 // No native imports: unit tested in Node.
 import { EVM_CHAIN_PROFILES, isEvmChainId, type EvmChainId, type EvmChainProfile } from '../config/evmChain';
 
-/** Thrown by unlock when the wallet was set up under another EVM mode. Its message is safe to show. */
+/** Thrown by unlock, createWallet and restoreWallet when the device belongs to another EVM mode. Its message is safe to show. */
 export class WrongEvmModeError extends Error {
   constructor(message: string) {
     super(message);

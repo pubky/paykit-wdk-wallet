@@ -9,7 +9,7 @@
 //
 // Each EVM mode has its own wallet id, and the app records the EVM mode
 // its state was set up under (./evmModeGuard.ts). A build for another EVM
-// mode does not unlock, and reports 'wrong-evm-mode'.
+// mode does not unlock, create or restore, and reports 'wrong-evm-mode'.
 //
 // Never log or render the mnemonic outside the explicit "reveal" screen.
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
@@ -29,7 +29,7 @@ export type WalletStatus =
   | 'locked'
   /** Unlocked and ready for balances, addresses and sends. */
   | 'ready'
-  /** This device's wallet was set up under another EVM mode; unlock refused it. */
+  /** This device's wallet was set up under another EVM mode; unlock, create or restore refused it. */
   | 'wrong-evm-mode'
   | 'error';
 
@@ -40,10 +40,12 @@ export type WalletLifecycle = {
    * why this build does not open the wallet.
    */
   error?: string;
+  /** Throws WrongEvmModeError, as unlock does, when this device belongs to another EVM mode. */
   createWallet: () => Promise<void>;
   /**
    * Restore from a phrase. Deletes any wallet already on the device first,
-   * without asking: the caller must confirm (onboarding does).
+   * without asking: the caller must confirm (onboarding does). Throws
+   * WrongEvmModeError, as unlock does, when this device belongs to another EVM mode.
    */
   restoreWallet: (mnemonic: string) => Promise<void>;
   /** Throws WrongEvmModeError, and the status becomes 'wrong-evm-mode', when this build must not open the wallet. */
@@ -78,8 +80,9 @@ async function wrongEvmModeOnThisDevice(): Promise<string | undefined> {
 }
 
 /**
- * unlock's refusal, shared by every user of the hook. Never cleared: the
- * build's EVM mode does not change while the app runs.
+ * The guard's refusal (unlock, create or restore), shared by every user of
+ * the hook. Never cleared: the build's EVM mode does not change while the
+ * app runs.
  */
 let evmModeRefusal: string | undefined;
 const evmModeRefusalListeners = new Set<() => void>();
@@ -96,6 +99,18 @@ function subscribeToEvmModeRefusal(listener: () => void): () => void {
 
 function getEvmModeRefusal(): string | undefined {
   return evmModeRefusal;
+}
+
+/**
+ * Before unlock, create or restore. Create and restore too: after an iOS
+ * reinstall a Sepolia seed can outlive the record, and this build would
+ * otherwise record its own mode over a Sepolia device.
+ */
+async function refuseIfWrongEvmMode(): Promise<void> {
+  const wrongMode = await wrongEvmModeOnThisDevice();
+  if (wrongMode === undefined) return;
+  refuseWallet(wrongMode);
+  throw new WrongEvmModeError(wrongMode);
 }
 
 /**
@@ -134,6 +149,7 @@ export function useWalletLifecycle(): WalletLifecycle {
   })();
 
   const createWallet = useCallback(async () => {
+    await refuseIfWrongEvmMode();
     recordWalletEvmMode();
     await manager.createWallet(WALLET_ID);
   }, [manager]);
@@ -142,6 +158,7 @@ export function useWalletLifecycle(): WalletLifecycle {
     async (mnemonic: string) => {
       const phrase = normalizeMnemonic(mnemonic);
       if (!validateMnemonic(phrase)) throw new Error('A recovery phrase has 12 or 24 words.');
+      await refuseIfWrongEvmMode();
       recordWalletEvmMode();
       // Onboarding only, after the person confirmed: the wallet already on
       // the device (an unfinished onboarding, or one an earlier install left
@@ -155,11 +172,7 @@ export function useWalletLifecycle(): WalletLifecycle {
   );
 
   const unlock = useCallback(async () => {
-    const wrongMode = await wrongEvmModeOnThisDevice();
-    if (wrongMode !== undefined) {
-      refuseWallet(wrongMode);
-      throw new WrongEvmModeError(wrongMode);
-    }
+    await refuseIfWrongEvmMode();
     await manager.unlock(WALLET_ID);
   }, [manager]);
 

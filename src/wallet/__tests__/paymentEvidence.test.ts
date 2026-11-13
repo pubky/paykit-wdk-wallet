@@ -144,23 +144,23 @@ describe('evmBlockTimeMsFrom (a JSON-RPC block)', () => {
   const block = (result: unknown) => ({ jsonrpc: '2.0', id: 1, result });
 
   it('reads the hex timestamp in seconds as ms', () => {
-    expect(evmBlockTimeMsFrom(block({ hash: HASH, number: '0x2a', timestamp: '0x6553f100' }))).toBe(0x6553f100 * 1000);
+    expect(evmBlockTimeMsFrom(block({ hash: HASH, number: '0x2a', timestamp: '0x6553f100' }), HASH)).toBe(0x6553f100 * 1000);
     expect(evmBlockTimeMsFrom(block({ hash: HASH.toUpperCase().replace('0X', '0x'), timestamp: '0x6553f100' }), HASH)).toBe(0x6553f100 * 1000);
   });
 
-  it('refuses another block than the one asked for', () => {
+  it('refuses another block than the one asked for, or one that does not say which it is', () => {
     expect(evmBlockTimeMsFrom(block({ hash: `0x${'cd'.repeat(32)}`, timestamp: '0x6553f100' }), HASH)).toBeUndefined();
     expect(evmBlockTimeMsFrom(block({ timestamp: '0x6553f100' }), HASH)).toBeUndefined();
   });
 
   it('knows nothing from an error, a missing block or a malformed time', () => {
-    expect(evmBlockTimeMsFrom({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: 'oops' } })).toBeUndefined();
-    expect(evmBlockTimeMsFrom(block(null))).toBeUndefined();
-    expect(evmBlockTimeMsFrom(undefined)).toBeUndefined();
+    expect(evmBlockTimeMsFrom({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: 'oops' } }, HASH)).toBeUndefined();
+    expect(evmBlockTimeMsFrom(block(null), HASH)).toBeUndefined();
+    expect(evmBlockTimeMsFrom(undefined, HASH)).toBeUndefined();
     for (const timestamp of [1_700_000_000, '1700000000', '0x', '0xzz', `0x${'f'.repeat(17)}`]) {
-      expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp }))).toBeUndefined();
+      expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp }), HASH)).toBeUndefined();
     }
     // Fits 16 hex digits, but not in a safe integer of ms.
-    expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp: `0x${'f'.repeat(16)}` }))).toBeUndefined();
+    expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp: `0x${'f'.repeat(16)}` }), HASH)).toBeUndefined();
   });
 });

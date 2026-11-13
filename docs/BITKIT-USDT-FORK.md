@@ -332,8 +332,9 @@ The wallet enforces this part. Each EVM mode keeps its seed under its
 own wallet id (`paykit-wdk-demo` on Sepolia, `paykit-wdk-demo-arbitrum-fork`
 on the fork), and the app records the EVM mode its wallet was created or
 restored under (`src/wallet/evmModeGuard.ts`, stored in the plain
-app-settings file). A build for another EVM mode does not open it, and
-shows "This wallet is on another network" with both modes named. With
+app-settings file). A build for another EVM mode does not open it, nor
+create or restore a wallet there, and shows "This wallet is on another
+network" with both modes named. With
 no record, a device with a seed under the Sepolia id counts as Sepolia:
 an install from before the record still opens on the default build
 only, and the fork build refuses it. On iOS, deleting the app keeps the

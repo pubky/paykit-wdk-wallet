@@ -19,6 +19,7 @@
 // No native imports; unit tested.
 import type { ActivityItem } from './activity';
 import { ERC20_TRANSFER_TOPIC } from './erc20PaymentProof';
+import { isEvmHash32 } from './txid';
 
 /** What one Bitcoin account received in one transaction. */
 export type BtcReceipt = {
@@ -86,8 +87,6 @@ export type EvmTransaction =
       blockTimeMs?: number;
     };
 
-const BLOCK_HASH = /^0x[0-9a-fA-F]{64}$/;
-
 function blockNumberOf(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
@@ -117,7 +116,7 @@ export function evmTransactionFrom(result: unknown): EvmTransaction {
     state: 'succeeded',
     confirmations,
     blockNumber: blockNumberOf(tx.block) ?? blockNumberOf(tx.receipt.blockNumber),
-    blockHash: typeof blockHash === 'string' && BLOCK_HASH.test(blockHash) ? blockHash.toLowerCase() : undefined,
+    blockHash: isEvmHash32(blockHash) ? blockHash.toLowerCase() : undefined,
     logs: logs.map((log: { address?: unknown; topics?: unknown; data?: unknown }) => ({
       address: typeof log?.address === 'string' ? log.address : '',
       topics: Array.isArray(log?.topics) ? log.topics.filter((t: unknown): t is string => typeof t === 'string') : [],
@@ -127,16 +126,16 @@ export function evmTransactionFrom(result: unknown): EvmTransaction {
 }
 
 /**
- * The block time (ms) in a JSON-RPC `eth_getBlockByHash` or
- * `eth_getBlockByNumber` response: `result.timestamp` is seconds as a hex
- * quantity. With `blockHash`, the block must be that one. Undefined for an
- * error, a missing block or anything malformed: the caller then cannot
- * tell when it was paid, and the proof stays pending.
+ * The block time (ms) in a JSON-RPC `eth_getBlockByHash` response for
+ * `blockHash`: `result.timestamp` is seconds as a hex quantity, and the
+ * block must be that one. Undefined for an error, a missing or other block
+ * or anything malformed: the caller then cannot tell when it was paid, and
+ * the proof stays pending.
  */
-export function evmBlockTimeMsFrom(response: unknown, blockHash?: string): number | undefined {
+export function evmBlockTimeMsFrom(response: unknown, blockHash: string): number | undefined {
   const block = (response as { result?: { timestamp?: unknown; hash?: unknown } | null } | null)?.result;
   if (!block || typeof block !== 'object' || typeof block.timestamp !== 'string' || !/^0x[0-9a-fA-F]{1,16}$/.test(block.timestamp)) return undefined;
-  if (blockHash !== undefined && (typeof block.hash !== 'string' || block.hash.toLowerCase() !== blockHash.toLowerCase())) return undefined;
+  if (typeof block.hash !== 'string' || block.hash.toLowerCase() !== blockHash.toLowerCase()) return undefined;
   const ms = Number(BigInt(block.timestamp)) * 1000;
   return Number.isSafeInteger(ms) ? ms : undefined;
 }
