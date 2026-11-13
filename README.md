@@ -3,12 +3,17 @@
 A React Native example wallet that shows how [Tether WDK](https://wdk.tether.io/)
 and [Pubky Paykit](https://github.com/pubky/paykit-rs) work together:
 
-- **WDK** holds the keys and moves the money (testnet only).
+- **WDK** holds the keys and moves the money (test networks by default).
 - **Paykit** turns Pubky identities into payable contacts: public and private
   payment endpoints, payment requests and more.
 
 > **Testnet only. Not production software.** This repository is a reference for
 > developers. Keys are stored with simple demo-grade protection.
+>
+> The one exception is opt-in: a build with `EXPO_PUBLIC_EVM_CHAIN=arbitrum-one`
+> moves real USD₮ and ETH on Arbitrum One. It has no npm script and shows a
+> real-funds warning. Use it only with fresh identities and amounts the owner
+> has approved ([`docs/BITKIT-USDT-FORK.md`](docs/BITKIT-USDT-FORK.md), "Known gaps").
 
 ## Status
 
@@ -339,6 +344,18 @@ Unset, the wallet runs on Mutinynet as before. To switch back, stop Metro,
 run `npm start`, and use a Mutinynet install on its own simulator (or
 erase the simulator first); never reload the regtest install on Mutinynet.
 No cache clear is needed (BITKIT-DEMO.md says why).
+
+Bitkit's USD₮ runs on Arbitrum One only. To pay USD₮ with Bitkit as well,
+also set `EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork`: `npm run start:bitkit-demo`
+sets both switches (`npm run start:arbitrum-fork` sets only the EVM one).
+USD₮ then runs on a local Anvil fork of Arbitrum One and publishes
+Bitkit's `usdt-arbitrum-address` endpoint.
+[`docs/BITKIT-USDT-FORK.md`](docs/BITKIT-USDT-FORK.md) covers the fork,
+bitkit-core's bundler fixture, the `receiptLogIndex` shim
+(`scripts/arbitrum-fork-rpc.mjs`), launching Bitkit against them, and
+funding both sides with `scripts/fund-fork.mjs`. Not run end to end yet:
+whether Bitkit can send USD₮ on the fork is still open. Use a separate
+install and identity per EVM mode, as for the Bitcoin modes.
 
 ### Checks
 

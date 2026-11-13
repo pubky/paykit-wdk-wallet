@@ -41,8 +41,11 @@ be found on regtest.
 These do not change:
 
 - **USD₮ stays on Ethereum Sepolia** (`usdt-sepolia-address`). Bitkit's
-  USD₮ runs on Arbitrum One only, so Bitkit skips this endpoint. Only
-  Bitcoin moves between the two wallets.
+  USD₮ runs on Arbitrum One only, so Bitkit skips this endpoint, and in
+  this mode only Bitcoin moves between the two wallets. To pay USD₮ too,
+  also set `EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork`
+  (`npm run start:bitkit-demo` sets both): USD₮ then runs on a local
+  fork of Arbitrum One. See [BITKIT-USDT-FORK.md](BITKIT-USDT-FORK.md).
 - **No Lightning.** This wallet pays on chain only. Bitkit may also
   publish Lightning endpoints; this wallet ignores them.
 - **The Pubky side.** Both apps use the same Pubky staging homeserver.
@@ -102,6 +105,12 @@ and they do not know which chain they came from. Old payment proofs in
 the other mode's format also stop parsing, so a proof could be sent again.
 On iOS, Keychain items also survive an uninstall, so erase the simulator
 to start clean.
+
+The same holds for the EVM mode (`EXPO_PUBLIC_EVM_CHAIN`): an install
+on the Arbitrum fork needs its own simulator, and its own identity. The
+dev prefill below picks its identity by `EXPO_PUBLIC_BTC_CHAIN` only, so
+it does not keep EVM modes apart.
+[BITKIT-USDT-FORK.md](BITKIT-USDT-FORK.md) says why, and what to do.
 
 ## The demo identity
 

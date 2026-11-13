@@ -40,7 +40,7 @@ This app has two engines and one UI:
                 └──────────────────────────────────┼───────────────────────────────────────────────┘
                                                    ▼
                               WDK in a Bare worklet (react-native-bare-kit)
-                              keys, signing, Electrum (Mutinynet), Sepolia RPC
+                              keys, signing, Electrum (Mutinynet), EVM RPC (Sepolia)
 ```
 
 ## Module map
@@ -48,7 +48,8 @@ This app has two engines and one UI:
 | Path | What it does |
 |---|---|
 | `src/App.tsx` | Providers from the outside in: SafeArea, `WdkAppProvider`, fonts, `PaykitProvider`, `NavigationContainer`. |
-| `src/config/chains.ts` | Testnet constants with no imports (Mutinynet Electrum, Sepolia RPC, USD₮ token, Aave faucet, explorers, Blockscout). |
+| `src/config/chains.ts` | Chain constants with no imports (Mutinynet Electrum, Sepolia RPC, USD₮ token, Aave faucet, explorers, Blockscout, and Arbitrum One's chain id, RPCs and USD₮0). |
+| `src/config/btcChain.ts`, `src/config/evmChain.ts` | The build's Bitcoin and EVM chain profiles, picked by `EXPO_PUBLIC_BTC_CHAIN` and `EXPO_PUBLIC_EVM_CHAIN` (see "Chain modes"). |
 | `src/config/wdk.ts` | WDK runtime config, `WALLET_ID`, WDK asset descriptors. Keys must match `wdk.config.js`. |
 | `src/config/paykit.ts` | Frozen identifiers: staging homeserver, Pubky client id, Paykit app id, endpoint identifiers. |
 | `src/config/sync.ts` | Poll intervals, call timeout, link retry backoff. |
@@ -72,7 +73,51 @@ This app has two engines and one UI:
 | `plugins/withPaykitSimulatorArchs.js` | Expo config plugin: arm64-only iOS simulator builds (Paykit ships no x86_64 slice). |
 | `plugins/withMmkvBackupExclusion.js` | Expo config plugin: excludes `Documents/mmkv` from iCloud and Finder backups at every launch (see "Storage and secrets"). |
 | `src/ui/useScreenCaptureBlock.ts` | Blocks screenshots, recordings and the app-switcher snapshot while a secret is on screen (expo-screen-capture). `useForegroundSecret` uses it. |
-| `scripts/` | Paykit package build, Paykit Android patch (postinstall), demo prefill generator, and the demo funding scripts `fund-*.mjs` (see "Funding the demo"). |
+| `scripts/` | Paykit package build, Paykit Android patch (postinstall), demo prefill generator, the demo funding scripts `fund-*.mjs` (see "Funding the demo"), and `arbitrum-fork-rpc.mjs`, the `receiptLogIndex` shim for Bitkit on the Arbitrum fork (`docs/BITKIT-USDT-FORK.md`). |
+
+## Chain modes
+
+Two build-time switches pick the chains. Expo inlines `EXPO_PUBLIC_*`
+values into the bundle, so each is fixed for the life of a bundle, and
+an unknown value stops the app at launch.
+
+- `EXPO_PUBLIC_BTC_CHAIN` (`src/config/btcChain.ts`): unset is
+  Mutinynet; `bitkit-regtest` is Bitkit's staging regtest
+  (`docs/BITKIT-DEMO.md`).
+- `EXPO_PUBLIC_EVM_CHAIN` (`src/config/evmChain.ts`): unset is Ethereum
+  Sepolia; `arbitrum-fork` is a local Anvil fork of Arbitrum One on
+  `127.0.0.1:18545`; `arbitrum-one` is Arbitrum One itself, with real
+  money (`docs/BITKIT-USDT-FORK.md`).
+
+`EVM_CHAIN` is one profile object, and every EVM-specific value comes
+from it: chain id, RPC, USD₮ token, explorer, history API (Blockscout on
+Sepolia, none on either Arbitrum mode), the Paykit endpoint id
+(`usdt-sepolia-address` or Bitkit's `usdt-arbitrum-address`), where test
+funds come from, the USD₮ payment-time rule, WDK's asset ids and the
+words the screens use for the network. `src/config/wdk.ts`,
+`src/config/paykit.ts` (`ENDPOINT_USDT`), the endpoint payload, the
+proofs and their checks, the address and payment-code guards, Activity
+and the screens read it rather than a Sepolia constant. The Sepolia
+profile holds exactly the values the app used before the switch existed,
+so the default build is unchanged.
+
+Two guards depend on the profile:
+
+- `isAllowedContractCall` (`src/wallet/faucet.ts`) approves the Aave
+  faucet's mint only when the profile's funding is `aave-faucet`.
+  `sendTransaction` stays allowed in `wdk.config.js`, and what lives at
+  the faucet's address on Arbitrum is unknown.
+- The signing guard (`isErc20PaymentTypedData` in `signErc20Payment`,
+  `src/wallet/usePaymentChecks.ts`) accepts only the proof domain with
+  `EVM_CHAIN.chainId`, the same id `requestRounds.ts` puts in the typed
+  data. If the two differed, every proof would be refused; loosening the
+  guard instead would let WDK sign EIP-712 data for other domains, such
+  as a permit.
+
+WDK's asset ids differ per profile (`usdt-sepolia`, `usdt-arbitrum-fork`,
+`usdt-arbitrum-one`) because they key WDK's balance cache. Paykit state
+(contacts, requests, the ledger) is not keyed by chain, so each mode
+needs its own install, and its own identity (`docs/BITKIT-USDT-FORK.md`).
 
 ## Wallet service (`src/wallet`)
 
@@ -192,7 +237,10 @@ oldest transfers first and stops at `limit`, so the app fetches the whole
 history and keeps the newest. WDK's EVM module
 has no history call and the WDK Indexer does not cover testnets, so EVM
 activity comes from the keyless Blockscout Sepolia API, merged with a local
-in-memory record of transactions this app just sent.
+in-memory record of transactions this app just sent. The Arbitrum modes
+have no history API (`EVM_CHAIN.activityApi` is undefined), so
+`fetchEvmActivity` returns nothing there and Activity shows only that
+in-memory record: this launch's sends, and no received transfers.
 
 Two gaps in those sources are filled in `useActivity`. Electrum reports a
 block height but no time, so each confirmed Bitcoin transaction's block
@@ -810,7 +858,8 @@ Electrum and includes the mempool, so half an hour of empty searches
 means it never left: Failed is recorded and the request can be paid
 again. USD₮'s history comes from Blockscout, which can lag by hours, so a
 missing USD₮ payment stays reserved ("May have been paid. Check
-Activity") and the search goes on every five minutes.
+Activity") and the search goes on every five minutes. The Arbitrum modes
+have no history API, so the search sees only this launch's own sends.
 
 **"Dropped" is not failed.** WDK's EVM `getTransaction` says `dropped`
 when it finds the transaction but no receipt, and the sender's nonce has
@@ -851,7 +900,14 @@ the wallets. This app uses:
   contract to our address of at least the amount at that log, and
   recovers the signer (`src/wallet/erc20PaymentProof.ts`, checked against
   the spec's test vectors) to equal the Transfer's sender. It rebuilds the
-  binding from the request it knows, never from the proof.
+  binding from the request it knows, never from the proof. The chain id
+  (in the proof and in the EIP-712 domain) and the token come from
+  `EVM_CHAIN`: `"11155111"` on Sepolia, `"42161"` on Arbitrum, as
+  Bitkit's proofs carry. The binding's endpoint id comes from the request
+  or the proof, never from the build's config. The check never reads
+  the transaction's sender, only the Transfer log's, so a payment sent
+  by a bundler for a smart account (Bitkit's EIP-7702 sends) passes; a
+  unit test runs bitkit-core's vectors through it.
 - Both: a recurring proof's period must be one of the schedule's and must
   have started; one transfer pays one request or period (the book keeps
   which); a missing, unconfirmed or `dropped` transaction is "pending",
@@ -863,11 +919,21 @@ the wallets. This app uses:
   send, an old USD₮ transfer to our public address) would pass once.
   Bitcoin uses the block's timestamp from Mutinynet's esplora (WDK's
   transfers carry only a height), with ten minutes' allowance for block
-  timestamps and phone clocks. USD₮ uses an upper bound read through WDK:
-  Sepolia makes at most one block per 12 s slot, so a transaction with n
-  confirmations was mined at least (n-1) × 12 s ago; five minutes'
-  allowance covers the phones' clocks. A proof after a cancellation is
-  not rejected: the spec forbids rejecting a proof only because a
+  timestamps and phone clocks. USD₮ follows the chain's rule
+  (`EVM_CHAIN.paymentTime`). On Sepolia (`slot-bound`) it uses an upper
+  bound read through WDK: Sepolia makes at most one block per 12 s slot,
+  so a transaction with n confirmations was mined at least (n-1) × 12 s
+  ago; five minutes' allowance covers the phones' clocks. On Arbitrum
+  (`block-timestamp`) blocks come several a second and an Anvil fork
+  mines on demand, so confirmations say nothing about time. There
+  `evmTransaction` reads the block's timestamp with a JSON-RPC call to
+  `EVM_CHAIN.rpc` (WDK returns only the block), with ten minutes'
+  allowance for the sequencer's and the phones' clocks. Until that time
+  is known the proof stays pending ("Checking when it was paid"), never
+  verified, so a payer cannot reuse an old transfer while the RPC is
+  down. Bitkit allows 24 hours here, so a fork whose clock lags more
+  than ten minutes passes Bitkit's check and fails ours. A proof after a
+  cancellation is not rejected: the spec forbids rejecting a proof only because a
   cancellation came first, and the time bound can't tell "just before"
   from "just after" anyway.
 
@@ -938,12 +1004,13 @@ make differently:
   and restore"). A production wallet would attest its complete payment
   records, rebuilt from chain history.
 - One confirmation is enough (Mutinynet blocks come every 30 s, Sepolia
-  every 12 s). Reorgs are not handled.
+  every 12 s, Arbitrum several a second). Reorgs are not handled.
 - A payment made after the request, to its address, for something else
   (a plain private send of at least the amount) can still be claimed as
   its proof once. The time rule only rules out older ones.
 - `signTypedData` is allowed in `wdk.config.js` for the app to call; the
-  app only ever signs the proof domain (`isErc20PaymentTypedData`).
+  app only ever signs the proof domain on the build's chain
+  (`isErc20PaymentTypedData` with `EVM_CHAIN.chainId`).
 
 ### Automatic payments (Allowances)
 
@@ -1297,6 +1364,15 @@ show):
 Both use the BIP-39 seed with an empty passphrase. The iOS demo wallet's
 EVM account 0 is the treasury that signs the Sepolia scripts. The scripts
 use `ethers` and `@scure/base` (pinned devDependencies); the app does not.
+
+`scripts/fund-fork.mjs` is different: it derives nothing and reads no
+`.env.demo`. It takes `0x` addresses and sets their ETH and USD₮0
+balances on the local Arbitrum fork with Anvil's `anvil_setBalance` and
+`anvil_setStorageAt`, after checking that the RPC is on this computer
+and is Anvil on chain 42161 (`docs/BITKIT-USDT-FORK.md`). The fork
+scripts and the Bitcoin funding scripts never read the app's chain
+switches, so exporting one is never needed;
+`src/config/__tests__/chains.test.ts` checks that.
 
 ## Rules for developing
 
