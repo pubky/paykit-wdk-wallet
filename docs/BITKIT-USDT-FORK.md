@@ -185,8 +185,8 @@ one, even though the payment itself went through.
 The shim is a JSON-RPC proxy that adds `receiptLogIndex` (the log's
 position, as a decimal string) to every log of every receipt, single or
 batched. Everything else passes through unchanged. It listens on
-`127.0.0.1` only, forwards only to `127.0.0.1` or `localhost`, and
-refuses requests from a browser (any request with an `Origin` header).
+`127.0.0.1` only, forwards only to `127.0.0.1`, and refuses requests
+from a browser (any request with an `Origin` header).
 
 The wallet does not need the shim: it talks to Anvil directly.
 
@@ -375,8 +375,7 @@ What the script does:
 - It never changes an address's code or nonce, so Bitkit's EIP-7702
   delegation survives.
 - Before it writes anything, it refuses an `--rpc` that is not
-  `http://127.0.0.1` or `http://localhost`, and a node that is not
-  Anvil on chain `0xa4b1`.
+  `http://127.0.0.1`, and a node that is not Anvil on chain `0xa4b1`.
 - It takes `0x` addresses only. It reads no `.env.demo` and no secret.
 - It prints each address's balances afterwards, and exits with an error
   if one does not match.

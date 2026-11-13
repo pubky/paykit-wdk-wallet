@@ -60,13 +60,14 @@ export const ARBITRUM_USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
 export const ARBITRUM_FORK_RPC = 'http://127.0.0.1:18545';
 
 /** The only hosts the fork scripts talk to: this computer. */
-const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost'];
+const LOOPBACK_HOSTS = ['127.0.0.1'];
 
 /**
- * `text` as a normalized http URL on this computer (127.0.0.1 or
- * localhost). Throws for anything else; `flag` names the option in the
- * message. The fork scripts rewrite or relay a local Anvil node's state,
- * so they refuse to point at a node on another machine.
+ * `text` as a normalized http URL on 127.0.0.1, the address Anvil listens
+ * on ('localhost' may resolve to ::1 instead). Throws for anything else;
+ * `flag` names the option in the message. The fork scripts rewrite or relay
+ * a local Anvil node's state, so they refuse to point at a node on another
+ * machine.
  */
 export function loopbackHttpUrl(text, flag) {
   let url;
@@ -76,7 +77,7 @@ export function loopbackHttpUrl(text, flag) {
     throw new Error(`${flag} is not a URL: "${text}"`);
   }
   if (url.protocol !== 'http:' || !LOOPBACK_HOSTS.includes(url.hostname)) {
-    throw new Error(`${flag} must be http://127.0.0.1:<port> or http://localhost:<port>, not "${text}": only a node on this computer is allowed.`);
+    throw new Error(`${flag} must be http://127.0.0.1:<port>, not "${text}": only a node on this computer is allowed.`);
   }
   return url.href;
 }

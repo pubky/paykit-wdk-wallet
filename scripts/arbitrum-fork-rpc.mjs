@@ -3,7 +3,7 @@
 // Bitkit's USD₮ payment proofs (docs/BITKIT-USDT-FORK.md).
 //
 //   node scripts/arbitrum-fork-rpc.mjs                 http://127.0.0.1:18547 → http://127.0.0.1:18545
-//   node scripts/arbitrum-fork-rpc.mjs --port 18547 --upstream http://localhost:18545
+//   node scripts/arbitrum-fork-rpc.mjs --port 18547 --upstream http://127.0.0.1:18545
 //
 // Bitkit reads a `receiptLogIndex` on every log of an
 // eth_getTransactionReceipt result: the log's position in the receipt, as a

@@ -6,14 +6,14 @@
 //   node scripts/fund-fork.mjs 0xAbc…                       1,000 USD₮0 and 1 ETH
 //   node scripts/fund-fork.mjs 0xAbc… 0xDef… --usdt 250 --eth 0.5
 //   node scripts/fund-fork.mjs 0xAbc… --sync-time           also move the fork's clock to now
-//   node scripts/fund-fork.mjs 0xAbc… --rpc http://localhost:18545
+//   node scripts/fund-fork.mjs 0xAbc… --rpc http://127.0.0.1:18545
 //
 // It SETS balances: each address ends with exactly the amounts given,
 // whatever it held before. Nothing is minted or sent. Anvil's
 // anvil_setBalance and anvil_setStorageAt rewrite the fork's state, so the
 // script talks only to a node on this computer. Before it writes anything,
-// it refuses an --rpc that is not 127.0.0.1 or localhost, and a node that is
-// not Anvil on chain 42161.
+// it refuses an --rpc that is not 127.0.0.1, and a node that is not Anvil on
+// chain 42161.
 //
 // It takes 0x addresses only: it reads no .env.demo and no secrets. It never
 // changes an address's code or nonce, because Bitkit's address may carry an
@@ -165,18 +165,38 @@ const setTokenStorage = (key, value) => provider.send('anvil_setStorageAt', [ARB
  * bitkit-core tests/usdt-fork/provider.mjs: write a probe to each candidate
  * key, keep the slot where balanceOf reads it back, and restore every miss.
  * The probe differs from the current balance, so a match is never a
- * coincidence.
+ * coincidence. A probe whose write or read-back fails is restored too, and
+ * the script stops; if a restore fails, it stops and names that slot.
  */
 async function findBalanceSlot(account) {
   const probe = (await token.balanceOf(account)) + 1n;
   for (let slot = 0; slot < MAPPING_SLOTS; slot++) {
     const key = balanceKey(account, slot);
     const previous = await provider.send('eth_getStorageAt', [ARBITRUM_USDT0, key, 'latest']);
-    await setTokenStorage(key, probe);
-    if ((await token.balanceOf(account)) === probe) return slot;
-    await provider.send('anvil_setStorageAt', [ARBITRUM_USDT0, key, previous]);
+    let readBack;
+    try {
+      await setTokenStorage(key, probe);
+      readBack = await token.balanceOf(account);
+    } catch (error) {
+      await undoProbe(key, previous, slot);
+      fail(`Probing slot ${slot} failed (${error.shortMessage ?? error.message}). Every probe was undone.`);
+    }
+    if (readBack === probe) return slot;
+    await undoProbe(key, previous, slot);
   }
   fail(`Could not find USD₮0's balance storage in slots 0 to ${MAPPING_SLOTS - 1}. Every probe was undone.`);
+}
+
+/** Write `previous` back at `key`, or stop and say the probe at `slot` may still be there. */
+async function undoProbe(key, previous, slot) {
+  try {
+    await provider.send('anvil_setStorageAt', [ARBITRUM_USDT0, key, previous]);
+  } catch (error) {
+    fail(
+      `Could not undo the probe at USD₮0 balance slot ${slot} (${error.shortMessage ?? error.message}). ` +
+        'That slot may still hold it; restarting Anvil clears it. Every earlier probe was undone.',
+    );
+  }
 }
 
 console.log(`Setting ${formatUnits(usdt, USDT_DECIMALS)} USD₮0 and ${formatUnits(eth, ETH_DECIMALS)} ETH (absolute balances, not added to what is there):`);

@@ -55,7 +55,7 @@ This app has two engines and one UI:
 | `src/config/sync.ts` | Poll intervals, call timeout, link retry backoff. |
 | `src/config/demo.ts` | Dev-only prefill from the git-ignored `demo.local.ts`. |
 | `src/config/versions.ts` | WDK and Paykit package versions for You > Network details; a unit test keeps them in step with `package.json`. |
-| `src/settings/appSettings.ts` | Non-secret flags in plain MMKV (onboarding complete; the EVM mode the wallet was set up under, written by `useWalletLifecycle`). |
+| `src/settings/appSettings.ts` | Non-secret flags in plain MMKV (onboarding complete; whether the wallet was created or restored here). |
 | `src/wallet/` | The wallet service (see below). |
 | `src/paykit/` | The Paykit service (see below). |
 | `src/ui/` | Design system from `docs/DESIGN.md`, including the seal (`src/ui/seal/`). |

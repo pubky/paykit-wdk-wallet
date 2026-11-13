@@ -101,4 +101,9 @@ describe('EVM chain switch in the scripts', () => {
   ])('scripts/%s checks %s with loopbackHttpUrl', (file, flag) => {
     expect(scriptCode(file)).toContain(`loopbackHttpUrl(options.${flag.slice(2)}, '${flag}')`);
   });
+
+  // Anvil listens on 127.0.0.1 only, and 'localhost' may resolve to ::1.
+  it('loopbackHttpUrl accepts 127.0.0.1 only', () => {
+    expect(scriptCode('lib/demo-wallets.mjs')).toContain("const LOOPBACK_HOSTS = ['127.0.0.1'];");
+  });
 });
