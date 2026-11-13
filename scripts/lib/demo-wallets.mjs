@@ -1,4 +1,5 @@
-// Shared helpers for the host-side funding scripts (scripts/fund-*.mjs).
+// Shared helpers for the host-side funding scripts (scripts/fund-*.mjs) and
+// the local Arbitrum fork's RPC proxy (scripts/arbitrum-fork-rpc.mjs).
 //
 // The two demo wallets are defined by the BIP-39 phrases in the git-ignored
 // .env.demo (IOS_MNEMONIC, ANDROID_MNEMONIC). These helpers derive the same
@@ -51,6 +52,34 @@ export const BITKIT_REGTEST_API = 'https://mempool.bitkit.stag0.blocktank.to/api
  * Bitkit's Dev Settings › Blocktank Regtest make (rust-blocktank-client 0.0.16).
  */
 export const BLOCKTANK_REGTEST_CHAIN_API = 'https://api.stag0.blocktank.to/blocktank/api/v2/regtest/chain';
+/** Arbitrum One, which the local Anvil fork keeps (ARBITRUM_ONE_CHAIN_ID in src/config/chains.ts). */
+export const ARBITRUM_ONE_CHAIN_ID = 42161n;
+/** USD₮0 on Arbitrum One, 6 decimals, lowercase as Bitkit writes it (ARBITRUM_USDT0 in src/config/chains.ts). */
+export const ARBITRUM_USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+/** The local Anvil fork of Arbitrum One (ARBITRUM_FORK_RPC in src/config/chains.ts). */
+export const ARBITRUM_FORK_RPC = 'http://127.0.0.1:18545';
+
+/** The only hosts the fork scripts talk to: this computer. */
+const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost'];
+
+/**
+ * `text` as a normalized http URL on this computer (127.0.0.1 or
+ * localhost). Throws for anything else; `flag` names the option in the
+ * message. The fork scripts rewrite or relay a local Anvil node's state,
+ * so they refuse to point at a node on another machine.
+ */
+export function loopbackHttpUrl(text, flag) {
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new Error(`${flag} is not a URL: "${text}"`);
+  }
+  if (url.protocol !== 'http:' || !LOOPBACK_HOSTS.includes(url.hostname)) {
+    throw new Error(`${flag} must be http://127.0.0.1:<port> or http://localhost:<port>, not "${text}": only a node on this computer is allowed.`);
+  }
+  return url.href;
+}
 
 /**
  * The values the scripts' --chain accepts: the same values the app's
