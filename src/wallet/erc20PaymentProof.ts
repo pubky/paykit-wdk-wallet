@@ -17,7 +17,10 @@
 //          authorize spending, e.g. an ERC-20 permit)
 //   payee  rebuilds the typed data from the request it knows (never from
 //          the proof), hashes it and recovers the signer with
-//          `erc20PaymentSigner`
+//          `erc20PaymentSigner`. It compares the signer with the Transfer
+//          log's `from` only, never the transaction's sender, so a payment
+//          a smart account sent through a bundler (as Bitkit's USD₮ sends
+//          are) checks out the same way.
 //
 // The hashing is the standard EIP-712 encoding of these two fixed structs,
 // on audited primitives (@noble/hashes keccak, @noble/secp256k1 recovery).

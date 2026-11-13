@@ -11,6 +11,7 @@ import {
   type ParsedEndpoint,
 } from '../endpoints';
 import { withBtcChain } from '../../config/__tests__/withBtcChain';
+import { withEvmChain } from '../../config/__tests__/withEvmChain';
 
 const EVM = '0x00000000000000000000000000000000000000aa';
 const BTC = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
@@ -99,5 +100,47 @@ describe('the Bitcoin endpoint on a Bitkit regtest build', () => {
   it('leaves the Mutinynet build on its own endpoint id', () => {
     expect(ENDPOINT_BTC).toBe('btc-mutinynet-p2wpkh');
     expect(parseEndpoint('btc-regtest-p2wpkh', JSON.stringify({ value: BCRT1 }))).toBeUndefined();
+  });
+});
+
+describe('the USD₮ endpoint on an Arbitrum fork build', () => {
+  // USD₮0 on Arbitrum One, in lowercase, exactly as Bitkit publishes it.
+  const USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+  const CHECKSUMMED = '0x83A881Ddad0F675A3d57d306F3F4E6b352b95CD0';
+  const fork = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../endpoints')>('../endpoints'));
+  const forkPayload = fork.usdtReceivingDetail(EVM).payload;
+
+  it("publishes under Bitkit's endpoint id, with chain 42161 and USD₮0", () => {
+    const usdt = fork.usdtReceivingDetail(EVM);
+    expect(usdt.identifier).toBe('usdt-arbitrum-address');
+    expect(usdt.payload).toBe(`{"value":"${EVM}","chain_id":"42161","token":"${USDT0}"}`);
+    const parsed = fork.parseEndpoint(usdt.identifier, usdt.payload);
+    expect(parsed).toEqual({ identifier: 'usdt-arbitrum-address', asset: 'usdt', address: EVM, chainId: '42161', token: USDT0 });
+    expect(fork.canonicalPayload(parsed!)).toBe(usdt.payload);
+  });
+
+  it("pays Bitkit's own payload: sorted keys and a checksummed address", () => {
+    const bitkit = `{"chain_id":"42161","token":"${USDT0}","value":"${CHECKSUMMED}"}`;
+    expect(fork.parseEndpoint('usdt-arbitrum-address', bitkit)).toMatchObject({ asset: 'usdt', address: CHECKSUMMED, chainId: '42161' });
+    expect(fork.payableCandidateIds([{ candidateId: 'bitkit', identifier: 'usdt-arbitrum-address', payloadText: bitkit }])).toEqual(['bitkit']);
+  });
+
+  it('refuses a Sepolia payload on Arbitrum, and an Arbitrum payload on Sepolia', () => {
+    const sepoliaPayload = usdtReceivingDetail(EVM).payload;
+    expect(fork.parseEndpoint('usdt-arbitrum-address', sepoliaPayload)).toBeUndefined();
+    expect(fork.parseEndpoint('usdt-sepolia-address', sepoliaPayload)).toBeUndefined();
+    expect(parseEndpoint(ENDPOINT_USDT, forkPayload)).toBeUndefined();
+    expect(parseEndpoint('usdt-arbitrum-address', forkPayload)).toBeUndefined();
+  });
+
+  it('refuses the right token on the wrong chain id, or a chain id written another way', () => {
+    for (const chainId of ['1', '0xa4b1', ' 42161', '042161']) {
+      expect(fork.parseEndpoint('usdt-arbitrum-address', JSON.stringify({ value: EVM, chain_id: chainId, token: USDT0 }))).toBeUndefined();
+    }
+    expect(fork.parseEndpoint('usdt-arbitrum-address', JSON.stringify({ value: EVM, chain_id: '42161', token: SEPOLIA_USDT }))).toBeUndefined();
+  });
+
+  it('leaves the default build on Sepolia', () => {
+    expect(ENDPOINT_USDT).toBe('usdt-sepolia-address');
   });
 });

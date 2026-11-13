@@ -10,6 +10,8 @@
 // EVM history comes from Blockscout's keyless API, because WDK's EVM module
 // has no history call. Transactions this app just sent are merged in from
 // ./sentTransactions.ts until an indexer reports them. See ./activity.ts.
+// A chain with no known indexer (EVM_CHAIN.activityApi undefined, such as
+// the local Arbitrum fork) shows only those.
 //
 // Per-contact BTC accounts have their own history: contacts' private
 // payments land there. ./useContactAccountActivity.ts collects it and it is
@@ -31,7 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAccount } from '@tetherto/wdk-react-native-core';
 
-import { SEPOLIA_BLOCKSCOUT_API, SEPOLIA_USDT } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { BALANCE_POLL_MS } from '../config/sync';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import {
@@ -107,11 +109,13 @@ async function fetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-/** ETH and USD₮ activity for an EVM address, from Blockscout. */
+/** ETH and USD₮ activity for an EVM address, from Blockscout. None, and no error, where the chain has no indexer. */
 export async function fetchEvmActivity(address: string): Promise<ActivityItem[]> {
+  const api = EVM_CHAIN.activityApi;
+  if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
-    fetchJson(`${SEPOLIA_BLOCKSCOUT_API}/addresses/${address}/transactions`),
-    fetchJson(`${SEPOLIA_BLOCKSCOUT_API}/addresses/${address}/token-transfers?type=ERC-20&token=${SEPOLIA_USDT}`),
+    fetchJson(`${api}/addresses/${address}/transactions`),
+    fetchJson(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`),
   ]);
   return [
     ...parseBlockscoutTransactions(transactions, address),

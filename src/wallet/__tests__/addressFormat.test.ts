@@ -1,6 +1,9 @@
-// Address checks follow the build's Bitcoin network (src/config/btcChain.ts).
-import { checkRecipientAddress, isPayableBtcAddress } from '../addressFormat';
+// Address checks follow the build's Bitcoin network (src/config/btcChain.ts)
+// and EVM chain (src/config/evmChain.ts).
+import { AAVE_SEPOLIA_FAUCET } from '../../config/chains';
+import { checkRecipientAddress, isKnownContract, isPayableBtcAddress, payeeOfPaymentText } from '../addressFormat';
 import { withBtcChain } from '../../config/__tests__/withBtcChain';
+import { withEvmChain } from '../../config/__tests__/withEvmChain';
 
 const TB1 = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
 const BCRT1 = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
@@ -59,5 +62,33 @@ describe('Bitcoin addresses on a Bitkit regtest build', () => {
       reason: 'invalid',
       message: 'That is not a Bitcoin regtest address. It should start with bcrt1.',
     });
+  });
+});
+
+describe('Ethereum payment codes on an Arbitrum fork build', () => {
+  const USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+  const PAYEE = '0x83A881Ddad0F675A3d57d306F3F4E6b352b95CD0';
+  // What Bitkit's USD₮ receive QR code holds.
+  const BITKIT_CODE = `ethereum:${USDT0}@42161/transfer?address=${PAYEE}`;
+  const fork = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../addressFormat')>('../addressFormat'));
+
+  it("pays the address in Bitkit's code on Arbitrum, and refuses it on Sepolia", () => {
+    expect(fork.payeeOfPaymentText(BITKIT_CODE)).toEqual({ ok: true, address: PAYEE });
+    expect(fork.checkRecipientAddress(BITKIT_CODE, 'ethereum')).toEqual({ ok: true, address: PAYEE });
+    expect(payeeOfPaymentText(BITKIT_CODE)).toEqual({ ok: false, message: 'That code is for another Ethereum network. This wallet pays on Sepolia only.' });
+  });
+
+  it('refuses a Sepolia code on Arbitrum', () => {
+    expect(fork.payeeOfPaymentText(`ethereum:${PAYEE}@11155111`)).toEqual({
+      ok: false,
+      message: 'That code is for another Ethereum network. This wallet pays on Arbitrum only.',
+    });
+  });
+
+  it('never pays the USD₮0 contract, and has no Aave faucet to guard', () => {
+    expect(fork.isKnownContract(USDT0)).toBe(true);
+    expect(fork.checkRecipientAddress(`ethereum:${USDT0}@42161`, 'ethereum')).toMatchObject({ ok: false, reason: 'contract' });
+    expect(fork.isKnownContract(AAVE_SEPOLIA_FAUCET)).toBe(false);
+    expect(isKnownContract(AAVE_SEPOLIA_FAUCET)).toBe(true);
   });
 });

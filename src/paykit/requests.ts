@@ -113,7 +113,7 @@ export type PaymentChain = {
   btcReceived(accountIndex: number, txid: string, address: string): Promise<BtcReceipt>;
   /** Our own Bitcoin payment, from account 0 (WDK getTransaction). */
   btcSent(txid: string): Promise<BtcSendStatus>;
-  /** Any Sepolia transaction (WDK getTransaction). */
+  /** Any transaction on the build's EVM chain (WDK getTransaction, plus its block time where the chain needs it). */
   evmTransaction(hash: string): Promise<EvmTransaction>;
   /** Our own sent transfer for a payment that has no hash yet (account 0's history). Throws if it can't tell. */
   findSentPayment(query: SentTransferQuery): Promise<SentTransferMatch>;

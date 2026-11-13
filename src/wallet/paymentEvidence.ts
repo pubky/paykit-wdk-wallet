@@ -9,7 +9,10 @@
 //             (each contact pays us at their own Bitcoin account). Rows for
 //             one txid are the outputs that paid that account's address.
 //   Ethereum  WDK's `getTransaction(hash)`: finality, success and the
-//             receipt, whose `logs` hold the ERC-20 Transfer events.
+//             receipt, whose `logs` hold the ERC-20 Transfer events. On
+//             chains where the payment time is the block's timestamp
+//             (src/config/evmChain.ts), the block is read from the RPC too
+//             (evmBlockTimeMsFrom), since WDK does not return its time.
 //
 // The payer uses the same parsers to know when its own payment settled
 // and, for USD₮, which receipt log is its Transfer (the proof names it).
@@ -71,7 +74,23 @@ export type EvmTransaction =
   | { state: 'pending' }
   | { state: 'dropped' }
   | { state: 'failed'; confirmations: number }
-  | { state: 'succeeded'; confirmations: number; logs: EvmLog[] };
+  | {
+      state: 'succeeded';
+      confirmations: number;
+      logs: EvmLog[];
+      /** The block it was mined in, from WDK's `block` (or the receipt's `blockNumber`). */
+      blockNumber?: number;
+      /** The receipt's `blockHash` (lowercase), to read the block's time by. */
+      blockHash?: string;
+      /** The block's timestamp (ms), once read from the RPC (evmBlockTimeMsFrom). */
+      blockTimeMs?: number;
+    };
+
+const BLOCK_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+function blockNumberOf(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
 
 /**
  * From WDK EVM `getTransaction(hash)` (finality, success, confirmations and
@@ -79,7 +98,13 @@ export type EvmTransaction =
  * receipt is never proof that a payment failed.
  */
 export function evmTransactionFrom(result: unknown): EvmTransaction {
-  const tx = result as { finality?: unknown; success?: unknown; confirmations?: unknown; receipt?: { logs?: unknown; status?: unknown } | null } | null;
+  const tx = result as {
+    finality?: unknown;
+    success?: unknown;
+    confirmations?: unknown;
+    block?: unknown;
+    receipt?: { logs?: unknown; status?: unknown; blockNumber?: unknown; blockHash?: unknown } | null;
+  } | null;
   if (!tx || typeof tx !== 'object') return { state: 'unknown' };
   if (tx.finality === 'dropped') return { state: 'dropped' };
   if (tx.finality === 'pending' || !tx.receipt) return { state: 'pending' };
@@ -87,15 +112,33 @@ export function evmTransactionFrom(result: unknown): EvmTransaction {
   const success = tx.success === true || tx.receipt.status === 1 || tx.receipt.status === '1';
   if (!success) return { state: 'failed', confirmations };
   const logs = Array.isArray(tx.receipt.logs) ? tx.receipt.logs : [];
+  const blockHash = tx.receipt.blockHash;
   return {
     state: 'succeeded',
     confirmations,
+    blockNumber: blockNumberOf(tx.block) ?? blockNumberOf(tx.receipt.blockNumber),
+    blockHash: typeof blockHash === 'string' && BLOCK_HASH.test(blockHash) ? blockHash.toLowerCase() : undefined,
     logs: logs.map((log: { address?: unknown; topics?: unknown; data?: unknown }) => ({
       address: typeof log?.address === 'string' ? log.address : '',
       topics: Array.isArray(log?.topics) ? log.topics.filter((t: unknown): t is string => typeof t === 'string') : [],
       data: typeof log?.data === 'string' ? log.data : '',
     })),
   };
+}
+
+/**
+ * The block time (ms) in a JSON-RPC `eth_getBlockByHash` or
+ * `eth_getBlockByNumber` response: `result.timestamp` is seconds as a hex
+ * quantity. With `blockHash`, the block must be that one. Undefined for an
+ * error, a missing block or anything malformed: the caller then cannot
+ * tell when it was paid, and the proof stays pending.
+ */
+export function evmBlockTimeMsFrom(response: unknown, blockHash?: string): number | undefined {
+  const block = (response as { result?: { timestamp?: unknown; hash?: unknown } | null } | null)?.result;
+  if (!block || typeof block !== 'object' || typeof block.timestamp !== 'string' || !/^0x[0-9a-fA-F]{1,16}$/.test(block.timestamp)) return undefined;
+  if (blockHash !== undefined && (typeof block.hash !== 'string' || block.hash.toLowerCase() !== blockHash.toLowerCase())) return undefined;
+  const ms = Number(BigInt(block.timestamp)) * 1000;
+  return Number.isSafeInteger(ms) ? ms : undefined;
 }
 
 /**

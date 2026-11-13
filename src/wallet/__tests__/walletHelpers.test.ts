@@ -2,6 +2,7 @@ import { AAVE_FAUCET_MINT_SELECTOR, AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '..
 import { mergeActivity, newestItems, parseBlockscoutTokenTransfers, parseBtcTransfers, type ActivityItem } from '../activity';
 import { chainOfAddress, isPayableBtcAddress, isEvmAddress } from '../addressFormat';
 import { encodeFaucetMint, isAllowedContractCall, usdtFaucetTransaction } from '../faucet';
+import { withEvmChain } from '../../config/__tests__/withEvmChain';
 
 const ME = '0x00000000000000000000000000000000000000aa';
 
@@ -105,5 +106,28 @@ describe('isAllowedContractCall', () => {
     // ERC-20 approve(spender, max) aimed at the faucet address: wrong selector.
     expect(isAllowedContractCall({ ...mint, data: `0x095ea7b3${'0'.repeat(128)}` })).toBe(false);
     expect(isAllowedContractCall({ ...mint, data: `${mint.data}00` })).toBe(false);
+  });
+
+  it.each(['arbitrum-fork', 'arbitrum-one'])('allows no contract call at all on an %s build: the faucet address is not Aave there', (chain) => {
+    const faucet = withEvmChain(chain, () => jest.requireActual<typeof import('../faucet')>('../faucet'));
+    expect(faucet.isAllowedContractCall(faucet.usdtFaucetTransaction(ME))).toBe(false);
+  });
+});
+
+describe('activity parsing on an Arbitrum fork build', () => {
+  it('keeps only USD₮0 token transfers', () => {
+    const USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+    const activity = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../activity')>('../activity'));
+    const items = activity.parseBlockscoutTokenTransfers(
+      {
+        items: [
+          { transaction_hash: '0x1', from: { hash: ME }, to: { hash: '0xbb' }, total: { value: '5000000' }, token: { address_hash: USDT0.toUpperCase().replace('0X', '0x') } },
+          { transaction_hash: '0x2', from: { hash: '0xcc' }, to: { hash: ME }, total: { value: '1' }, token: { address_hash: SEPOLIA_USDT } },
+        ],
+      },
+      ME,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ hash: '0x1', asset: 'usdt', direction: 'out', amount: 5_000_000n });
   });
 });

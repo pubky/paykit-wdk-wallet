@@ -7,7 +7,11 @@
 //                            one per account: WDK's hooks are bound to one
 //                            account index each), plus the block's time
 //                            from the network's esplora
-//   evmTransaction(hash)     getTransaction on Sepolia: finality, success, logs
+//   evmTransaction(hash)     getTransaction on the build's EVM chain:
+//                            finality, success, logs. On a 'block-timestamp'
+//                            chain (src/config/evmChain.ts), also the
+//                            block's time, read from the chain's RPC
+//                            (WDK does not return it)
 //   findSentPayment(query)   a payment the app lost track of (no hash):
 //                            account 0's sent transfers. Bitcoin from WDK's
 //                            getTransfers (mempool included), with block
@@ -15,8 +19,10 @@
 //                            Blockscout, since WDK's EVM module has no
 //                            history call
 //   signErc20Payment(typed)  signTypedData with EVM account 0, for exactly
-//                            the Paykit ERC-20 proof domain: the guard
-//                            isErc20PaymentTypedData refuses anything else
+//                            the Paykit ERC-20 proof domain on the build's
+//                            chain (EVM_CHAIN.chainId, the same id
+//                            requestRounds.ts puts in the typed data): the
+//                            guard isErc20PaymentTypedData refuses anything else
 //                            (an EIP-712 signature over another domain, such
 //                            as an ERC-20 permit, could authorize spending)
 //
@@ -26,14 +32,15 @@
 import { useCallback, useMemo } from 'react';
 import { useAccount } from '@tetherto/wdk-react-native-core';
 
-import { SEPOLIA_CHAIN_ID } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
-import { fetchBtcTransactionStatus } from './esplora';
+import { FETCH_TIMEOUT_MS, fetchBtcTransactionStatus } from './esplora';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,
+  evmBlockTimeMsFrom,
   evmTransactionFrom,
   matchSentTransfer,
   sentTransferCandidates,
@@ -80,11 +87,15 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
         }
       },
       evmTransaction: async (hash) => {
+        let tx: EvmTransaction;
         try {
-          return evmTransactionFrom(await evm().getTransaction(hash));
+          tx = evmTransactionFrom(await evm().getTransaction(hash));
         } catch {
           return { state: 'unknown' };
         }
+        // The payee checks when it was paid (paymentProofs.ts); WDK gives only the block.
+        if (tx.state === 'succeeded' && EVM_CHAIN.paymentTime.kind === 'block-timestamp') tx.blockTimeMs = await fetchEvmBlockTimeMs(tx);
+        return tx;
       },
       findSentPayment: async (query) => {
         if (query.asset === 'usdt') {
@@ -100,7 +111,7 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
         return matchSentTransfer(items, query);
       },
       signErc20Payment: async (typedData) => {
-        if (!isErc20PaymentTypedData(typedData, SEPOLIA_CHAIN_ID)) throw new Error('Refusing to sign: not a Paykit ERC-20 payment proof');
+        if (!isErc20PaymentTypedData(typedData, EVM_CHAIN.chainId)) throw new Error('Refusing to sign: not a Paykit ERC-20 payment proof');
         const signature = await evm().signTypedData(typedData);
         if (typeof signature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(signature)) throw new Error('The wallet returned no signature');
         return signature.toLowerCase();
@@ -108,6 +119,33 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
     }),
     [btc, evm, evmAddress],
   );
+}
+
+/**
+ * A mined transaction's block time (ms), read with a JSON-RPC call to the
+ * chain's RPC: by the receipt's block hash, or by number if it has none.
+ * Undefined if that fails in any way, so the proof stays pending.
+ */
+async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: number }): Promise<number | undefined> {
+  let request: { method: string; params: unknown[] };
+  if (tx.blockHash !== undefined) request = { method: 'eth_getBlockByHash', params: [tx.blockHash, false] };
+  else if (tx.blockNumber !== undefined) request = { method: 'eth_getBlockByNumber', params: [`0x${tx.blockNumber.toString(16)}`, false] };
+  else return undefined;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(EVM_CHAIN.rpc, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }),
+      signal: controller.signal,
+    });
+    return response.ok ? evmBlockTimeMsFrom(await response.json(), tx.blockHash) : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** A reader for one Bitcoin account: what a transaction paid into it. Undefined until the account is loaded. */

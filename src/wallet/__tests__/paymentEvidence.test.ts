@@ -1,7 +1,16 @@
 // Reading payments back from what WDK returns over its RPC bridge.
 import { SEPOLIA_USDT } from '../../config/chains';
 import { ERC20_TRANSFER_TOPIC } from '../erc20PaymentProof';
-import { btcReceiptFromTransfers, btcSendStatus, erc20TransferFromLog, evmTransactionFrom, findErc20TransferLog, matchSentTransfer, sendOutcomeOf } from '../paymentEvidence';
+import {
+  btcReceiptFromTransfers,
+  btcSendStatus,
+  erc20TransferFromLog,
+  evmBlockTimeMsFrom,
+  evmTransactionFrom,
+  findErc20TransferLog,
+  matchSentTransfer,
+  sendOutcomeOf,
+} from '../paymentEvidence';
 import type { ActivityItem } from '../activity';
 
 const TXID = 'ab'.repeat(32);
@@ -46,6 +55,22 @@ describe('evmTransactionFrom', () => {
       confirmations: 2,
       logs: [log],
     });
+  });
+
+  it('reads the block number and hash, to look the block time up by', () => {
+    const blockHash = `0x${'AB'.repeat(32)}`;
+    const mined = (overrides: object) => ({ finality: 'confirmed', success: true, confirmations: 1, ...overrides });
+    expect(evmTransactionFrom(mined({ block: 42, receipt: { status: 1, logs: [], blockNumber: 42, blockHash } }))).toMatchObject({
+      state: 'succeeded',
+      blockNumber: 42,
+      blockHash: blockHash.toLowerCase(),
+    });
+    // The receipt's number when WDK's `block` is missing; nothing when neither is a block number.
+    expect(evmTransactionFrom(mined({ receipt: { status: 1, logs: [], blockNumber: 7 } }))).toMatchObject({ blockNumber: 7, blockHash: undefined });
+    const junk = evmTransactionFrom(mined({ block: -1, receipt: { status: 1, logs: [], blockNumber: '7', blockHash: '0x1234' } }));
+    expect(junk).toMatchObject({ state: 'succeeded', blockNumber: undefined, blockHash: undefined });
+    // The time is never read here: the bridge asks the RPC for it.
+    expect(junk).not.toHaveProperty('blockTimeMs');
   });
 
   it('tells pending, dropped, failed and unknown apart', () => {
@@ -111,5 +136,31 @@ describe('sendOutcomeOf', () => {
     expect(sendOutcomeOf({ state: 'dropped' })).toBe('failed');
     expect(sendOutcomeOf({ state: 'pending' })).toBeUndefined();
     expect(sendOutcomeOf({ state: 'unknown' })).toBeUndefined();
+  });
+});
+
+describe('evmBlockTimeMsFrom (a JSON-RPC block)', () => {
+  const HASH = `0x${'ab'.repeat(32)}`;
+  const block = (result: unknown) => ({ jsonrpc: '2.0', id: 1, result });
+
+  it('reads the hex timestamp in seconds as ms', () => {
+    expect(evmBlockTimeMsFrom(block({ hash: HASH, number: '0x2a', timestamp: '0x6553f100' }))).toBe(0x6553f100 * 1000);
+    expect(evmBlockTimeMsFrom(block({ hash: HASH.toUpperCase().replace('0X', '0x'), timestamp: '0x6553f100' }), HASH)).toBe(0x6553f100 * 1000);
+  });
+
+  it('refuses another block than the one asked for', () => {
+    expect(evmBlockTimeMsFrom(block({ hash: `0x${'cd'.repeat(32)}`, timestamp: '0x6553f100' }), HASH)).toBeUndefined();
+    expect(evmBlockTimeMsFrom(block({ timestamp: '0x6553f100' }), HASH)).toBeUndefined();
+  });
+
+  it('knows nothing from an error, a missing block or a malformed time', () => {
+    expect(evmBlockTimeMsFrom({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: 'oops' } })).toBeUndefined();
+    expect(evmBlockTimeMsFrom(block(null))).toBeUndefined();
+    expect(evmBlockTimeMsFrom(undefined)).toBeUndefined();
+    for (const timestamp of [1_700_000_000, '1700000000', '0x', '0xzz', `0x${'f'.repeat(17)}`]) {
+      expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp }))).toBeUndefined();
+    }
+    // Fits 16 hex digits, but not in a safe integer of ms.
+    expect(evmBlockTimeMsFrom(block({ hash: HASH, timestamp: `0x${'f'.repeat(16)}` }))).toBeUndefined();
   });
 });

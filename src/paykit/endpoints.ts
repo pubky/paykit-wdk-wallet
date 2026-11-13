@@ -6,16 +6,19 @@
 //   btc-mutinynet-p2wpkh   {"value":"tb1q..."}      (on Bitkit's regtest:
 //                                                    btc-regtest-p2wpkh, bcrt1q...)
 //   usdt-sepolia-address   {"value":"0x...","chain_id":"11155111","token":"0xaA8E..."}
+//                                                   (on an Arbitrum build, Bitkit's
+//                                                    usdt-arbitrum-address with
+//                                                    chain_id "42161" and USD₮0)
 //
 // Keep payloads compact: every private message, including a whole Private
 // Payment List, must fit in 1000 bytes. Both payloads together are about
 // 160 bytes.
 //
 // Incoming payloads come from other people, so they are parsed defensively:
-// a USD₮ endpoint must name Sepolia and the exact token contract we hold,
-// otherwise we refuse to pay it. This file has no native imports and is
+// a USD₮ endpoint must name the build's EVM chain (src/config/evmChain.ts)
+// and the exact token contract we hold, otherwise we refuse to pay it. This file has no native imports and is
 // unit tested.
-import { SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { ENDPOINT_BTC, ENDPOINT_USDT, SUPPORTED_ENDPOINTS } from '../config/paykit';
 import { isPayableBtcAddress, isEvmAddress, sameEvmAddress } from '../wallet/addressFormat';
 
@@ -37,7 +40,7 @@ export function btcReceivingDetail(address: string): ReceivingDetail {
 export function usdtReceivingDetail(address: string): ReceivingDetail {
   return {
     identifier: ENDPOINT_USDT,
-    payload: JSON.stringify({ value: address, chain_id: String(SEPOLIA_CHAIN_ID), token: SEPOLIA_USDT }),
+    payload: JSON.stringify({ value: address, chain_id: String(EVM_CHAIN.chainId), token: EVM_CHAIN.usdtToken }),
   };
 }
 
@@ -63,7 +66,7 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
     const chainId = String(json.chain_id ?? '');
     const token = typeof json.token === 'string' ? json.token : '';
     const ok =
-      isEvmAddress(json.value) && chainId === String(SEPOLIA_CHAIN_ID) && isEvmAddress(token) && sameEvmAddress(token, SEPOLIA_USDT);
+      isEvmAddress(json.value) && chainId === String(EVM_CHAIN.chainId) && isEvmAddress(token) && sameEvmAddress(token, EVM_CHAIN.usdtToken);
     return ok ? { identifier, asset: 'usdt', address: json.value, chainId, token } : undefined;
   }
   return undefined;
@@ -73,7 +76,7 @@ export function parseEndpoint(identifier: string, payloadText: string): ParsedEn
 export function canonicalPayload(endpoint: ParsedEndpoint): string {
   return endpoint.asset === 'btc'
     ? btcReceivingDetail(endpoint.address).payload
-    : JSON.stringify({ value: endpoint.address, chain_id: endpoint.chainId, token: SEPOLIA_USDT });
+    : JSON.stringify({ value: endpoint.address, chain_id: endpoint.chainId, token: EVM_CHAIN.usdtToken });
 }
 
 /**

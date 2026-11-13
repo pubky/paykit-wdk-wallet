@@ -26,7 +26,9 @@
 //   USD₮     {"type":"erc20-transfer-eip712","chain_id":"11155111",
 //             "transaction_hash":"0x…","receipt_log_index":"0","signature":"0x…"}
 //            Our USD₮ address is public, so the payer also signs which
-//            Transfer was theirs (src/wallet/erc20PaymentProof.ts).
+//            Transfer was theirs (src/wallet/erc20PaymentProof.ts). The
+//            chain id is the build's EVM chain (src/config/evmChain.ts):
+//            "42161" on an Arbitrum build, as Bitkit's proofs carry.
 //
 // The payee's checks, in verifyBtcProof / verifyErc20Proof:
 //   - the transaction exists, succeeded and is in a block (one confirmation:
@@ -40,10 +42,14 @@
 //   - it was not paid before we asked, or before the billing period began
 //     (paymentNotBefore): otherwise any earlier, unclaimed transfer from
 //     the payer to that address, such as a plain private send, would pass
-//     as payment. Bitcoin: the block's timestamp. USD₮: Sepolia makes at
-//     most one block per 12 s slot, so a transaction with n confirmations
-//     was mined at least (n-1)·12 s ago (latestSepoliaBlockTimeMs), an
-//     upper bound read through WDK alone. A payment after a cancellation
+//     as payment. Bitcoin: the block's timestamp. USD₮: the chain's
+//     paymentTime rule (src/config/evmChain.ts). On Sepolia ('slot-bound')
+//     at most one block is made per 12 s slot, so a transaction with n
+//     confirmations was mined at least (n-1)·12 s ago
+//     (latestSepoliaBlockTimeMs), an upper bound read through WDK alone.
+//     On Arbitrum ('block-timestamp') blocks come several a second, so the
+//     block's own timestamp is read from the RPC, and the payment stays
+//     pending until it is known. A payment after a cancellation
 //     is not rejected: the spec forbids rejecting a proof only because a
 //     cancellation came first.
 // A missing, unconfirmed or "dropped" transaction is "pending", never
@@ -52,7 +58,7 @@
 //
 // Pure: no native imports, unit tested.
 import { BTC_CHAIN } from '../config/btcChain';
-import { SEPOLIA_CHAIN_ID } from '../config/chains';
+import { EVM_CHAIN, type EvmPaymentTime } from '../config/evmChain';
 import { ERC20_PROOF_TYPE, erc20PaymentSigner, erc20PaymentTypedData, isCanonicalLogIndex, type Erc20RequestBinding } from '../wallet/erc20PaymentProof';
 import { erc20TransferFromLog, type BtcReceipt, type EvmTransaction } from '../wallet/paymentEvidence';
 import { isLowercaseTxid } from '../wallet/txid';
@@ -81,7 +87,7 @@ export function btcProofJson(txid: string): string {
 export function erc20ProofJson(proof: { transactionHash: string; receiptLogIndex: string; signature: string }): string {
   return JSON.stringify({
     type: ERC20_PROOF_TYPE,
-    chain_id: String(SEPOLIA_CHAIN_ID),
+    chain_id: String(EVM_CHAIN.chainId),
     transaction_hash: proof.transactionHash.toLowerCase(),
     receipt_log_index: proof.receiptLogIndex,
     signature: proof.signature.toLowerCase(),
@@ -163,7 +169,7 @@ export type NotBefore = { ms: number; what: 'request' | 'period' };
 
 /** Bitcoin block timestamps can trail real time, and phone clocks drift. */
 export const BTC_PAYMENT_TIME_ALLOWANCE_MS = 10 * 60_000;
-/** The USD₮ bound is safe on its own; this covers the two phones' clocks. */
+/** Sepolia's slot bound is safe on its own; this covers the two phones' clocks. */
 export const EVM_PAYMENT_TIME_ALLOWANCE_MS = 5 * 60_000;
 export const SEPOLIA_SLOT_MS = 12_000;
 
@@ -178,8 +184,8 @@ export function paymentNotBefore(askedAtMs: number | undefined, periodStartMs: n
 }
 
 /** Sepolia: one block per 12 s slot at most, so n confirmations mean mined at least (n-1) slots ago. */
-export function latestSepoliaBlockTimeMs(confirmations: number, nowMs: number): number {
-  return nowMs - Math.max(0, confirmations - 1) * SEPOLIA_SLOT_MS;
+export function latestSepoliaBlockTimeMs(confirmations: number, nowMs: number, slotMs = SEPOLIA_SLOT_MS): number {
+  return nowMs - Math.max(0, confirmations - 1) * slotMs;
 }
 
 function tooEarly(blockTimeMs: number, notBefore: NotBefore, allowanceMs: number): Verdict | undefined {
@@ -212,8 +218,30 @@ export type Erc20ProofContext = ProofContext & {
   proof: Extract<ParsedProof, { kind: 'erc20' }>;
   token: string;
   chainId: number;
+  /** How to tell when it was paid on this chain (EVM_CHAIN.paymentTime). */
+  paymentTime: EvmPaymentTime;
   binding: Erc20RequestBinding;
 };
+
+/**
+ * The problem with when this mined transaction was paid, if any: before
+ * `notBefore` (rejected), or not known yet (pending). 'slot-bound' bounds
+ * the block time from the confirmations. 'block-timestamp' needs the
+ * block's own time: while it is unknown the answer is "pending", never
+ * "verified", or a payer could reuse an old transfer while the RPC is down.
+ */
+function erc20TimeProblem(
+  transaction: Extract<EvmTransaction, { state: 'succeeded' }>,
+  notBefore: NotBefore,
+  paymentTime: EvmPaymentTime,
+  nowMs: number,
+): Verdict | undefined {
+  if (paymentTime.kind === 'slot-bound') {
+    return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs, paymentTime.slotMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
+  }
+  if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: 'Checking when it was paid.', recheckMs: DROPPED_PROOF_RECHECK_MS };
+  return tooEarly(transaction.blockTimeMs, notBefore, paymentTime.allowanceMs);
+}
 
 export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20ProofContext): Verdict {
   const claimed = claimProblem(context);
@@ -236,8 +264,8 @@ export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20Proo
   if (transfer.to !== context.address.toLowerCase()) return { status: 'rejected', reason: 'It paid a different address.' };
   if (transfer.amount < context.amount) return { status: 'rejected', reason: 'It paid less than the request asked for.' };
   if (context.notBefore) {
-    const early = tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, context.nowMs), context.notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
-    if (early) return early;
+    const timing = erc20TimeProblem(transaction, context.notBefore, context.paymentTime, context.nowMs);
+    if (timing) return timing;
   }
   const typed = erc20PaymentTypedData(context.chainId, {
     transactionHash: context.proof.transactionHash,
