@@ -2,11 +2,11 @@
 // an explorer link (where the network has one). The send is "pending" in
 // Activity until it is in a block; the screen says how long that usually
 // takes (on regtest, it says the block comes when someone mines one).
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
 import { EVM_CHAIN } from '../../../config/evmChain';
-import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
+import { AssetAmount, Button, DetailRow, ExplorerButton, Divider, KeyText, Text, space } from '../../../ui';
 import { formatFee, type SendResult } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
 
@@ -55,7 +55,7 @@ export function SendSuccess({ asset, amount, toLabel, toIsName, result, onDone, 
         <DetailRow label="Transaction" value={<KeyText value={result.hash} small testID="send-hash" />} />
       </View>
       <View style={styles.actions}>
-        {explorerUrl ? <Button label="View on explorer" variant="secondary" onPress={() => void Linking.openURL(explorerUrl)} /> : null}
+        <ExplorerButton url={explorerUrl} />
         <Button label="Done" onPress={onDone} testID="send-done" />
       </View>
     </View>

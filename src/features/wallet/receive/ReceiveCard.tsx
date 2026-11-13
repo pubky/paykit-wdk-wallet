@@ -10,11 +10,11 @@
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
-import { Linking, Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
 import { EVM_CHAIN } from '../../../config/evmChain';
-import { AssetDot, Button, Card, KeyText, QrCode, Text, space } from '../../../ui';
+import { AssetDot, Button, Card, ExplorerButton, KeyText, QrCode, Text, space } from '../../../ui';
 import { addressUrl } from '../../../wallet';
 
 const CARD_TEXT: Record<'btc' | 'usdt', { title: string; network: string; note: string }> = {
@@ -71,7 +71,7 @@ export function ReceiveCard({ asset, address }: { asset: 'btc' | 'usdt'; address
           <View style={styles.actions}>
             <Button label={copied ? 'Copied' : 'Copy'} variant="secondary" compact onPress={onCopy} testID="receive-copy" />
             <Button label="Share" variant="secondary" compact onPress={onShare} testID="receive-share" />
-            {explorerUrl ? <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(explorerUrl)} /> : null}
+            <ExplorerButton url={explorerUrl} compact />
           </View>
         </>
       ) : null}

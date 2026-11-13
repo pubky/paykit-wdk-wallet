@@ -2,7 +2,7 @@ import { AAVE_FAUCET_MINT_SELECTOR, AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '..
 import { mergeActivity, newestItems, parseBlockscoutTokenTransfers, parseBtcTransfers, type ActivityItem } from '../activity';
 import { chainOfAddress, isPayableBtcAddress, isEvmAddress } from '../addressFormat';
 import { encodeFaucetMint, isAllowedContractCall, usdtFaucetTransaction } from '../faucet';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withEvmChain } from '../../config/__tests__/withEnv';
 
 const ME = '0x00000000000000000000000000000000000000aa';
 

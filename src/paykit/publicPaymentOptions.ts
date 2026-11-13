@@ -88,7 +88,7 @@ export function cannotPayReason(options: PublicPaymentOptions, asset: PayeeAsset
     return `${name} doesn't accept ${ASSETS[asset].displayName} by pubky. Choose ${other} instead.`;
   }
   if (options.status === 'unsupported') {
-    return `${name} publishes payment details this wallet can't use. Ask them for ${EVM_CHAIN.realFunds ? 'an address' : 'a test-network address'} instead.`;
+    return `${name} publishes payment details this wallet can't use. Ask them for ${EVM_CHAIN.realFundsWarning !== undefined ? 'an address' : 'a test-network address'} instead.`;
   }
   return `${name} doesn't publish any payment addresses. Ask them for an address, or add each other as contacts.`;
 }

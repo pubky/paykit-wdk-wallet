@@ -377,7 +377,8 @@ async function verdictFor(service: PaykitService, requests: PaymentRequests, vie
   // The addresses load from WDK after the chain attaches: wait, don't reject.
   if (!ours) return { status: 'pending', reason: 'Waiting for the wallet to load your address.' };
   if (ours.toLowerCase() !== terms.endpoint.address.toLowerCase()) return { status: 'rejected', reason: 'The request names an address that is not ours.' };
-  return verifyErc20Proof(await chain.evmTransaction(parsed.transactionHash), {
+  // The block time is one more RPC call: fetch it only when there is a time to check it against.
+  return verifyErc20Proof(await chain.evmTransaction(parsed.transactionHash, { withBlockTime: context.notBefore !== undefined }), {
     ...context,
     proof: parsed,
     token: EVM_CHAIN.usdtToken,

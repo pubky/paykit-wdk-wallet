@@ -15,11 +15,11 @@
 // A transaction that paid a payment request links to that request and says
 // where its receipt is (activity/ActivityPaykitLinks.tsx, below the details).
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AAVE_FAUCET_FUNDING } from '../../config/evmChain';
 import type { RootScreenProps } from '../../navigation/types';
-import { AssetAmount, Button, Chip, DetailRow, Divider, EmptyState, KeyText, PushedScreen, Text, formatDateTime, relativeTime, space } from '../../ui';
+import { AssetAmount, Chip, DetailRow, ExplorerButton, Divider, EmptyState, KeyText, PushedScreen, Text, formatDateTime, relativeTime, space } from '../../ui';
 import { fetchBtcTransactionStatus, formatFee, transactionUrl, useActivity, type ActivityItem } from '../../wallet';
 import { ActivityPaykitLinks, useRequestLinkFor } from './activity/ActivityPaykitLinks';
 import { activityPersonHint, activityStatusWords, activityTitleWithPerson, isFaucetMint, networkName } from './activity/activityText';
@@ -137,7 +137,7 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
         onOpenRequest={(link) => navigation.navigate('RequestDetail', { counterparty: link.counterparty, requestId: link.requestId })}
       />
 
-      {explorerUrl ? <Button label="View on explorer" variant="secondary" onPress={() => void Linking.openURL(explorerUrl)} style={styles.explorer} /> : null}
+      <ExplorerButton url={explorerUrl} style={styles.explorer} />
     </PushedScreen>
   );
 }

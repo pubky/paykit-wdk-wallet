@@ -1,7 +1,7 @@
 import { SEPOLIA_USDT } from '../../../../config/chains';
 import { contactLinkFor } from '../../../../paykit/keys';
 import { MAX_CODE_LENGTH, parseScannedCode } from '../parseScannedCode';
-import { withEvmChain } from '../../../../config/__tests__/withEvmChain';
+import { withEvmChain } from '../../../../config/__tests__/withEnv';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const BTC = 'tb1qx06yqnsvfwu36p0gz8ps7rfufeahnxl3m4c2v6';

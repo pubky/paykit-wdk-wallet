@@ -172,6 +172,8 @@ export const BTC_PAYMENT_TIME_ALLOWANCE_MS = 10 * 60_000;
 /** Sepolia's slot bound is safe on its own; this covers the two phones' clocks. */
 export const EVM_PAYMENT_TIME_ALLOWANCE_MS = 5 * 60_000;
 export const SEPOLIA_SLOT_MS = 12_000;
+/** EVM block timestamps ('block-timestamp' chains) trail real time like Bitcoin's, and phone clocks drift. */
+export const EVM_BLOCK_TIME_ALLOWANCE_MS = BTC_PAYMENT_TIME_ALLOWANCE_MS;
 
 /**
  * The earliest a payment may be from: the later of when we asked
@@ -184,8 +186,8 @@ export function paymentNotBefore(askedAtMs: number | undefined, periodStartMs: n
 }
 
 /** Sepolia: one block per 12 s slot at most, so n confirmations mean mined at least (n-1) slots ago. */
-export function latestSepoliaBlockTimeMs(confirmations: number, nowMs: number, slotMs = SEPOLIA_SLOT_MS): number {
-  return nowMs - Math.max(0, confirmations - 1) * slotMs;
+export function latestSepoliaBlockTimeMs(confirmations: number, nowMs: number): number {
+  return nowMs - Math.max(0, confirmations - 1) * SEPOLIA_SLOT_MS;
 }
 
 function tooEarly(blockTimeMs: number, notBefore: NotBefore, allowanceMs: number): Verdict | undefined {
@@ -236,11 +238,11 @@ function erc20TimeProblem(
   paymentTime: EvmPaymentTime,
   nowMs: number,
 ): Verdict | undefined {
-  if (paymentTime.kind === 'slot-bound') {
-    return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs, paymentTime.slotMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
+  if (paymentTime === 'slot-bound') {
+    return tooEarly(latestSepoliaBlockTimeMs(transaction.confirmations, nowMs), notBefore, EVM_PAYMENT_TIME_ALLOWANCE_MS);
   }
   if (transaction.blockTimeMs === undefined) return { status: 'pending', reason: 'Checking when it was paid.', recheckMs: DROPPED_PROOF_RECHECK_MS };
-  return tooEarly(transaction.blockTimeMs, notBefore, paymentTime.allowanceMs);
+  return tooEarly(transaction.blockTimeMs, notBefore, EVM_BLOCK_TIME_ALLOWANCE_MS);
 }
 
 export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20ProofContext): Verdict {

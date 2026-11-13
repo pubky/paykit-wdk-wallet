@@ -17,8 +17,7 @@ import {
   verifyBtcProof,
   verifyErc20Proof,
 } from '../paymentProofs';
-import { withBtcChain } from '../../config/__tests__/withBtcChain';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withBtcChain, withEvmChain } from '../../config/__tests__/withEnv';
 
 const TXID = 'ab'.repeat(32);
 const NOW = Date.parse('2026-10-26T12:00:00Z');
@@ -192,7 +191,7 @@ describe('verifyErc20Proof', () => {
   });
 
   describe("on a 'block-timestamp' chain (Arbitrum)", () => {
-    const paymentTime = { kind: 'block-timestamp', allowanceMs: 10 * 60_000 } as const;
+    const paymentTime = 'block-timestamp' as const;
     const notBefore = { ms: NOW - 60 * 60_000, what: 'request' as const };
     const minedAt = (blockTimeMs: number | undefined, confirmations = 1): EvmTransaction => ({
       state: 'succeeded',
@@ -225,7 +224,7 @@ describe('verifyErc20Proof', () => {
     });
 
     it("leaves Sepolia's slot rule as it was: confirmations, not the block time", async () => {
-      expect(EVM_CHAIN.paymentTime).toEqual({ kind: 'slot-bound', slotMs: 12_000 });
+      expect(EVM_CHAIN.paymentTime).toBe('slot-bound');
       expect(verifyErc20Proof(minedAt(NOW, 1_000), await context({ notBefore })).status).toBe('rejected');
       expect(verifyErc20Proof(minedAt(undefined, 100), await context({ notBefore })).status).toBe('verified');
     });
@@ -276,7 +275,7 @@ describe('USD₮ proofs on an Arbitrum fork build', () => {
   });
 
   it('times payments by the block timestamp', () => {
-    expect(fork.chain.paymentTime).toEqual({ kind: 'block-timestamp', allowanceMs: 10 * 60_000 });
+    expect(fork.chain.paymentTime).toBe('block-timestamp');
   });
 });
 

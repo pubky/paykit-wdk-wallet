@@ -13,10 +13,10 @@
 // renders nothing, and those screens leave out the text around it too.
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../../config/evmChain';
-import { Button, Text, space } from '../../ui';
+import { Button, ExplorerButton, Text, space } from '../../ui';
 import { DEFAULT_FAUCET_MINT_UNITS, formatAssetAmount, sendFailureFor, useUsdtFaucet, useWalletBalances } from '../../wallet';
 
 /** "Get 1,000 test USD₮". */
@@ -84,7 +84,7 @@ function MintButton({ compact, faucetBelow }: GetTestUsdtButtonProps) {
           <Text variant="caption" color="graphite">
             Minting. It arrives with {EVM_CHAIN.pendingUntil}.
           </Text>
-          {explorerUrl ? <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(explorerUrl)} /> : null}
+          <ExplorerButton url={explorerUrl} compact />
         </View>
       ) : null}
       {error ? (

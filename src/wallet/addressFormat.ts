@@ -16,7 +16,7 @@
 // first address would send the tokens to the contract, where they are lost.
 import { BTC_CHAIN } from '../config/btcChain';
 import { AAVE_SEPOLIA_FAUCET } from '../config/chains';
-import { EVM_CHAIN } from '../config/evmChain';
+import { AAVE_FAUCET_FUNDING, EVM_CHAIN } from '../config/evmChain';
 import type { Chain } from './assets';
 
 /** The build network's bech32 prefix, for messages: "tb1" or "bcrt1". */
@@ -85,7 +85,7 @@ export function parseQueryParams(query: string): Map<string, string> {
  * money: tokens sent to them are lost, so they are never accepted as a
  * recipient.
  */
-const KNOWN_CONTRACTS = EVM_CHAIN.funding.kind === 'aave-faucet' ? [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET] : [EVM_CHAIN.usdtToken];
+const KNOWN_CONTRACTS = AAVE_FAUCET_FUNDING ? [EVM_CHAIN.usdtToken, AAVE_SEPOLIA_FAUCET] : [EVM_CHAIN.usdtToken];
 
 export function isKnownContract(address: string): boolean {
   return KNOWN_CONTRACTS.some((contract) => sameEvmAddress(contract, address));

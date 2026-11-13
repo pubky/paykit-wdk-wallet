@@ -2,8 +2,7 @@
 import type { ActivityItem } from '../../../wallet';
 import { activityPersonFor, type AddressBook } from '../activity/activityPeople';
 import { activityTitleWithPerson, networkName } from '../activity/activityText';
-import { withBtcChain } from '../../../config/__tests__/withBtcChain';
-import { withEvmChain } from '../../../config/__tests__/withEvmChain';
+import { withBtcChain, withEvmChain } from '../../../config/__tests__/withEnv';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const BEN_BTC = 'tb1qzrav4ryngqgz8edew2y37976y9rvt2syvwuhgx';

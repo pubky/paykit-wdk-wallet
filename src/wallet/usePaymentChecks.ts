@@ -8,10 +8,11 @@
 //                            account index each), plus the block's time
 //                            from the network's esplora
 //   evmTransaction(hash)     getTransaction on the build's EVM chain:
-//                            finality, success, logs. On a 'block-timestamp'
-//                            chain (src/config/evmChain.ts), also the
-//                            block's time, read from the chain's RPC
-//                            (WDK does not return it)
+//                            finality, success, logs. With `withBlockTime`
+//                            on a 'block-timestamp' chain
+//                            (src/config/evmChain.ts), also the block's
+//                            time, read from the chain's RPC (WDK does not
+//                            return it); only the payee's time check needs it
 //   findSentPayment(query)   a payment the app lost track of (no hash):
 //                            account 0's sent transfers. Bitcoin from WDK's
 //                            getTransfers (mempool included), with block
@@ -36,7 +37,7 @@ import { EVM_CHAIN } from '../config/evmChain';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import { BTC_HISTORY_FETCH_LIMIT, parseBtcTransfers } from './activity';
 import { isErc20PaymentTypedData, type Erc20PaymentTypedData } from './erc20PaymentProof';
-import { FETCH_TIMEOUT_MS, fetchBtcTransactionStatus } from './esplora';
+import { fetchBtcTransactionStatus, fetchJsonWithTimeout } from './esplora';
 import {
   btcReceiptFromTransfers,
   btcSendStatus,
@@ -65,7 +66,7 @@ type EvmExtension = {
 
 export type AccountZeroPaymentChecks = {
   btcSent(txid: string): Promise<BtcSendStatus>;
-  evmTransaction(hash: string): Promise<EvmTransaction>;
+  evmTransaction(hash: string, options?: { withBlockTime?: boolean }): Promise<EvmTransaction>;
   /** Throws when a source can't be read: the caller must not take that as "not sent". */
   findSentPayment(query: SentTransferQuery): Promise<SentTransferMatch>;
   signErc20Payment(typedData: Erc20PaymentTypedData): Promise<string>;
@@ -86,7 +87,7 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
           return { found: false, confirmed: false };
         }
       },
-      evmTransaction: async (hash) => {
+      evmTransaction: async (hash, options) => {
         let tx: EvmTransaction;
         try {
           tx = evmTransactionFrom(await evm().getTransaction(hash));
@@ -94,7 +95,7 @@ export function useAccountZeroPaymentChecks(): AccountZeroPaymentChecks {
           return { state: 'unknown' };
         }
         // The payee checks when it was paid (paymentProofs.ts); WDK gives only the block.
-        if (tx.state === 'succeeded' && EVM_CHAIN.paymentTime.kind === 'block-timestamp') tx.blockTimeMs = await fetchEvmBlockTimeMs(tx);
+        if (options?.withBlockTime && tx.state === 'succeeded' && EVM_CHAIN.paymentTime === 'block-timestamp') tx.blockTimeMs = await fetchEvmBlockTimeMs(tx);
         return tx;
       },
       findSentPayment: async (query) => {
@@ -131,20 +132,10 @@ async function fetchEvmBlockTimeMs(tx: { blockHash?: string; blockNumber?: numbe
   if (tx.blockHash !== undefined) request = { method: 'eth_getBlockByHash', params: [tx.blockHash, false] };
   else if (tx.blockNumber !== undefined) request = { method: 'eth_getBlockByNumber', params: [`0x${tx.blockNumber.toString(16)}`, false] };
   else return undefined;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(EVM_CHAIN.rpc, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }),
-      signal: controller.signal,
-    });
-    return response.ok ? evmBlockTimeMsFrom(await response.json(), tx.blockHash) : undefined;
+    return evmBlockTimeMsFrom(await fetchJsonWithTimeout(EVM_CHAIN.rpc, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }) }), tx.blockHash);
   } catch {
     return undefined;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

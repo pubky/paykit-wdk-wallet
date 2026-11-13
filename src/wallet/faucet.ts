@@ -21,7 +21,7 @@ import {
   AAVE_SEPOLIA_FAUCET,
   SEPOLIA_USDT,
 } from '../config/chains';
-import { EVM_CHAIN } from '../config/evmChain';
+import { AAVE_FAUCET_FUNDING } from '../config/evmChain';
 import { isEvmAddress, sameEvmAddress } from './addressFormat';
 
 /** Default amount for "Get test USD₮": 1,000 USD₮ in micro-units. */
@@ -63,7 +63,7 @@ export function usdtFaucetTransaction(to: string, amount: bigint = DEFAULT_FAUCE
  */
 export function isAllowedContractCall(tx: { to: string; value: string; data: string }): boolean {
   return (
-    EVM_CHAIN.funding.kind === 'aave-faucet' &&
+    AAVE_FAUCET_FUNDING !== undefined &&
     sameEvmAddress(tx.to, AAVE_SEPOLIA_FAUCET) &&
     tx.value === '0' &&
     tx.data.toLowerCase().startsWith(AAVE_FAUCET_MINT_SELECTOR) &&

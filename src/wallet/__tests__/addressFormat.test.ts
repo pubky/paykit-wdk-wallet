@@ -2,8 +2,7 @@
 // and EVM chain (src/config/evmChain.ts).
 import { AAVE_SEPOLIA_FAUCET } from '../../config/chains';
 import { checkRecipientAddress, isKnownContract, isPayableBtcAddress, payeeOfPaymentText } from '../addressFormat';
-import { withBtcChain } from '../../config/__tests__/withBtcChain';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withBtcChain, withEvmChain } from '../../config/__tests__/withEnv';
 
 const TB1 = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
 const BCRT1 = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';

@@ -56,18 +56,16 @@ export type EvmFunding =
 
 /**
  * How the payee decides when a USD₮ payment was made, to refuse one from
- * before the request (src/paykit/paymentProofs.ts).
+ * before the request. The numbers live with the rule, in
+ * src/paykit/paymentProofs.ts.
  *
- * 'slot-bound': at most one block per slot, so n confirmations mean the
- * transaction was mined at least (n-1) slots ago. Holds on Sepolia only.
- * 'block-timestamp': the block's own timestamp, read from the RPC, with
- * `allowanceMs` for the sequencer's and the phones' clocks. Arbitrum makes
- * several blocks a second, and an Anvil fork mines on demand, so counting
- * confirmations says nothing about time there.
+ * 'slot-bound': at most one block per 12 s slot, so n confirmations mean
+ * the transaction was mined at least (n-1) slots ago. Holds on Sepolia only.
+ * 'block-timestamp': the block's own timestamp, read from the RPC. Arbitrum
+ * makes several blocks a second, and an Anvil fork mines on demand, so
+ * counting confirmations says nothing about time there.
  */
-export type EvmPaymentTime =
-  | { readonly kind: 'slot-bound'; readonly slotMs: number }
-  | { readonly kind: 'block-timestamp'; readonly allowanceMs: number };
+export type EvmPaymentTime = 'slot-bound' | 'block-timestamp';
 
 export type EvmChainProfile = {
   readonly id: EvmChainId;
@@ -89,9 +87,7 @@ export type EvmChainProfile = {
   readonly endpointId: UsdtEndpointId;
   readonly funding: EvmFunding;
   readonly paymentTime: EvmPaymentTime;
-  /** True when ETH and USD₮ are real money: the screens warn about it. */
-  readonly realFunds: boolean;
-  /** What the Wallet tab and the Send review say, always, on a real-funds build; none otherwise. */
+  /** Set exactly when ETH and USD₮ are real money: what the Wallet tab and the Send review always say. */
   readonly realFundsWarning: string | undefined;
   /** The build-time switch that picked this chain, shown in Network details; none for the default. */
   readonly buildSwitch: string | undefined;
@@ -140,9 +136,7 @@ const SEPOLIA: EvmChainProfile = {
   activityApi: SEPOLIA_BLOCKSCOUT_API,
   endpointId: 'usdt-sepolia-address',
   funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
-  // Sepolia makes at most one block per 12 s slot.
-  paymentTime: { kind: 'slot-bound', slotMs: 12_000 },
-  realFunds: false,
+  paymentTime: 'slot-bound',
   realFundsWarning: undefined,
   buildSwitch: undefined,
   ethAssetId: 'eth-sepolia',
@@ -162,12 +156,6 @@ const SEPOLIA: EvmChainProfile = {
   tokenLabel: 'USD₮ token (Aave test USDT)',
 };
 
-/**
- * The rule for both Arbitrum profiles: the block's timestamp, give or take
- * 10 minutes (the same allowance as Bitcoin's block time).
- */
-const ARBITRUM_PAYMENT_TIME: EvmPaymentTime = { kind: 'block-timestamp', allowanceMs: 10 * 60_000 };
-
 const ARBITRUM_FORK: EvmChainProfile = {
   id: 'arbitrum-fork',
   // A fork keeps Arbitrum One's chain id and token, so Bitkit's payloads and proofs match as they are.
@@ -178,8 +166,7 @@ const ARBITRUM_FORK: EvmChainProfile = {
   activityApi: undefined,
   endpointId: 'usdt-arbitrum-address',
   funding: { kind: 'anvil-fork' },
-  paymentTime: ARBITRUM_PAYMENT_TIME,
-  realFunds: false,
+  paymentTime: 'block-timestamp',
   realFundsWarning: undefined,
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
   // Not Arbitrum One's ids: the fork's balances must never land in the real chain's cache entry.
@@ -211,8 +198,7 @@ const ARBITRUM_ONE: EvmChainProfile = {
   activityApi: undefined,
   endpointId: 'usdt-arbitrum-address',
   funding: { kind: 'real-funds' },
-  paymentTime: ARBITRUM_PAYMENT_TIME,
-  realFunds: true,
+  paymentTime: 'block-timestamp',
   realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
   buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
   ethAssetId: 'eth-arbitrum-one',

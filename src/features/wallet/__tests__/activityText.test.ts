@@ -1,4 +1,4 @@
-import { withEvmChain } from '../../../config/__tests__/withEvmChain';
+import { withEvmChain } from '../../../config/__tests__/withEnv';
 import type { ActivityItem } from '../../../wallet';
 import { activityPersonHint, activityStatusWords, activityTitle, isFaucetMint } from '../activity/activityText';
 

@@ -1,7 +1,7 @@
 import { btcReceivingDetail, usdtReceivingDetail } from '../endpoints';
 import { acceptedAssets, cannotPayReason, publicPaymentOptionsFrom, type ResolvedEndpointData } from '../publicPaymentOptions';
 import { ENDPOINT_BTC, ENDPOINT_USDT } from '../../config/paykit';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withEvmChain } from '../../config/__tests__/withEnv';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const MALLORY = 'pubky8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo';

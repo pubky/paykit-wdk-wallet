@@ -8,7 +8,7 @@ import {
   SEPOLIA_RPC,
 } from '../chains';
 import { AAVE_FAUCET_FUNDING, EVM_CHAIN, evmChainFromEnv } from '../evmChain';
-import { withEvmChain } from './withEvmChain';
+import { withEvmChain } from './withEnv';
 
 // USD₮0 on Arbitrum One, in lowercase, exactly as Bitkit publishes it.
 const USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
@@ -26,8 +26,7 @@ describe('evmChainFromEnv', () => {
         activityApi: SEPOLIA_BLOCKSCOUT_API,
         endpointId: 'usdt-sepolia-address',
         funding: { kind: 'aave-faucet', ethFaucetUrl: SEPOLIA_ETH_FAUCET_URL, testNetwork: 'Sepolia' },
-        paymentTime: { kind: 'slot-bound', slotMs: 12_000 },
-        realFunds: false,
+        paymentTime: 'slot-bound',
         realFundsWarning: undefined,
         buildSwitch: undefined,
         // These key WDK's balance cache: changing them would orphan existing installs' balances.
@@ -60,8 +59,7 @@ describe('evmChainFromEnv', () => {
       activityApi: undefined,
       endpointId: 'usdt-arbitrum-address',
       funding: { kind: 'anvil-fork' },
-      paymentTime: { kind: 'block-timestamp', allowanceMs: 600_000 },
-      realFunds: false,
+      paymentTime: 'block-timestamp',
       realFundsWarning: undefined,
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-fork',
       ethAssetId: 'eth-arbitrum-fork',
@@ -80,8 +78,7 @@ describe('evmChainFromEnv', () => {
       activityApi: undefined,
       endpointId: 'usdt-arbitrum-address',
       funding: { kind: 'real-funds' },
-      paymentTime: { kind: 'block-timestamp', allowanceMs: 600_000 },
-      realFunds: true,
+      paymentTime: 'block-timestamp',
       realFundsWarning: 'Arbitrum One: real USD₮ and ETH. This demo wallet stores keys with demo-grade protection.',
       buildSwitch: 'EXPO_PUBLIC_EVM_CHAIN=arbitrum-one',
       ethAssetId: 'eth-arbitrum-one',
@@ -132,7 +129,7 @@ describe('the real-funds warning', () => {
   it('is set only where the funds are real', () => {
     for (const value of ['', 'arbitrum-fork', 'arbitrum-one']) {
       const profile = evmChainFromEnv(value);
-      expect(profile.realFundsWarning !== undefined).toBe(profile.realFunds);
+      expect(profile.realFundsWarning !== undefined).toBe(profile.funding.kind === 'real-funds');
     }
   });
 });

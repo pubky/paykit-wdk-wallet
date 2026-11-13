@@ -113,8 +113,8 @@ export type PaymentChain = {
   btcReceived(accountIndex: number, txid: string, address: string): Promise<BtcReceipt>;
   /** Our own Bitcoin payment, from account 0 (WDK getTransaction). */
   btcSent(txid: string): Promise<BtcSendStatus>;
-  /** Any transaction on the build's EVM chain (WDK getTransaction, plus its block time where the chain needs it). */
-  evmTransaction(hash: string): Promise<EvmTransaction>;
+  /** Any transaction on the build's EVM chain (WDK getTransaction; with `withBlockTime`, its block time where the chain's payment-time rule needs it). */
+  evmTransaction(hash: string, options?: { withBlockTime?: boolean }): Promise<EvmTransaction>;
   /** Our own sent transfer for a payment that has no hash yet (account 0's history). Throws if it can't tell. */
   findSentPayment(query: SentTransferQuery): Promise<SentTransferMatch>;
   /** Sign a USD₮ payment proof with EVM account 0 (WDK signTypedData; refuses any other typed data). */

@@ -1,5 +1,5 @@
 import { AAVE_SEPOLIA_FAUCET, SEPOLIA_USDT } from '../../config/chains';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withEvmChain } from '../../config/__tests__/withEnv';
 import { CONFIRMATION_TIME } from '../assets';
 import { addressFromPaymentText, checkRecipientAddress } from '../addressFormat';
 import { parseRecommendedFeeRate, parseTransactionStatus } from '../esplora';

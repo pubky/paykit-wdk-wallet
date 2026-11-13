@@ -10,8 +10,7 @@ import {
   utf8ByteLength,
   type ParsedEndpoint,
 } from '../endpoints';
-import { withBtcChain } from '../../config/__tests__/withBtcChain';
-import { withEvmChain } from '../../config/__tests__/withEvmChain';
+import { withBtcChain, withEvmChain } from '../../config/__tests__/withEnv';
 
 const EVM = '0x00000000000000000000000000000000000000aa';
 const BTC = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
