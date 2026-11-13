@@ -50,7 +50,7 @@ This app has two engines and one UI:
 | `src/App.tsx` | Providers from the outside in: SafeArea, `WdkAppProvider`, fonts, `PaykitProvider`, `NavigationContainer`. |
 | `src/config/chains.ts` | Chain constants with no imports (Mutinynet Electrum, Sepolia RPC, USD₮ token, Aave faucet, explorers, Blockscout, and Arbitrum One's chain id and USD₮0, plus the local fork's RPC). |
 | `src/config/btcChain.ts`, `src/config/evmChain.ts` | The build's Bitcoin and EVM chain profiles, picked by `EXPO_PUBLIC_BTC_CHAIN` and `EXPO_PUBLIC_EVM_CHAIN` (see "Chain modes"). |
-| `src/config/wdk.ts` | WDK runtime config, `WALLET_ID` (one per EVM mode), WDK asset descriptors. Keys must match `wdk.config.js`. |
+| `src/config/wdk.ts` | WDK runtime config, `WALLET_ID`, WDK asset descriptors. Keys must match `wdk.config.js`. |
 | `src/config/paykit.ts` | Frozen identifiers: staging homeserver, Pubky client id, Paykit app id, endpoint identifiers. |
 | `src/config/sync.ts` | Poll intervals, call timeout, link retry backoff. |
 | `src/config/demo.ts` | Dev-only prefill from the git-ignored `demo.local.ts`. |
@@ -120,22 +120,13 @@ because they key WDK's balance cache. Paykit state
 (contacts, requests, the ledger) is not keyed by chain, so each mode
 needs its own install, and its own identity (`docs/BITKIT-USDT-FORK.md`).
 
-Each EVM mode keeps its seed under its own wallet id (`WALLET_ID` in
-`src/config/wdk.ts`): `paykit-wdk-demo` on Sepolia, as always, and
-`paykit-wdk-demo-<mode>` otherwise. A seed under the build's id is
-therefore always the build's mode, even after an iOS reinstall that kept
-the Keychain. The rest of the app's state is guarded by a record:
-`createWallet` and `restoreWallet` write `EVM_CHAIN.id` to the
-app-settings MMKV file (`wallet-evm-mode-v1`) before WDK holds the
-wallet. The device's mode is the record if there is one; else Sepolia if
-a seed exists under `paykit-wdk-demo` (an install from before the
-record); else unknown. When it is known and not the build's, `unlock`,
-`createWallet` and `restoreWallet` throw `WrongEvmModeError` (create and
-restore check first, so onboarding cannot record the build's mode over a
-Sepolia seed that an iOS reinstall kept), `useWalletLifecycle` reports
-`'wrong-evm-mode'` with the reason in `error`, and RootNavigator shows it
-instead of opening the wallet (`src/wallet/evmModeGuard.ts`). Existing
-Sepolia installs open as before.
+Nothing at runtime enforces this, as for `EXPO_PUBLIC_BTC_CHAIN`: both
+EVM modes are test networks, and every mode uses the one wallet id
+(`WALLET_ID`). Switching `EXPO_PUBLIC_EVM_CHAIN` on an existing install,
+or restoring a Paykit backup made under the other mode, mixes the two
+modes' contacts, requests and proofs; USD₮ proofs from the other mode
+are then rejected as "The proof names another network". Use a fresh
+install, or erase the simulator, per mode.
 
 ## Wallet service (`src/wallet`)
 
@@ -146,8 +137,8 @@ micro-units, wei); `amounts.ts` formats and parses them.
 ```ts
 // lifecycle
 useWalletLifecycle(): {
-  status: 'starting' | 'no-wallet' | 'locked' | 'ready' | 'wrong-evm-mode' | 'error';
-  error?: string;                                   // for 'wrong-evm-mode': why this build does not open it
+  status: 'starting' | 'no-wallet' | 'locked' | 'ready' | 'error';
+  error?: string;
   createWallet(): Promise<void>;
   restoreWallet(mnemonic: string): Promise<void>;   // deletes any existing wallet first; callers confirm
   unlock(): Promise<void>;

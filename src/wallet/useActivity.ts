@@ -168,6 +168,10 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
       streaks.current[source] = nextFailureStreak(streaks.current[source], succeeded);
     };
     try {
+      // Three independent chains, so a slow Blockscout (up to
+      // BLOCKSCOUT_TIMEOUT_MS) holds up neither the Bitcoin block times nor
+      // the pending-send check. That check skips the sends in the last
+      // Blockscout list; one listed since is just read once more from WDK.
       await Promise.all([
         retryIfElectrumDropped(() => extension().getTransfers({ limit: BTC_HISTORY_FETCH_LIMIT }))
           .then((transfers) => {
@@ -175,7 +179,9 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
             setBtcItems(lastFetched.btc);
             track('btc', true);
           })
-          .catch(() => track('btc', false)),
+          .catch(() => track('btc', false))
+          .then(() => fetchMissingBlockTimes([...lastFetched.btc, ...contactAccountActivity()]))
+          .then((added) => added && setBlockTimesVersion((v) => v + 1)),
         fetchEvmActivity(evmAddress)
           .then((items) => {
             lastFetched.evm = items;
@@ -183,9 +189,6 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
             track('evm', true);
           })
           .catch(() => track('evm', false)),
-      ]);
-      await Promise.all([
-        fetchMissingBlockTimes([...lastFetched.btc, ...contactAccountActivity()]).then((added) => added && setBlockTimesVersion((v) => v + 1)),
         confirmPendingEvmSends(lastFetched.evm, evmExtension),
       ]);
       // Older lists stay on screen; only a run of failures is worth a line.

@@ -21,9 +21,13 @@
 //
 // USD₮ payment proofs compare the payment's block time with when the
 // request was made, and a fork's clock can lag (for example with
-// --fork-block-number). The script warns when the latest block is more than
-// 5 minutes from this computer's clock. --sync-time mines one block at this
-// computer's time (evm_setNextBlockTimestamp, then evm_mine).
+// --fork-block-number). The script warns when the time the next block would
+// get is more than 5 minutes from this computer's clock. It reads that from
+// the 'pending' block, and falls back to the latest block only when the node
+// gives no pending timestamp: an idle Anvil with automine mines nothing, so
+// its latest block falls behind while the next one is still stamped right.
+// --sync-time mines one block at this computer's time
+// (evm_setNextBlockTimestamp, then evm_mine) when that clock is behind.
 import { parseArgs } from 'node:util';
 import { AbiCoder, Contract, JsonRpcProvider, getAddress, keccak256, parseUnits, toBeHex, toQuantity } from 'ethers';
 
@@ -111,29 +115,43 @@ try {
 if (!/anvil/i.test(String(client))) fail(`${rpc} runs "${client}", not Anvil. This script only rewrites balances on a local Anvil fork.`);
 if (chainId !== expectedChainId) fail(`${rpc} is on chain ${chainId}, not Arbitrum One (${expectedChainId}). Fork https://arb1.arbitrum.io/rpc.`);
 
-async function latestBlockSeconds() {
-  const block = await provider.send('eth_getBlockByNumber', ['latest', false]);
-  return Number(BigInt(block.timestamp));
+async function blockSeconds(tag) {
+  const block = await provider.send('eth_getBlockByNumber', [tag, false]);
+  return block?.timestamp == null ? undefined : Number(BigInt(block.timestamp));
+}
+
+/**
+ * The fork's clock: the time the next block would get ('pending'), or the
+ * latest block's time when the node gives no pending timestamp. `measured`
+ * says which one, for the messages.
+ */
+async function forkClock() {
+  const pending = await blockSeconds('pending').catch(() => undefined);
+  if (pending !== undefined) return { seconds: pending, measured: "the fork's next block would be" };
+  const latest = await blockSeconds('latest');
+  if (latest === undefined) fail(`${rpc} returned no latest block.`);
+  return { seconds: latest, measured: "the fork's latest block is" };
 }
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-let blockSeconds = await latestBlockSeconds();
+let clock = await forkClock();
 if (options['sync-time']) {
   const now = nowSeconds();
-  if (blockSeconds < now) {
+  if (clock.seconds < now) {
     await provider.send('evm_setNextBlockTimestamp', [toQuantity(now)]);
     await provider.send('evm_mine', []);
-    blockSeconds = await latestBlockSeconds();
-    console.log(`Mined a block at this computer's time, ${new Date(blockSeconds * 1000).toISOString()}.`);
+    const mined = await blockSeconds('latest');
+    console.log(`Mined a block at this computer's time, ${new Date((mined ?? now) * 1000).toISOString()}.`);
+    clock = await forkClock();
   } else {
     console.log("The fork's clock is not behind this computer's, so --sync-time mined nothing.");
   }
 }
-const drift = blockSeconds - nowSeconds();
+const drift = clock.seconds - nowSeconds();
 if (Math.abs(drift) > MAX_CLOCK_DRIFT_SECONDS) {
   const fix = drift < 0 ? 'Run again with --sync-time.' : 'A fork cannot go back in time: restart Anvil.';
   console.warn(
-    `Warning: the fork's latest block is ${Math.round(Math.abs(drift) / 60)} minutes ${drift < 0 ? 'behind' : 'ahead of'} this computer's clock. ` +
+    `Warning: ${clock.measured} ${Math.round(Math.abs(drift) / 60)} minutes ${drift < 0 ? 'behind' : 'ahead of'} this computer's clock. ` +
       `USD₮ payment proofs compare block time with when the request was made, so payments may be refused. ${fix}`,
   );
 }

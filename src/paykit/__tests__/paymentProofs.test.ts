@@ -250,13 +250,13 @@ describe('verifyErc20Proof', () => {
         });
       });
 
-      it('checks the signature on the second pass', async () => {
-        const verdict = await verifyErc20ProofReadingBlockTime(
-          minedAt(undefined),
-          await context({ notBefore, paymentTime, proof: await proofFor(Wallet.createRandom()) }),
-          reader(NOW - 30_000),
-        );
-        expect(verdict).toEqual({ status: 'rejected', reason: 'The signature is not from the account that paid.' });
+      it('rejects a bad signature without reading the block time', async () => {
+        const read = reader(NOW - 30_000);
+        const forged = await context({ notBefore, paymentTime, proof: await proofFor(Wallet.createRandom()) });
+        const rejected = { status: 'rejected', reason: 'The signature is not from the account that paid.' };
+        expect(verifyErc20Proof(minedAt(undefined), forged)).toEqual(rejected);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), forged, read)).toEqual(rejected);
+        expect(read).not.toHaveBeenCalled();
       });
 
       it('stays pending, never verified, when the time cannot be read', async () => {

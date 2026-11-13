@@ -57,18 +57,19 @@ describe('evmTransactionFrom', () => {
     });
   });
 
-  it('reads the block number and hash, to look the block time up by', () => {
+  it('reads the block hash, to look the block time up by', () => {
     const blockHash = `0x${'AB'.repeat(32)}`;
     const mined = (overrides: object) => ({ finality: 'confirmed', success: true, confirmations: 1, ...overrides });
-    expect(evmTransactionFrom(mined({ block: 42, receipt: { status: 1, logs: [], blockNumber: 42, blockHash } }))).toMatchObject({
+    expect(evmTransactionFrom(mined({ block: 42, receipt: { status: 1, logs: [], blockNumber: 42, blockHash } }))).toEqual({
       state: 'succeeded',
-      blockNumber: 42,
+      confirmations: 1,
+      logs: [],
       blockHash: blockHash.toLowerCase(),
     });
-    // The receipt's number when WDK's `block` is missing; nothing when neither is a block number.
-    expect(evmTransactionFrom(mined({ receipt: { status: 1, logs: [], blockNumber: 7 } }))).toMatchObject({ blockNumber: 7, blockHash: undefined });
-    const junk = evmTransactionFrom(mined({ block: -1, receipt: { status: 1, logs: [], blockNumber: '7', blockHash: '0x1234' } }));
-    expect(junk).toMatchObject({ state: 'succeeded', blockNumber: undefined, blockHash: undefined });
+    // Nothing when the receipt's block hash is not a 32-byte hash; the block number is never kept.
+    const junk = evmTransactionFrom(mined({ block: 42, receipt: { status: 1, logs: [], blockNumber: 42, blockHash: '0x1234' } }));
+    expect(junk).toMatchObject({ state: 'succeeded', blockHash: undefined });
+    expect(junk).not.toHaveProperty('blockNumber');
     // The time is never read here: the bridge asks the RPC for it.
     expect(junk).not.toHaveProperty('blockTimeMs');
   });

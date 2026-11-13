@@ -79,17 +79,11 @@ export type EvmTransaction =
       state: 'succeeded';
       confirmations: number;
       logs: EvmLog[];
-      /** The block it was mined in, from WDK's `block` (or the receipt's `blockNumber`). */
-      blockNumber?: number;
       /** The receipt's `blockHash` (lowercase), to read the block's time by. */
       blockHash?: string;
       /** The block's timestamp (ms), once read from the RPC (evmBlockTimeMsFrom). */
       blockTimeMs?: number;
     };
-
-function blockNumberOf(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-}
 
 /**
  * From WDK EVM `getTransaction(hash)` (finality, success, confirmations and
@@ -101,8 +95,7 @@ export function evmTransactionFrom(result: unknown): EvmTransaction {
     finality?: unknown;
     success?: unknown;
     confirmations?: unknown;
-    block?: unknown;
-    receipt?: { logs?: unknown; status?: unknown; blockNumber?: unknown; blockHash?: unknown } | null;
+    receipt?: { logs?: unknown; status?: unknown; blockHash?: unknown } | null;
   } | null;
   if (!tx || typeof tx !== 'object') return { state: 'unknown' };
   if (tx.finality === 'dropped') return { state: 'dropped' };
@@ -115,7 +108,6 @@ export function evmTransactionFrom(result: unknown): EvmTransaction {
   return {
     state: 'succeeded',
     confirmations,
-    blockNumber: blockNumberOf(tx.block) ?? blockNumberOf(tx.receipt.blockNumber),
     blockHash: isEvmHash32(blockHash) ? blockHash.toLowerCase() : undefined,
     logs: logs.map((log: { address?: unknown; topics?: unknown; data?: unknown }) => ({
       address: typeof log?.address === 'string' ? log.address : '',

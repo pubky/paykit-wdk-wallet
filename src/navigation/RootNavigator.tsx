@@ -3,7 +3,6 @@
 //   WDK starting           -> a quiet splash
 //   wallet locked          -> unlock automatically once at launch (no PIN in this demo)
 //   worklet error          -> "restart the app" (WDK cannot recover in-process)
-//   other EVM mode's wallet -> why this build does not open it (src/wallet/evmModeGuard.ts)
 //   onboarding incomplete  -> Onboarding stack
 //   otherwise              -> Tabs, plus modal and pushed routes
 //
@@ -53,8 +52,7 @@ export function RootNavigator() {
       try {
         if (status === 'locked' || (await hasStoredWallet())) await unlock();
       } catch {
-        // Shown through the wallet's status: 'wrong-evm-mode' when unlock
-        // refused another EVM mode's wallet, 'error' for anything else.
+        // Shown as the wallet error state.
       } finally {
         setCheckingStoredWallet(false);
       }
@@ -65,13 +63,6 @@ export function RootNavigator() {
   // it mounted through transient states so onboarding keeps its place.
   const navigatorShown = useRef(false);
 
-  if (status === 'wrong-evm-mode') {
-    return (
-      <Screen title="This wallet is on another network">
-        <Text color="graphite">{wallet.error}</Text>
-      </Screen>
-    );
-  }
   if (status === 'error') {
     return (
       <Screen title="Something went wrong">

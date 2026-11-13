@@ -121,12 +121,16 @@ paid on a lagging fork is refused, and the refusal is final: "It was
 paid before you asked for it." See "When a payment was made" below for
 why the window is 10 minutes.
 
-Check the latest block's time against your Mac's:
+Check the time the fork's next block would get against your Mac's:
 
 ```sh
-cast block latest --field timestamp --rpc-url http://127.0.0.1:18545
+cast block pending --field timestamp --rpc-url http://127.0.0.1:18545
 date +%s
 ```
+
+Use `pending`, not `latest`: Anvil mines only when a transaction
+arrives, so an idle fork's latest block falls behind your Mac's clock
+even though the next block will be stamped correctly.
 
 `scripts/fund-fork.mjs` also warns when the two differ by more than 5
 minutes. If the fork is behind, run it with `--sync-time` (see "Fund
@@ -328,19 +332,13 @@ Run each EVM mode in its own install, on its own simulator, as
 the payment ledger and proofs stored under `usdt-sepolia-address` do not
 carry over to `usdt-arbitrum-address`.
 
-The wallet enforces this part. Each EVM mode keeps its seed under its
-own wallet id (`paykit-wdk-demo` on Sepolia, `paykit-wdk-demo-arbitrum-fork`
-on the fork), and the app records the EVM mode its wallet was created or
-restored under (`src/wallet/evmModeGuard.ts`, stored in the plain
-app-settings file). A build for another EVM mode does not open it, nor
-create or restore a wallet there, and shows "This wallet is on another
-network" with both modes named. With
-no record, a device with a seed under the Sepolia id counts as Sepolia:
-an install from before the record still opens on the default build
-only, and the fork build refuses it. On iOS, deleting the app keeps the
-seeds in the Keychain but loses the record, so a reinstalled fork build
-opens its own wallet again, unless a Sepolia seed is also on the device.
-To start an Arbitrum install fresh, erase the simulator.
+Nothing in the app enforces this, as for `EXPO_PUBLIC_BTC_CHAIN`.
+Switching `EXPO_PUBLIC_EVM_CHAIN` on an existing install (or restoring a
+Paykit backup made under the other mode) mixes the two modes' contacts,
+requests and proofs; USD₮ proofs from the other mode are then rejected
+as "The proof names another network". Use a fresh install, or erase the
+simulator, per mode. On iOS, Keychain items survive an uninstall, so
+erase the simulator to start clean.
 
 Use a separate identity too. Each build publishes only its own USD₮
 endpoint and removes the other (`syncPublicEndpoints` in
@@ -382,10 +380,12 @@ What the script does:
 - It takes `0x` addresses only. It reads no `.env.demo` and no secret.
 - It prints each address's balances afterwards, and exits with an error
   if one does not match.
-- It warns when the fork's latest block is more than 5 minutes from your
-  Mac's clock. `--sync-time` mines one block at your Mac's time
-  (`evm_setNextBlockTimestamp`, then `evm_mine`), only when the fork is
-  behind.
+- It warns when the time the fork's next block would get is more than 5
+  minutes from your Mac's clock. It reads that from the `pending` block,
+  and uses the latest block only when Anvil gives no pending time; the
+  warning says which one it measured. `--sync-time` mines one block at
+  your Mac's time (`evm_setNextBlockTimestamp`, then `evm_mine`), only
+  when the fork is behind.
 
 Options: `--usdt <amount>` (default 1000), `--eth <amount>` (default 1),
 `--rpc <url>` (default `http://127.0.0.1:18545`), `--sync-time`.
@@ -459,9 +459,9 @@ minutes is rare. On the fork, keep the clock current with `--sync-time`
 - **Recurring USD₮ requests to Bitkit, probably not payable.** From
   reading the code only: Bitkit picks no endpoint for a recurring request
   in `usdt` (`PaykitRequestPricing.swift@1b56274c1:97`).
-- **A separate install and identity per EVM mode**, as above. The
-  wallet refuses to open under another EVM mode than its own. The dev
-  prefill is off on non-Sepolia EVM builds.
+- **A separate install and identity per EVM mode**, as above. Nothing
+  in the app enforces it. The dev prefill is off on non-Sepolia EVM
+  builds.
 - **Anvil forgets everything when it stops.** Keep it running for the
   whole demo.
 

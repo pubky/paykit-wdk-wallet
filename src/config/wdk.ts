@@ -15,20 +15,11 @@ export const BTC_NETWORK = 'bitcoin';
 export const EVM_NETWORK = 'ethereum';
 
 /**
- * The Sepolia wallet's id, the only id before other EVM modes existed. Do
- * not change it: existing installs would no longer find their wallet.
+ * The one WDK wallet (seed) this app manages. WDK stores the encrypted seed
+ * in the Keychain/Keystore under this id. Do not change it: existing installs
+ * would no longer find their wallet.
  */
-export const SEPOLIA_WALLET_ID = 'paykit-wdk-demo';
-
-/**
- * The one WDK wallet (seed) this build manages. WDK stores the encrypted
- * seed in the Keychain/Keystore under this id. Each EVM mode has its own:
- * 'paykit-wdk-demo' on Sepolia, 'paykit-wdk-demo-arbitrum-fork' on the
- * fork. So a seed under this id was always set up in this build's mode,
- * even after an iOS reinstall that kept the Keychain but lost the mode
- * record (src/wallet/evmModeGuard.ts).
- */
-export const WALLET_ID = EVM_CHAIN.id === 'sepolia' ? SEPOLIA_WALLET_ID : `${SEPOLIA_WALLET_ID}-${EVM_CHAIN.id}`;
+export const WALLET_ID = 'paykit-wdk-demo';
 
 /**
  * Electrum reconnects. WDK's Bitcoin client (@mempool/electrum-client)

@@ -287,10 +287,8 @@ export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20Proo
   if (transfer.token !== context.token.toLowerCase()) return { status: 'rejected', reason: 'It moved a different token.' };
   if (transfer.to !== context.address.toLowerCase()) return { status: 'rejected', reason: 'It paid a different address.' };
   if (transfer.amount < context.amount) return { status: 'rejected', reason: 'It paid less than the request asked for.' };
-  if (context.notBefore) {
-    const timing = erc20TimeProblem(transaction, context.notBefore, context.paymentTime, context.nowMs);
-    if (timing) return timing;
-  }
+  // The signature check is local, so it runs before the time check: a
+  // forged proof is rejected without waiting on the block's time.
   const typed = erc20PaymentTypedData(context.chainId, {
     transactionHash: context.proof.transactionHash,
     receiptLogIndex: context.proof.receiptLogIndex,
@@ -298,14 +296,18 @@ export function verifyErc20Proof(transaction: EvmTransaction, context: Erc20Proo
   });
   const signer = erc20PaymentSigner(typed, context.proof.signature);
   if (!signer || signer !== transfer.from) return { status: 'rejected', reason: 'The signature is not from the account that paid.' };
+  if (context.notBefore) {
+    const timing = erc20TimeProblem(transaction, context.notBefore, context.paymentTime, context.nowMs);
+    if (timing) return timing;
+  }
   return { status: 'verified' };
 }
 
 /**
  * verifyErc20Proof, reading the block's time (`readBlockTimeMs`, one RPC
  * call) only when the verdict waits on it: the claim, chain, token,
- * recipient and amount checks run first, so a proof that fails them costs
- * no call, and neither does a chain whose rule needs no block time
+ * recipient, amount and signature checks run first, so a proof that fails
+ * them costs no call, and neither does a chain whose rule needs no block time
  * ('slot-bound'). Still pending, never verified, if the time can't be read.
  */
 export async function verifyErc20ProofReadingBlockTime(

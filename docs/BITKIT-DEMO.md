@@ -107,11 +107,13 @@ On iOS, Keychain items also survive an uninstall, so erase the simulator
 to start clean.
 
 The same holds for the EVM mode (`EXPO_PUBLIC_EVM_CHAIN`): an install
-on the Arbitrum fork needs its own simulator, and its own identity. The
-wallet records the EVM mode it was set up under, and a build for another
-EVM mode does not open it (a wallet from before the record counts as
-Sepolia). The dev prefill below is off on every EVM mode other than
-Sepolia, so on the fork you create a new wallet and identity.
+on the Arbitrum fork needs its own simulator, and its own identity.
+Switching `EXPO_PUBLIC_EVM_CHAIN` on an existing install (or restoring a
+Paykit backup made under the other mode) mixes the two modes' contacts,
+requests and proofs; USD₮ proofs from the other mode are then rejected
+as "The proof names another network". The dev prefill below is off on
+every EVM mode other than Sepolia, so on the fork you create a new
+wallet and identity.
 [BITKIT-USDT-FORK.md](BITKIT-USDT-FORK.md) says why, and what to do.
 
 ## The demo identity

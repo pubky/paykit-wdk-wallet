@@ -351,9 +351,12 @@ bitkit-core's bundler fixture, the `receiptLogIndex` shim
 (`scripts/arbitrum-fork-rpc.mjs`), launching Bitkit against them, and
 funding both sides with `scripts/fund-fork.mjs`. Not run end to end yet:
 whether Bitkit can send USD₮ on the fork is still open. Use a separate
-install and identity per EVM mode, as for the Bitcoin modes. The wallet
-records the EVM mode it was set up under and does not open in a build
-for another one.
+install and identity per EVM mode (a fresh install, or erase the
+simulator), as for the Bitcoin modes. Switching `EXPO_PUBLIC_EVM_CHAIN`
+on an existing install, or restoring a Paykit backup made under the
+other mode, mixes the two modes' contacts, requests and proofs; USD₮
+proofs from the other mode are then rejected as "The proof names
+another network".
 
 ### Checks
 

@@ -116,7 +116,7 @@ export type PaymentChain = {
   /** Any transaction on the build's EVM chain (WDK getTransaction). */
   evmTransaction(hash: string): Promise<EvmTransaction>;
   /** A mined transaction's block time (ms), from the chain's RPC (WDK does not return it). Undefined if it can't be read. */
-  evmBlockTimeMs(block: { blockHash?: string; blockNumber?: number }): Promise<number | undefined>;
+  evmBlockTimeMs(block: { blockHash?: string }): Promise<number | undefined>;
   /** Our own sent transfer for a payment that has no hash yet (account 0's history). Throws if it can't tell. */
   findSentPayment(query: SentTransferQuery): Promise<SentTransferMatch>;
   /** Sign a USD₮ payment proof with EVM account 0 (WDK signTypedData; refuses any other typed data). */
