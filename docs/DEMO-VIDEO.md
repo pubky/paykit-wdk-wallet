@@ -164,6 +164,21 @@ Never cut across a caption change. The edit follows these rules:
 - Clips join with 0.4 s crossfades.
 - Captions crossfade on their own layer.
 
+### Keep it short
+
+Aim for about 5½ minutes. Recording live leaves about half the footage as
+waiting, and the still cuts alone don't remove it:
+
+- Bitkit's "Sent" and "Received" sheets animate confetti and coins, so a
+  still-frame search counts them as motion. Add a `SKIPS` entry for each
+  one: keep the moment the sheet appears and the moment the other phone
+  updates.
+- Cut each pause between taps to about 1 s.
+- Keep every caption on screen for at least 5½ s, longer for long ones.
+- Look at the frames on both sides of every cut. A small change can be
+  the point of a scene; for example, Ana's contact flipping to "Private
+  connection ready".
+
 `verify.py` must print `PASS`. The title and end cards are in
 `stage2.py`; the side labels are in `render.swift`. Both stay free of
 setup details too.
