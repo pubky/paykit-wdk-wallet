@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
+import { EVM_CHAIN } from '../../../config/evmChain';
 import { AssetAmount, Button, DetailRow, Divider, KeyText, Text, space } from '../../../ui';
 import { CONFIRMATION_TIME, formatAssetAmount, formatFee, type FeeQuote, type SendProblem } from '../../../wallet';
 import type { PayableAsset } from '../AssetPicker';
@@ -47,7 +48,7 @@ export type SendReviewProps = {
 
 const NETWORK: Record<PayableAsset, string> = {
   btc: `${BTC_CHAIN.networkLabel}. Confirms in ${CONFIRMATION_TIME.bitcoin}.`,
-  usdt: `Ethereum Sepolia. Confirms in ${CONFIRMATION_TIME.ethereum}.`,
+  usdt: `${EVM_CHAIN.networkName}. Confirms in ${CONFIRMATION_TIME.ethereum}.`,
 };
 
 export function SendReview({ asset, amount, recipient, address, quote, problem, sending, outcomeUnknown, error, onSend, onEdit, onClose, sendLabel, context }: SendReviewProps) {
@@ -77,7 +78,7 @@ export function SendReview({ asset, amount, recipient, address, quote, problem, 
             quote.feeRate !== undefined
               ? `${quote.feeRate} sat/vB, paid in BTC`
               : asset === 'usdt'
-                ? 'Paid in Sepolia ETH: token transfers need gas.'
+                ? `Paid in ${EVM_CHAIN.gasCoin}: token transfers need gas.`
                 : undefined
           }
           testID="send-fee"

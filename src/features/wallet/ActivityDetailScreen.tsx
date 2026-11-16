@@ -1,6 +1,7 @@
 // Activity detail (pushed): one on-chain transaction. Direction and amount
 // as the headline, its status, the other side's address, the network fee,
-// when it happened and a link to the public explorer.
+// when it happened and a link to the public explorer (where the network
+// has one).
 //
 // The item comes from useActivity() by id (route params carry ids, never
 // records). BTC transfers from WDK carry only a block height, so for a
@@ -14,13 +15,13 @@
 // A transaction that paid a payment request links to that request and says
 // where its receipt is (activity/ActivityPaykitLinks.tsx, below the details).
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { RootScreenProps } from '../../navigation/types';
-import { AssetAmount, Button, Chip, DetailRow, Divider, EmptyState, KeyText, PushedScreen, Text, formatDateTime, relativeTime, space } from '../../ui';
+import { AssetAmount, Chip, DetailRow, ExplorerButton, Divider, EmptyState, KeyText, PushedScreen, Text, formatDateTime, relativeTime, space } from '../../ui';
 import { fetchBtcTransactionStatus, formatFee, transactionUrl, useActivity, type ActivityItem } from '../../wallet';
 import { ActivityPaykitLinks, useRequestLinkFor } from './activity/ActivityPaykitLinks';
-import { activityPersonHint, activityStatusWords, activityTitleWithPerson, isFaucetMint, networkName } from './activity/activityText';
+import { activityPersonHint, activityStatusWords, activityTitleWithPerson, faucetMintSource, networkName } from './activity/activityText';
 import { useActivityPeople } from './activity/useActivityPeople';
 import { PersonSeal } from '../people/PersonSeal';
 import { usePersonName } from '../people/usePersonName';
@@ -67,6 +68,9 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
   // Under a person row that already says To or From, the address row is just their address.
   const counterpartyLabel = person ? 'Address' : item.direction === 'in' ? 'From' : 'To';
   const feeAsset = item.chain === 'bitcoin' ? 'btc' : 'eth';
+  // None on the local Arbitrum fork: it has no explorer.
+  const explorerUrl = transactionUrl(item.chain, item.hash);
+  const faucetSource = faucetMintSource(item);
 
   return (
     <PushedScreen title={activityTitleWithPerson(item, person ? { role: person.role, name } : undefined)} onBack={back} testID="activity-detail">
@@ -92,9 +96,9 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
             <Divider />
           </>
         ) : null}
-        {isFaucetMint(item) ? (
+        {faucetSource ? (
           <>
-            <DetailRow label="From" value="Aave’s Sepolia test-token faucet" />
+            <DetailRow label="From" value={faucetSource} />
             <Divider />
           </>
         ) : item.counterpartyAddress ? (
@@ -133,7 +137,7 @@ export function ActivityDetailScreen({ navigation, route }: RootScreenProps<'Act
         onOpenRequest={(link) => navigation.navigate('RequestDetail', { counterparty: link.counterparty, requestId: link.requestId })}
       />
 
-      <Button label="View on explorer" variant="secondary" onPress={() => void Linking.openURL(transactionUrl(item.chain, item.hash))} style={styles.explorer} />
+      <ExplorerButton url={explorerUrl} style={styles.explorer} />
     </PushedScreen>
   );
 }

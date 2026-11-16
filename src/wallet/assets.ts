@@ -1,10 +1,12 @@
 // The three assets the wallet shows, described in plain data.
 //
 // WDK moves BTC on Mutinynet (or Bitkit's regtest, src/config/btcChain.ts)
-// and ETH + USD₮ on Sepolia. ETH is only shown as gas for USD₮ transfers.
+// and ETH + USD₮ on the build's EVM chain (Sepolia, or Arbitrum,
+// src/config/evmChain.ts). ETH is only shown as gas for USD₮ transfers.
 // Amounts are always bigint in the asset's smallest unit (sats, USD₮
 // micro-units, wei); see ./amounts.ts for display.
 import { BTC_CHAIN } from '../config/btcChain';
+import { EVM_CHAIN } from '../config/evmChain';
 
 export type AssetId = 'btc' | 'usdt' | 'eth';
 
@@ -60,11 +62,12 @@ export const ASSETS: Record<AssetId, AssetInfo> = {
  * How long until a transaction is in a block, in words, per chain. One
  * constant, so the Send review, the sent screen and the faucet agree.
  * Bitcoin's depends on the network (src/config/btcChain.ts `confirmsIn`;
- * Bitkit's regtest mines on demand); Sepolia makes a block every 12 s.
+ * Bitkit's regtest mines on demand), and so does the EVM chain's
+ * (src/config/evmChain.ts: Sepolia makes a block every 12 s).
  */
 export const CONFIRMATION_TIME: Record<Chain, string> = {
   bitcoin: BTC_CHAIN.confirmsIn,
-  ethereum: 'about 12 seconds',
+  ethereum: EVM_CHAIN.confirmsIn,
 };
 
 /** The asset that pays the network fee for a transfer of `asset`. */

@@ -2,15 +2,17 @@
 // the app is in the foreground.
 //
 // WDK's hooks wrap TanStack Query: the worklet reads BTC from the build
-// network's Electrum server (src/config/btcChain.ts) and ETH/USD₮ from a Sepolia RPC. Balances arrive as
+// network's Electrum server (src/config/btcChain.ts) and ETH/USD₮ from the
+// build's EVM RPC (EVM_CHAIN.rpc in src/config/evmChain.ts: public Sepolia
+// by default, the local Anvil fork on arbitrum-fork). Balances arrive as
 // base-unit strings and are converted to bigint here, so screens never
 // touch floating point. Electrum counts unconfirmed incoming BTC, so a
 // payment from the other simulator shows up within seconds.
 //
 // A failed poll keeps each asset's last balance on screen, and the error
 // line shows only after a run of failures (./failureStreak.ts): Electrum
-// and the public Sepolia RPC drop a request now and then, and the next
-// poll usually works.
+// and the EVM RPC drop a request now and then, and the next poll usually
+// works.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBalancesForWallets, useBalancesForWallet } from '@tetherto/wdk-react-native-core';
 

@@ -20,7 +20,6 @@
 // "Received". Pure; unit tested. The hook that feeds it is
 // ./useActivityPeople.ts.
 import type { ActivityItem } from '../../../wallet';
-import { isFaucetMint } from './activityText';
 
 export type ActivityPersonRole = 'paid-you' | 'you-paid' | 'moved';
 
@@ -49,7 +48,8 @@ export function activityPersonFor(item: ActivityItem, book: AddressBook): Activi
   if (request && (request.role === 'payer') === (item.direction === 'out')) {
     return { publicKey: request.publicKey, role: item.direction === 'in' ? 'paid-you' : 'you-paid' };
   }
-  if (item.direction === 'in' || isFaucetMint(item) || !item.counterpartyAddress) return undefined;
+  // A faucet mint is incoming, so this also leaves it alone.
+  if (item.direction === 'in' || !item.counterpartyAddress) return undefined;
   const owner = book.addressOwner(item.counterpartyAddress);
   return owner ? { publicKey: owner, role: 'you-paid' } : undefined;
 }

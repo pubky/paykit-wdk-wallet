@@ -48,7 +48,8 @@ export type FeeQuote = {
   feeRate?: bigint;
 };
 
-export type SendResult = { hash: string; fee?: bigint; explorerUrl: string };
+/** `explorerUrl` is undefined where the network has no explorer (the local Arbitrum fork). */
+export type SendResult = { hash: string; fee?: bigint; explorerUrl?: string };
 
 const WDK_ASSETS: Record<AssetId, IAsset> = { btc: BTC, usdt: USDT, eth: ETH };
 

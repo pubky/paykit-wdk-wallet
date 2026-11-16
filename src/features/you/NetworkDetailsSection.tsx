@@ -14,8 +14,9 @@
 //             (src/paykit/backup.ts)
 //   Chains    Electrum and esplora of the build's Bitcoin network
 //             (src/config/btcChain.ts: Mutinynet, or Bitkit's regtest, which
-//             also names the build's chain mode), Sepolia RPC, chain id,
-//             USD₮ contract, explorer APIs
+//             also names the build's chain mode), and the build's EVM
+//             chain (src/config/evmChain.ts: Sepolia, or the local Arbitrum
+//             fork, named too): RPC, chain id, history API, USD₮ contract
 //   SDKs      WDK and Paykit package versions
 //
 // Everything shown is public or a status. The registry is read live (two
@@ -24,7 +25,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN } from '../../config/btcChain';
-import { SEPOLIA_BLOCKSCOUT_API, SEPOLIA_CHAIN_ID, SEPOLIA_RPC, SEPOLIA_USDT } from '../../config/chains';
+import { EVM_CHAIN } from '../../config/evmChain';
 import { PAYKIT_APP_ID, PUBKY_CLIENT_ID, STAGING_HOMESERVER } from '../../config/paykit';
 import { PAYKIT_PACKAGE, WDK_PACKAGES } from '../../config/versions';
 import {
@@ -47,10 +48,12 @@ const SESSION_ORIGIN_WORDS = {
   signUp: 'Signed up on this device',
 } as const;
 
-// The default build (Mutinynet) reads as it always has; any other chain
-// mode also says which build-time switch picked it.
+// The default builds (Mutinynet, Sepolia) read as they always have; any
+// other chain mode also says which build-time switch picked it.
 const BTC_DETAILS_HINT =
   `Fee rates and block times: ${BTC_CHAIN.esploraApi}` + (BTC_CHAIN.buildSwitch ? `. Chain mode: ${BTC_CHAIN.buildSwitch}.` : '');
+const EVM_DETAILS_HINT =
+  `History: ${EVM_CHAIN.activityApi ?? 'none'}` + (EVM_CHAIN.buildSwitch ? `. Chain mode: ${EVM_CHAIN.buildSwitch}.` : '');
 
 function countWords(count: number): string {
   return `${count} ${count === 1 ? 'contact' : 'contacts'}`;
@@ -134,11 +137,11 @@ export function NetworkDetailsSection() {
       hint: BTC_DETAILS_HINT,
     },
     {
-      label: `Ethereum Sepolia (chain id ${SEPOLIA_CHAIN_ID})`,
-      value: `RPC ${SEPOLIA_RPC}`,
-      hint: `History: ${SEPOLIA_BLOCKSCOUT_API}`,
+      label: `${EVM_CHAIN.detailsLabel} (chain id ${EVM_CHAIN.chainId})`,
+      value: `RPC ${EVM_CHAIN.rpc}`,
+      hint: EVM_DETAILS_HINT,
     },
-    { label: 'USD₮ token (Aave test USDT)', value: <KeyText value={SEPOLIA_USDT} small /> },
+    { label: EVM_CHAIN.tokenLabel, value: <KeyText value={EVM_CHAIN.usdtToken} small /> },
     {
       label: 'Paykit SDK',
       value: `${PAYKIT_PACKAGE.name} ${PAYKIT_PACKAGE.version}`,

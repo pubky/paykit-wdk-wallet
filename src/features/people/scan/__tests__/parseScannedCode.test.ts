@@ -1,6 +1,7 @@
 import { SEPOLIA_USDT } from '../../../../config/chains';
 import { contactLinkFor } from '../../../../paykit/keys';
 import { MAX_CODE_LENGTH, parseScannedCode } from '../parseScannedCode';
+import { withEvmChain } from '../../../../config/__tests__/withEnv';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const BTC = 'tb1qx06yqnsvfwu36p0gz8ps7rfufeahnxl3m4c2v6';
@@ -86,5 +87,33 @@ describe('parseScannedCode and shared pay-me messages', () => {
   it('reads the pubky out of a pasted Share message', () => {
     const message = `Ben in the test wallet. Paste this in Send to pay me, or open the link to add me:\n${contactLinkFor(BEN)}\n${BEN}`;
     expect(parseScannedCode(message)).toEqual({ kind: 'person', pubky: BEN });
+  });
+});
+
+describe("parseScannedCode and Bitkit's USD₮ code on an Arbitrum fork build", () => {
+  const USDT0 = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+  const BITKIT_CODE = `ethereum:${USDT0}@42161/transfer?address=${EVM}`;
+  const fork = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../parseScannedCode')>('../parseScannedCode'));
+
+  it('pays the address in it on Arbitrum', () => {
+    expect(fork.parseScannedCode(BITKIT_CODE)).toEqual({ kind: 'pay', to: EVM, asset: 'usdt' });
+  });
+
+  it('refuses it on Sepolia', () => {
+    expect(parseScannedCode(BITKIT_CODE)).toEqual({ kind: 'unsupported', message: expect.stringMatching(/another Ethereum network/) });
+  });
+
+  it('never pays the USD₮0 contract itself', () => {
+    expect(fork.parseScannedCode(USDT0).kind).toBe('unsupported');
+    expect(fork.parseScannedCode(`ethereum:${USDT0}@42161`).kind).toBe('unsupported');
+  });
+});
+
+describe('the not-supported message per build', () => {
+  const load = () => jest.requireActual<typeof import('../parseScannedCode')>('../parseScannedCode');
+  const TEST_MESSAGE = "This code isn't a pubky or a test-network payment address.";
+
+  it('says test network on the local fork, as on Sepolia', () => {
+    expect(withEvmChain('arbitrum-fork', load).parseScannedCode('hello')).toEqual({ kind: 'unsupported', message: TEST_MESSAGE });
   });
 });

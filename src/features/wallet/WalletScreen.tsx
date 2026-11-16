@@ -4,8 +4,8 @@
 //
 // Balances are polled every ~15 s while the app is active (pull to
 // refresh). An empty USD₮ balance offers "Get test USD₮" right here, since
-// that is the first thing a new demo wallet needs. Activity rows open
-// Activity detail.
+// that is the first thing a new demo wallet needs (on builds funded by
+// Aave's faucet). Activity rows open Activity detail.
 //
 // Errors are sentences, never WDK's text: a balance that failed to load
 // says so under the balances, and failed history replaces the "No activity
@@ -20,6 +20,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AAVE_FAUCET_FUNDING } from '../../config/evmChain';
 import type { MainTabScreenProps } from '../../navigation/types';
 import { useConnectionNotice, useContactAccounts, useOwnProfile, usePaykitService } from '../../paykit';
 import { ASSET_DOT_SIZE, AssetAmount, AssetDot, Button, Divider, EmptyState, Row, Screen, Text, space } from '../../ui';
@@ -93,7 +94,8 @@ export function WalletScreen({ navigation }: MainTabScreenProps<'Wallet'>) {
         <Text variant="caption" color="graphite" style={styles.gas} testID="balance-eth">
           gas {balances.eth === undefined ? '—' : formatAssetAmount(balances.eth, 'eth', { withSymbol: true })}
         </Text>
-        {balances.usdt === 0n ? (
+        {/* Only where Aave's faucet funds the build: the button assumes it. */}
+        {balances.usdt === 0n && AAVE_FAUCET_FUNDING ? (
           <View style={styles.faucet}>
             <GetTestUsdtButton compact />
           </View>

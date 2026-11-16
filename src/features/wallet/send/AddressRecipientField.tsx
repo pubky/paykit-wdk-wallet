@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable } from 'react-native';
 
 import { BTC_CHAIN } from '../../../config/btcChain';
+import { EVM_CHAIN } from '../../../config/evmChain';
 import { pubkyFromText } from '../../../paykit';
 import { Input, Text } from '../../../ui';
 import { ASSETS, checkRecipientAddress } from '../../../wallet';
@@ -57,7 +58,7 @@ export function AddressRecipientField({
       blurOnSubmit
       returnKeyType="done"
       error={touched && !check.ok && check.reason !== 'empty' ? check.message : undefined}
-      hint={chain === 'ethereum' ? 'Any Ethereum address. The tokens move on Sepolia.' : `A ${BTC_CHAIN.displayName} address (${BTC_CHAIN.bech32Prefix}…).`}
+      hint={chain === 'ethereum' ? EVM_CHAIN.addressHint : `A ${BTC_CHAIN.displayName} address (${BTC_CHAIN.bech32Prefix}…).`}
       accessory={
         <Pressable accessibilityRole="button" accessibilityLabel="Paste" onPress={onPaste} hitSlop={8} testID="paste-address">
           <Text variant="bodyStrong" color="seal">

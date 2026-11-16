@@ -9,8 +9,9 @@
 // - an endpoint must belong to the pubky we asked about;
 // - its payload must pass our own endpoint parser (./endpoints.ts): a
 //   BTC address on the build's network (tb1 on Mutinynet, bcrt1 on
-//   Bitkit's regtest), and for USD₮ an EVM address on Sepolia
-//   naming the exact test token contract this wallet holds;
+//   Bitkit's regtest), and for USD₮ an EVM address on the build's EVM
+//   chain (src/config/evmChain.ts) naming the exact token contract this
+//   wallet holds;
 // - the first valid endpoint per asset wins (the SDK returns them in the
 //   adapter's preference order).
 //

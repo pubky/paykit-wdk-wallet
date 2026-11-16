@@ -1,12 +1,16 @@
 // Payment proofs: their JSON, and the payee's on-chain checks.
-import { Wallet, type HDNodeWallet } from 'ethers';
+import { Wallet, id, type HDNodeWallet } from 'ethers';
 
-import { SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../../config/chains';
-import { ERC20_TRANSFER_TOPIC, erc20PaymentTypedData, type Erc20RequestBinding } from '../../wallet/erc20PaymentProof';
-import type { EvmTransaction } from '../../wallet/paymentEvidence';
+import { ARBITRUM_USDT0, SEPOLIA_CHAIN_ID, SEPOLIA_USDT } from '../../config/chains';
+import { EVM_CHAIN } from '../../config/evmChain';
+import * as erc20PaymentProof from '../../wallet/erc20PaymentProof';
+import { ERC20_TRANSFER_TOPIC, erc20PaymentTypedData, type Erc20PaymentMessage, type Erc20RequestBinding } from '../../wallet/erc20PaymentProof';
+import { evmTransactionFrom, type EvmTransaction } from '../../wallet/paymentEvidence';
+import fixtures from '../../wallet/__tests__/fixtures/erc20-payment-proofs.json';
 import {
   btcProofJson,
   erc20ProofJson,
+  EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS,
   latestSepoliaBlockTimeMs,
   parseProof,
   paymentNotBefore,
@@ -14,8 +18,9 @@ import {
   transferKey,
   verifyBtcProof,
   verifyErc20Proof,
+  verifyErc20ProofReadingBlockTime,
 } from '../paymentProofs';
-import { withBtcChain } from '../../config/__tests__/withBtcChain';
+import { withBtcChain, withEvmChain } from '../../config/__tests__/withEnv';
 
 const TXID = 'ab'.repeat(32);
 const NOW = Date.parse('2026-10-26T12:00:00Z');
@@ -133,6 +138,7 @@ describe('verifyErc20Proof', () => {
     nowMs: NOW,
     token: SEPOLIA_USDT,
     chainId: SEPOLIA_CHAIN_ID,
+    paymentTime: EVM_CHAIN.paymentTime,
     binding,
     proof: await proofFor(payer),
     ...overrides,
@@ -186,6 +192,104 @@ describe('verifyErc20Proof', () => {
     expect(verifyErc20Proof(tx, await context({ chainId: 1 })).status).toBe('rejected');
     expect(verifyErc20Proof(tx, await context({ transferClaimedBy: 'k2' })).status).toBe('rejected');
   });
+
+  describe("on a 'block-timestamp' chain (Arbitrum)", () => {
+    const paymentTime = 'block-timestamp' as const;
+    const notBefore = { ms: NOW - 60 * 60_000, what: 'request' as const };
+    const minedAt = (blockTimeMs: number | undefined, confirmations = 1): EvmTransaction => ({
+      state: 'succeeded',
+      confirmations,
+      logs: [otherLog as never, transferLog(payer.address)],
+      blockTimeMs,
+    });
+
+    it('verifies a fresh payment however many blocks came after it', async () => {
+      // On Sepolia's rule, 5000 confirmations would mean "mined over 16 h ago".
+      expect(verifyErc20Proof(minedAt(NOW - 30_000, 5_000), await context({ notBefore, paymentTime }))).toEqual({ status: 'verified' });
+    });
+
+    it('rejects a payment from before we asked, allowing for clock drift', async () => {
+      expect(verifyErc20Proof(minedAt(notBefore.ms - 11 * 60_000), await context({ notBefore, paymentTime }))).toEqual({
+        status: 'rejected',
+        reason: 'It was paid before you asked for it.',
+      });
+      expect(verifyErc20Proof(minedAt(notBefore.ms - 9 * 60_000), await context({ notBefore, paymentTime })).status).toBe('verified');
+    });
+
+    it('allows exactly its 10-minute window, and a too-early verdict is final', async () => {
+      // Anti-replay vs sequencer lag: 10 minutes, not Bitkit's 24 h.
+      expect(EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS).toBe(10 * 60_000);
+      const edge = notBefore.ms - EVM_BLOCK_TIMESTAMP_ALLOWANCE_MS;
+      expect(verifyErc20Proof(minedAt(edge), await context({ notBefore, paymentTime })).status).toBe('verified');
+      const early = verifyErc20Proof(minedAt(edge - 1), await context({ notBefore, paymentTime }));
+      expect(early.status).toBe('rejected');
+      expect(early).not.toHaveProperty('recheckMs');
+    });
+
+    it('waits, never verifies, while the block time is unknown', async () => {
+      const waiting = verifyErc20Proof(minedAt(undefined), await context({ notBefore, paymentTime }));
+      expect(waiting).toEqual({ status: 'pending', reason: 'Checking when it was paid.', needs: 'block-time' });
+      // Rechecked at the usual interval, not the 60 s one for a dropped transaction.
+      expect(waiting).not.toHaveProperty('recheckMs');
+      // A request from before the rule has no time to compare.
+      expect(verifyErc20Proof(minedAt(undefined), await context({ paymentTime })).status).toBe('verified');
+    });
+
+    describe('reading the block time only when the verdict waits on it', () => {
+      const reader = (blockTimeMs: number | undefined) => jest.fn(async () => blockTimeMs);
+
+      it('reads it after every cheaper check passed, then verifies or rejects', async () => {
+        const fresh = reader(NOW - 30_000);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), fresh)).toEqual({ status: 'verified' });
+        expect(fresh).toHaveBeenCalledTimes(1);
+        const old = reader(notBefore.ms - 11 * 60_000);
+        // Reading the time re-runs only the time check, not the signature recovery.
+        const recover = jest.spyOn(erc20PaymentProof, 'erc20PaymentSigner');
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), old)).toEqual({
+          status: 'rejected',
+          reason: 'It was paid before you asked for it.',
+        });
+        expect(recover).toHaveBeenCalledTimes(1);
+        recover.mockRestore();
+      });
+
+      it('rejects a bad signature without reading the block time', async () => {
+        const read = reader(NOW - 30_000);
+        const forged = await context({ notBefore, paymentTime, proof: await proofFor(Wallet.createRandom()) });
+        const rejected = { status: 'rejected', reason: 'The signature is not from the account that paid.' };
+        expect(verifyErc20Proof(minedAt(undefined), forged)).toEqual(rejected);
+        expect(await verifyErc20ProofReadingBlockTime(minedAt(undefined), forged, read)).toEqual(rejected);
+        expect(read).not.toHaveBeenCalled();
+      });
+
+      it('stays pending, never verified, when the time cannot be read', async () => {
+        const unknown = reader(undefined);
+        const waiting = await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ notBefore, paymentTime }), unknown);
+        expect(waiting).toEqual({ status: 'pending', reason: 'Checking when it was paid.', needs: 'block-time' });
+        expect(waiting).not.toHaveProperty('recheckMs');
+        expect(unknown).toHaveBeenCalledTimes(1);
+      });
+
+      it('makes no call when a cheaper check already decides, or there is no time to check', async () => {
+        const read = reader(NOW);
+        const wrongAmount: EvmTransaction = { state: 'succeeded', confirmations: 1, logs: [otherLog as never, transferLog(payer.address, PAYEE_EVM, 1n)] };
+        expect((await verifyErc20ProofReadingBlockTime(wrongAmount, await context({ notBefore, paymentTime }), read)).status).toBe('rejected');
+        expect((await verifyErc20ProofReadingBlockTime({ state: 'pending' }, await context({ notBefore, paymentTime }), read)).status).toBe('pending');
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined), await context({ paymentTime }), read)).status).toBe('verified');
+        // The block time is already known.
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(NOW - 30_000), await context({ notBefore, paymentTime }), read)).status).toBe('verified');
+        // Sepolia's slot rule needs no block time.
+        expect((await verifyErc20ProofReadingBlockTime(minedAt(undefined, 100), await context({ notBefore }), read)).status).toBe('verified');
+        expect(read).not.toHaveBeenCalled();
+      });
+    });
+
+    it("leaves Sepolia's slot rule as it was: confirmations, not the block time", async () => {
+      expect(EVM_CHAIN.paymentTime).toBe('slot-bound');
+      expect(verifyErc20Proof(minedAt(NOW, 1_000), await context({ notBefore })).status).toBe('rejected');
+      expect(verifyErc20Proof(minedAt(undefined, 100), await context({ notBefore })).status).toBe('verified');
+    });
+  });
 });
 
 describe('payment time', () => {
@@ -217,4 +321,135 @@ describe('payment time', () => {
     expect(latestSepoliaBlockTimeMs(301, NOW)).toBe(NOW - 3_600_000);
     expect(latestSepoliaBlockTimeMs(0, NOW)).toBe(NOW);
   });
+});
+
+describe('USD₮ proofs on an Arbitrum fork build', () => {
+  const fork = withEvmChain('arbitrum-fork', () => ({
+    proofs: jest.requireActual<typeof import('../paymentProofs')>('../paymentProofs'),
+    chain: jest.requireActual<typeof import('../../config/evmChain')>('../../config/evmChain').EVM_CHAIN,
+  }));
+
+  it("names chain 42161 in the proof, as Bitkit's do", () => {
+    const json = fork.proofs.erc20ProofJson({ transactionHash: HASH, receiptLogIndex: '2', signature: `0x${'1'.repeat(130)}` });
+    expect(JSON.parse(json)).toMatchObject({ type: 'erc20-transfer-eip712', chain_id: '42161' });
+    expect(fork.proofs.parseProof(json)).toMatchObject({ kind: 'erc20', chainId: '42161' });
+  });
+
+  it('times payments by the block timestamp', () => {
+    expect(fork.chain.paymentTime).toBe('block-timestamp');
+  });
+});
+
+describe("Bitkit's proof vectors through the payee's checks", () => {
+  // The fixture's key is the secp256k1 scalar 1: public test data only.
+  const fixtureKey = new Wallet(`0x${'0'.repeat(63)}1`);
+  const PAYMASTER = `0x${'77'.repeat(20)}`;
+  const BUNDLER = `0x${'66'.repeat(20)}`;
+  const ENTRY_POINT = '0x0000000071727de22e5e9d8baf0edac6f37da032';
+  const USER_OPERATION_EVENT = id('UserOperationEvent(bytes32,address,address,uint256,bool,uint256,uint256)');
+  const AMOUNT = 5_000_000n;
+  const BLOCK_TIME = NOW - 30_000;
+  const fork = withEvmChain('arbitrum-fork', () => jest.requireActual<typeof import('../../config/evmChain')>('../../config/evmChain').EVM_CHAIN);
+
+  type Vector = (typeof fixtures.vectors)[number];
+  const vectorNamed = (name: string): Vector => fixtures.vectors.find((v) => v.name === name)!;
+
+  const transfer = (from: string, to: string, amount: bigint) => ({
+    address: ARBITRUM_USDT0,
+    topics: [ERC20_TRANSFER_TOPIC, pad(from), pad(to)],
+    data: `0x${amount.toString(16).padStart(64, '0')}`,
+  });
+
+  /**
+   * A smart-account payment as WDK's getTransaction returns it: a bundler
+   * sent the transaction (tx.from is not the payer), the EntryPoint logged
+   * the user operation, and the paymaster took its USD₮0 fee, all before
+   * the payee's Transfer at the vector's receiptLogIndex 2.
+   */
+  function bundledPayment(payer: string, transactionHash: string): EvmTransaction {
+    const tx = evmTransactionFrom({
+      hash: transactionHash,
+      finality: 'confirmed',
+      success: true,
+      block: 300_000_000,
+      confirmations: 3,
+      receipt: {
+        from: BUNDLER,
+        to: ENTRY_POINT,
+        status: 1,
+        blockNumber: 300_000_000,
+        blockHash: `0x${'ab'.repeat(32)}`,
+        logs: [
+          { address: ENTRY_POINT, topics: [USER_OPERATION_EVENT, `0x${'22'.repeat(32)}`, pad(payer), pad(PAYMASTER)], data: '0x' },
+          transfer(payer, PAYMASTER, 12_345n),
+          transfer(payer, PAYEE_EVM, AMOUNT),
+        ],
+      },
+    });
+    // The bridge adds the block time it read from the RPC.
+    return tx.state === 'succeeded' ? { ...tx, blockTimeMs: BLOCK_TIME } : tx;
+  }
+
+  function checkVector(vector: Vector, transaction: EvmTransaction, proof: { chainId: string; signature: string }, chainId: number) {
+    const message = vector.typed_data.message;
+    // As Bitkit sends it: its own key names, sorted.
+    const parsed = parseProof(
+      JSON.stringify({
+        chain_id: proof.chainId,
+        receipt_log_index: message.receiptLogIndex,
+        signature: proof.signature,
+        transaction_hash: message.transactionHash,
+        type: 'erc20-transfer-eip712',
+      }),
+    );
+    if (parsed?.kind !== 'erc20') throw new Error('The proof did not parse');
+    return verifyErc20Proof(transaction, {
+      amount: AMOUNT,
+      address: PAYEE_EVM,
+      paymentKey: 'k1',
+      nowMs: NOW,
+      notBefore: { ms: NOW - 60_000, what: 'request' },
+      token: ARBITRUM_USDT0,
+      chainId,
+      paymentTime: fork.paymentTime,
+      binding: message.request,
+      proof: parsed,
+    });
+  }
+
+  it('signs as the fixture says', () => {
+    expect(fixtureKey.address).toBe(vectorNamed('one_time').signer);
+  });
+
+  it("verifies Bitkit's one_time proof for a payment sent through a bundler", () => {
+    const vector = vectorNamed('one_time');
+    const tx = bundledPayment(vector.signer, vector.typed_data.message.transactionHash);
+    expect(checkVector(vector, tx, { chainId: '42161', signature: vector.signature }, 42161)).toEqual({ status: 'verified' });
+  });
+
+  it("rejects it when the payee's Transfer is from anyone but the signer, such as the bundler", () => {
+    const vector = vectorNamed('one_time');
+    const tx = bundledPayment(BUNDLER, vector.typed_data.message.transactionHash);
+    expect(checkVector(vector, tx, { chainId: '42161', signature: vector.signature }, 42161)).toEqual({
+      status: 'rejected',
+      reason: 'The signature is not from the account that paid.',
+    });
+  });
+
+  it.each(fixtures.chain_mismatch_cases.map((c) => [`domain ${c.domain_chain_id}, endpoint ${c.endpoint_chain_id}, proof ${c.payload_chain_id}`, c] as const))(
+    'follows chain_mismatch_cases: %s',
+    async (_name, mismatch) => {
+      const vector = vectorNamed(mismatch.vector);
+      const message = vector.typed_data.message;
+      const domainChainId = Number(mismatch.domain_chain_id);
+      // The vector's own signature where its domain matches; otherwise signed again over the case's domain.
+      const typed = erc20PaymentTypedData(domainChainId, message as Erc20PaymentMessage);
+      const signature =
+        domainChainId === vector.typed_data.domain.chainId
+          ? vector.signature
+          : (await fixtureKey.signTypedData(typed.domain, typed.types, typed.message)).toLowerCase();
+      const verdict = checkVector(vector, bundledPayment(vector.signer, message.transactionHash), { chainId: mismatch.payload_chain_id, signature }, Number(mismatch.endpoint_chain_id));
+      expect(verdict.status).toBe(mismatch.valid ? 'verified' : 'rejected');
+    },
+  );
 });

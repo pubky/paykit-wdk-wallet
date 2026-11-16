@@ -4,8 +4,10 @@
 //   tb1… or bitcoin:tb1…?amount=…                       -> Send Bitcoin
 //     (the build's prefix: tb1… on Mutinynet, bcrt1… on Bitkit's regtest;
 //     src/config/btcChain.ts)
-//   0x… or ethereum:0x…[@11155111]                      -> Send USD₮
-//   ethereum:<USD₮ token>@11155111/transfer?address=0x… -> Send USD₮ to that address
+//   0x… or ethereum:0x…[@<chain>]                       -> Send USD₮
+//   ethereum:<USD₮ token>@<chain>/transfer?address=0x…  -> Send USD₮ to that address
+//     (the build's EVM chain id: 11155111 on Sepolia, 42161 on Arbitrum;
+//     src/config/evmChain.ts)
 //   paykitwdk://send?to=<pubky or address>&asset=…     -> Send
 //
 // A QR code is untrusted input: anyone can print one. So this parser

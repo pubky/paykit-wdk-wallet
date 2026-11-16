@@ -11,13 +11,17 @@
 //   comes from Blocktank's regtest deposit, which scripts/fund-btc.mjs
 //   calls from a laptop and Bitkit's Dev Settings call from the phone, so
 //   this section says so and shows the address to fund.
+// - The local Arbitrum fork (src/config/evmChain.ts `funding`) has no
+//   faucet either: scripts/fund-fork.mjs sets its USD₮0 and ETH balances
+//   from the computer that runs it, so the section says so and shows the
+//   address.
 //
 // One Ethereum address holds both ETH and USD₮, so the text calls it "your
 // Ethereum address" and says once that USD₮ arrives there too.
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { BTC_CHAIN, type BtcFunding } from '../../config/btcChain';
-import { SEPOLIA_ETH_FAUCET_URL } from '../../config/chains';
+import { EVM_CHAIN, type EvmFunding } from '../../config/evmChain';
 import { Button, KeyText, Text, space } from '../../ui';
 import { formatFee, useWalletAddresses, useWalletBalances } from '../../wallet';
 import { GetTestUsdtButton } from '../wallet/GetTestUsdtButton';
@@ -25,24 +29,47 @@ import { GetTestUsdtButton } from '../wallet/GetTestUsdtButton';
 export function TestFundsSection() {
   const { btc, evm } = useWalletAddresses();
   const { balances } = useWalletBalances();
+  const gas = balances.eth === undefined ? '—' : formatFee(balances.eth, 'eth');
   return (
     <View style={styles.root}>
-      <GetTestUsdtButton compact faucetBelow />
-      <Text color="graphite" variant="secondary">
-        Gas: {balances.eth === undefined ? '—' : formatFee(balances.eth, 'eth')}. Sepolia ETH comes from a public faucet. Ask it to send
-        to your Ethereum address (USD₮ arrives there too):
-      </Text>
-      {evm ? <KeyText value={evm} small testID="you-evm-address" /> : null}
-      <Button
-        label="Open a Sepolia ETH faucet"
-        variant="secondary"
-        compact
-        onPress={() => void Linking.openURL(SEPOLIA_ETH_FAUCET_URL)}
-        testID="open-eth-faucet"
-      />
+      <EvmTestFunds funding={EVM_CHAIN.funding} address={evm} gas={gas} />
       <BtcTestFunds funding={BTC_CHAIN.funding} address={btc} />
     </View>
   );
+}
+
+function EvmTestFunds({ funding, address, gas }: { funding: EvmFunding; address?: string; gas: string }) {
+  const addressText = address ? <KeyText value={address} small testID="you-evm-address" /> : null;
+  switch (funding.kind) {
+    case 'aave-faucet':
+      return (
+        <>
+          <GetTestUsdtButton compact faucetBelow />
+          <Text color="graphite" variant="secondary">
+            Gas: {gas}. {EVM_CHAIN.gasCoin} comes from a public faucet. Ask it to send
+            to your Ethereum address (USD₮ arrives there too):
+          </Text>
+          {addressText}
+          <Button
+            label={`Open a ${EVM_CHAIN.gasCoin} faucet`}
+            variant="secondary"
+            compact
+            onPress={() => void Linking.openURL(funding.ethFaucetUrl)}
+            testID="open-eth-faucet"
+          />
+        </>
+      );
+    case 'anvil-fork':
+      return (
+        <>
+          <Text color="graphite" variant="secondary">
+            Gas: {gas}. The local fork has no faucet. Its USD₮0 and ETH come from running node scripts/fund-fork.mjs with this address on
+            your computer:
+          </Text>
+          {addressText}
+        </>
+      );
+  }
 }
 
 function BtcTestFunds({ funding, address }: { funding: BtcFunding; address?: string }) {

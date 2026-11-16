@@ -15,10 +15,10 @@
 // contact's account (ContactAccountRow is shared with features/people).
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useContactAccounts, usePaykitService } from '../../paykit';
-import { AssetAmount, Button, Divider, Text, space } from '../../ui';
+import { AssetAmount, Button, Divider, ExplorerButton, Text, space } from '../../ui';
 import { isCollectable, sendFailureFor, useBtcContactAccount } from '../../wallet';
 import { usePersonName } from '../people/usePersonName';
 
@@ -114,7 +114,7 @@ export function ContactAccountRow({ pubky, accountIndex }: { pubky: string; acco
           <Text variant="caption" color={message.tone}>
             {message.text}
           </Text>
-          {explorerUrl ? <Button label="View on explorer" variant="secondary" compact onPress={() => void Linking.openURL(explorerUrl)} /> : null}
+          <ExplorerButton url={explorerUrl} compact />
         </View>
       ) : null}
     </View>

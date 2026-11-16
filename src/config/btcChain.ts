@@ -8,8 +8,8 @@
 //
 // The profile holds everything that differs between the two: WDK's network
 // name, the Electrum server, the esplora API and explorer, the address
-// prefix, the Paykit endpoint id and the payment proof format. Ethereum
-// (Sepolia) does not change.
+// prefix, the Paykit endpoint id and the payment proof format. The EVM
+// chain is a separate switch (./evmChain.ts, EXPO_PUBLIC_EVM_CHAIN).
 //
 // Expo inlines EXPO_PUBLIC_* variables into the JS bundle. To switch
 // chains, restart Metro with the new value (Debug), or rebuild the app

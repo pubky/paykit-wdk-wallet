@@ -1,6 +1,7 @@
 import { btcReceivingDetail, usdtReceivingDetail } from '../endpoints';
 import { acceptedAssets, cannotPayReason, publicPaymentOptionsFrom, type ResolvedEndpointData } from '../publicPaymentOptions';
 import { ENDPOINT_BTC, ENDPOINT_USDT } from '../../config/paykit';
+import { withEvmChain } from '../../config/__tests__/withEnv';
 
 const BEN = 'pubky5fpe1iozempar1row5gyyn51y4i1sir7r7eu9krab1x3i5oen1gy';
 const MALLORY = 'pubky8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo';
@@ -71,5 +72,19 @@ describe('cannotPayReason', () => {
 
   it('explains someone who publishes nothing', () => {
     expect(cannotPayReason(options([], { status: 'no-endpoint' }), 'btc', 'Ben')).toMatch(/doesn't publish any payment addresses/);
+  });
+});
+
+describe('cannotPayReason for unusable payment details', () => {
+  const unusable = (load: typeof cannotPayReason, asset: 'btc' | 'usdt' = 'usdt') => load(options([], { status: 'unsupported' }), asset, 'Ben');
+  const loadOn = (chain: string) =>
+    withEvmChain(chain, () => jest.requireActual<typeof import('../publicPaymentOptions')>('../publicPaymentOptions')).cannotPayReason;
+
+  it('asks for a test-network address on a test build', () => {
+    const message = "Ben publishes payment details this wallet can't use. Ask them for a test-network address instead.";
+    for (const reason of [cannotPayReason, loadOn('arbitrum-fork')]) {
+      expect(unusable(reason, 'usdt')).toBe(message);
+      expect(unusable(reason, 'btc')).toBe(message);
+    }
   });
 });

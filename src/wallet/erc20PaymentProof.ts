@@ -17,7 +17,10 @@
 //          authorize spending, e.g. an ERC-20 permit)
 //   payee  rebuilds the typed data from the request it knows (never from
 //          the proof), hashes it and recovers the signer with
-//          `erc20PaymentSigner`
+//          `erc20PaymentSigner`. It compares the signer with the Transfer
+//          log's `from` only, never the transaction's sender, so a payment
+//          a smart account sent through a bundler (as Bitkit's USD₮ sends
+//          are) checks out the same way.
 //
 // The hashing is the standard EIP-712 encoding of these two fixed structs,
 // on audited primitives (@noble/hashes keccak, @noble/secp256k1 recovery).
@@ -25,6 +28,8 @@
 // src/wallet/__tests__/erc20PaymentProof.test.ts. Pure: no native imports.
 import { keccak_256 } from '@noble/hashes/sha3';
 import { Signature } from '@noble/secp256k1';
+
+import { isLowercaseEvmHash32 } from './txid';
 
 export const ERC20_PROOF_TYPE = 'erc20-transfer-eip712';
 export const ERC20_PROOF_DOMAIN_NAME = 'Paykit ERC20 Payment';
@@ -81,7 +86,6 @@ export const ERC20_PAYMENT_TYPES = {
 
 const BINDING_FIELDS = ERC20_PAYMENT_TYPES.RequestBinding.map((field) => field.name) as (keyof Erc20RequestBinding)[];
 
-const TX_HASH = /^0x[0-9a-f]{64}$/;
 const SIGNATURE = /^0x[0-9a-f]{130}$/;
 const UINT256_MAX = 2n ** 256n - 1n;
 
@@ -110,7 +114,7 @@ export function isErc20PaymentTypedData(value: unknown, chainId: number): value 
   if (domainKeys !== 'chainId,name,version') return false;
   if (domain.name !== ERC20_PROOF_DOMAIN_NAME || domain.version !== ERC20_PROOF_DOMAIN_VERSION || domain.chainId !== chainId) return false;
   if (JSON.stringify(types) !== JSON.stringify(ERC20_PAYMENT_TYPES)) return false;
-  if (!TX_HASH.test(message.transactionHash) || !isCanonicalLogIndex(message.receiptLogIndex)) return false;
+  if (!isLowercaseEvmHash32(message.transactionHash) || !isCanonicalLogIndex(message.receiptLogIndex)) return false;
   const request = message.request as Record<string, unknown> | undefined;
   return !!request && BINDING_FIELDS.every((field) => typeof request[field] === 'string');
 }
@@ -180,7 +184,7 @@ export function erc20PaymentDigest(typedData: Erc20PaymentTypedData): string {
 export function erc20PaymentSigner(typedData: Erc20PaymentTypedData, signature: string): string | undefined {
   // The spec fixes the format: lowercase 0x-hex r ‖ s ‖ v, v 27 or 28, low s.
   if (!SIGNATURE.test(signature)) return undefined;
-  if (!TX_HASH.test(typedData.message.transactionHash) || !isCanonicalLogIndex(typedData.message.receiptLogIndex)) return undefined;
+  if (!isLowercaseEvmHash32(typedData.message.transactionHash) || !isCanonicalLogIndex(typedData.message.receiptLogIndex)) return undefined;
   const bytes = hexToBytes(signature);
   const v = bytes[64];
   if (v !== 27 && v !== 28) return undefined;

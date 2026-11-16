@@ -10,6 +10,8 @@
 // EVM history comes from Blockscout's keyless API, because WDK's EVM module
 // has no history call. Transactions this app just sent are merged in from
 // ./sentTransactions.ts until an indexer reports them. See ./activity.ts.
+// A chain with no known indexer (EVM_CHAIN.activityApi undefined, such as
+// the local Arbitrum fork) shows only those.
 //
 // Per-contact BTC accounts have their own history: contacts' private
 // payments land there. ./useContactAccountActivity.ts collects it and it is
@@ -31,7 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAccount } from '@tetherto/wdk-react-native-core';
 
-import { SEPOLIA_BLOCKSCOUT_API, SEPOLIA_USDT } from '../config/chains';
+import { EVM_CHAIN } from '../config/evmChain';
 import { BALANCE_POLL_MS } from '../config/sync';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import {
@@ -50,6 +52,7 @@ import {
 import { retryIfElectrumDropped } from './electrumRetry';
 import { nextFailureStreak, NO_FAILURES, shouldReportFailure, type FailureStreak } from './failureStreak';
 import { fetchBtcTransactionStatus } from './esplora';
+import { fetchJsonWithTimeout } from './http';
 import { evmTransactionFrom, sendOutcomeOf } from './paymentEvidence';
 import { markSentTransaction, sentTransactions, subscribeSentTransactions } from './sentTransactions';
 import { useAppActive } from './useAppActive';
@@ -89,6 +92,13 @@ async function fetchMissingBlockTimes(items: ActivityItem[]): Promise<boolean> {
 const HISTORY_LIMIT = 25;
 
 /**
+ * How long to wait for Blockscout. Sepolia's token-transfers call often
+ * takes longer than the 5 s esplora gets (FETCH_TIMEOUT_MS): a shorter
+ * limit would fail every poll of a slow but working indexer.
+ */
+const BLOCKSCOUT_TIMEOUT_MS = 30_000;
+
+/**
  * The last fetched lists, shared by every useActivity() caller. The Wallet
  * tab and Activity detail both use the hook; with this, a pushed detail
  * screen starts from the list the person just tapped instead of an empty
@@ -101,17 +111,19 @@ function cachedFor(owner: string | null) {
   return owner && lastFetched.owner === owner ? lastFetched : { btc: [], evm: [] };
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
-  if (!response.ok) throw new Error(`Blockscout answered ${response.status}`);
-  return response.json();
-}
-
-/** ETH and USD₮ activity for an EVM address, from Blockscout. */
+/**
+ * ETH and USD₮ activity for an EVM address, from Blockscout. None, and no
+ * error, where the chain has no indexer: right for the list, but not proof
+ * that nothing was sent (see findSentPayment in ./usePaymentChecks.ts).
+ */
 export async function fetchEvmActivity(address: string): Promise<ActivityItem[]> {
+  const api = EVM_CHAIN.activityApi;
+  if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
-    fetchJson(`${SEPOLIA_BLOCKSCOUT_API}/addresses/${address}/transactions`),
-    fetchJson(`${SEPOLIA_BLOCKSCOUT_API}/addresses/${address}/token-transfers?type=ERC-20&token=${SEPOLIA_USDT}`),
+    fetchJsonWithTimeout(`${api}/addresses/${address}/transactions`, 'Blockscout', { timeoutMs: BLOCKSCOUT_TIMEOUT_MS }),
+    fetchJsonWithTimeout(`${api}/addresses/${address}/token-transfers?type=ERC-20&token=${EVM_CHAIN.usdtToken}`, 'Blockscout', {
+      timeoutMs: BLOCKSCOUT_TIMEOUT_MS,
+    }),
   ]);
   return [
     ...parseBlockscoutTransactions(transactions, address),
@@ -158,6 +170,10 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
       streaks.current[source] = nextFailureStreak(streaks.current[source], succeeded);
     };
     try {
+      // Two independent chains, so a slow Blockscout (up to
+      // BLOCKSCOUT_TIMEOUT_MS) does not hold up the Bitcoin block times.
+      // The pending-send check waits for Blockscout and skips the sends it
+      // lists (the last good list if this fetch failed).
       await Promise.all([
         retryIfElectrumDropped(() => extension().getTransfers({ limit: BTC_HISTORY_FETCH_LIMIT }))
           .then((transfers) => {
@@ -165,18 +181,21 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
             setBtcItems(lastFetched.btc);
             track('btc', true);
           })
-          .catch(() => track('btc', false)),
-        fetchEvmActivity(evmAddress)
-          .then((items) => {
-            lastFetched.evm = items;
-            setEvmItems(items);
-            track('evm', true);
-          })
-          .catch(() => track('evm', false)),
-      ]);
-      await Promise.all([
-        fetchMissingBlockTimes([...lastFetched.btc, ...contactAccountActivity()]).then((added) => added && setBlockTimesVersion((v) => v + 1)),
-        confirmPendingEvmSends(lastFetched.evm, evmExtension),
+          .catch(() => track('btc', false))
+          .then(() => fetchMissingBlockTimes([...lastFetched.btc, ...contactAccountActivity()]))
+          .then((added) => added && setBlockTimesVersion((v) => v + 1)),
+        // With no indexer there is no list to fetch: setting a fresh empty
+        // one every poll would only re-render for nothing.
+        (EVM_CHAIN.activityApi === undefined
+          ? Promise.resolve()
+          : fetchEvmActivity(evmAddress)
+              .then((items) => {
+                lastFetched.evm = items;
+                setEvmItems(items);
+                track('evm', true);
+              })
+              .catch(() => track('evm', false))
+        ).then(() => confirmPendingEvmSends(lastFetched.evm, evmExtension)),
       ]);
       // Older lists stay on screen; only a run of failures is worth a line.
       const failing = [
