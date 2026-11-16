@@ -12,7 +12,7 @@ The setup itself is in two other guides; this one adds the recording:
 - [BITKIT-DEMO.md](BITKIT-DEMO.md): Bitcoin on Blocktank's staging
   regtest.
 - [BITKIT-USDT-FORK.md](BITKIT-USDT-FORK.md): USD₮ on a local fork of
-  Arbitrum One, and the Bitkit demo patch for automatic payments.
+  Arbitrum One, and the Bitkit demo patch for USD₮ allowances.
 
 ## What you need
 
@@ -101,6 +101,9 @@ The text before `|` is the scene title; the rest is the caption. Keep
 captions about what the person sees and does ("Ana sends Ben 5 USD₮").
 Leave out the test setup (regtest, the fork, the Bitkit patch, Paykit
 versions) and the plumbing (proof formats, smart accounts, gas).
+Call a feature by the name both screens can show: Bitkit labels
+Allowances as "Allowances", so the captions say "allowance" even
+though the wallet's button reads "Set up automatic payments".
 `mark` changes the caption from that moment. Drive the apps with `axe
 tap --id <id>`; `tapl.sh` taps an element by its label when it has no
 id, `ui.sh` lists what is on screen, and `waitfor.sh` waits for text to
@@ -123,10 +126,10 @@ The v3 scenes, in order:
 | 05 | USD₮ between contacts | Ben pays Ana 5 USD₮ |
 | 06 | Request money | Ana asks Ben for 10 USD₮; Ben pays; Ana's wallet checks the proof and sends a receipt |
 | 07 | (same) | Ben asks Ana for 15,000 sats; Ana pays; a block is mined |
-| 08 | Automatic payments | Ana offers automatic USD₮ payments; Bitkit accepts |
-| 09 | (same) | Ben asks for $2; Ana's wallet pays it without a tap |
-| 10 | A subscription | Ben starts a $1-a-minute subscription; Ana's wallet pays each minute |
-| 11, 11b | Stop | Ana stops automatic payments; Bitkit shows the allowance ended |
+| 08 | Allowances | Ana gives Ben a USD₮ allowance; Bitkit accepts |
+| 09 | (same) | Ben asks for $2; Ana's wallet pays it without a tap, within the allowance |
+| 10 | A subscription | Ben starts a $1-a-minute subscription; Ana's wallet pays each minute under the same allowance |
+| 11, 11b | Stop | Ana ends the allowance; Bitkit shows it ended |
 
 Things that interrupt a take, and how to avoid them:
 

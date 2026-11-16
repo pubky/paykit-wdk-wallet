@@ -222,7 +222,7 @@ if __name__ == "__main__":
             {"file": "card_end.png", "kind": "card", "title": "Two wallets, one protocol",
              "lines": ["What you saw, between two independent implementations",
                        "Pay by pubky in Bitcoin and USD₮  ·  contacts over an encrypted link  ·  private addresses",
-                       "Payment requests both ways  ·  automatic payments within limits  ·  a subscription"]}]
+                       "Payment requests both ways  ·  allowances: automatic payments within limits  ·  a subscription"]}]
     json.dump(spec, open(os.path.join(WORK, "spec_static.json"), "w"))
     subprocess.run(["swift", os.path.join(SCRIPTS, "render.swift"), os.path.join(WORK, "spec_static.json"), WORK], check=True)
     parts = []
