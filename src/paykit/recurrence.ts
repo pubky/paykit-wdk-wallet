@@ -14,8 +14,13 @@
 // (the spec's recommendation). This app proposes minute schedules with a
 // payment count, so `ends_at = starts_at + count·every·unit`.
 //
-// Timestamps are RFC 3339 UTC with a `Z` and whole seconds, the form the
-// spec requires. Pure: no native imports, unit tested.
+// Timestamps are RFC 3339 UTC with a `Z`. This app writes whole seconds.
+// Fractional seconds are allowed, and equal instants compare equal however
+// they are spelled (specs/payment-conversion.md): Bitkit writes its
+// subscription anchors with milliseconds (12:00:00.123Z), so a period's
+// boundaries keep the anchor's milliseconds (toPeriod). Cut to whole
+// seconds, every period would miss Bitkit's schedule by that fraction, and
+// none would be paid or checked. Pure: no native imports, unit tested.
 
 export type RecurrenceUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
 
@@ -70,7 +75,7 @@ function addUnits(anchorMs: number, unit: RecurrenceUnit, n: number): number {
   const month = ((monthIndex % 12) + 12) % 12;
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const day = Math.min(anchor.getUTCDate(), lastDay);
-  return Date.UTC(year, month, day, anchor.getUTCHours(), anchor.getUTCMinutes(), anchor.getUTCSeconds());
+  return Date.UTC(year, month, day, anchor.getUTCHours(), anchor.getUTCMinutes(), anchor.getUTCSeconds(), anchor.getUTCMilliseconds());
 }
 
 type Schedule = { every: number; unit: RecurrenceUnit; startsMs: number; anchorMs: number; endsMs?: number };
@@ -129,8 +134,13 @@ function lastIndex(schedule: Schedule): number | undefined {
   return k;
 }
 
+/** A period boundary: whole seconds when the schedule has them, otherwise with its milliseconds. */
+function toPeriodTime(ms: number): string {
+  return ms % 1000 === 0 ? toRfc3339(ms) : new Date(ms).toISOString();
+}
+
 function toPeriod(period: { startMs: number; endMs: number }): BillingPeriod {
-  return { startsAt: toRfc3339(period.startMs), endsAt: toRfc3339(period.endMs) };
+  return { startsAt: toPeriodTime(period.startMs), endsAt: toPeriodTime(period.endMs) };
 }
 
 /**
