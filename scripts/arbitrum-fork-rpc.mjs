@@ -11,6 +11,15 @@
 // Bitkit's own RPC gateway adds that field and plain Anvil does not, so on a
 // raw fork Bitkit can neither create nor verify a proof. This proxy adds it
 // to each log of every eth_getTransactionReceipt result, single or batched.
+//
+// Bitkit also reads its USD₮ history with eth_getLogs from block 0. Anvil
+// sends the part of a log query before the fork block to Arbitrum One's
+// public RPC, which refuses ranges over 100,000 blocks, so Bitkit's balance
+// never loads. The proxy starts every eth_getLogs range at the fork block
+// (and ends one that lies wholly before it there too). Demo accounts are
+// new, so they have no history before the fork; history of an account that
+// existed before the fork is not shown.
+//
 // Every other call and result passes through unchanged.
 //
 // It listens on 127.0.0.1 only and forwards only to a node on this computer.
@@ -20,7 +29,7 @@ import { Buffer } from 'node:buffer';
 import { createServer } from 'node:http';
 import { parseArgs } from 'node:util';
 
-import { ARBITRUM_FORK_RPC, fail, loopbackHttpUrl } from './lib/fork.mjs';
+import { ARBITRUM_FORK_RPC, clampLogRanges, fail, LOGS_METHOD, loopbackHttpUrl } from './lib/fork.mjs';
 
 const USAGE = `Usage: node scripts/arbitrum-fork-rpc.mjs [--port <port, default 18547>] [--upstream <url, default ${ARBITRUM_FORK_RPC}>]`;
 const LISTEN_HOST = '127.0.0.1';
@@ -83,6 +92,22 @@ function addReceiptLogIndexes(requestText, responseText) {
   return JSON.stringify(Array.isArray(response) ? response.map(patch) : patch(response));
 }
 
+/** The block Anvil forked from (anvil_nodeInfo), read once and kept. */
+let forkBlock;
+async function readForkBlock() {
+  if (forkBlock !== undefined) return forkBlock;
+  const reply = await fetch(upstream, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'anvil_nodeInfo', params: [] }),
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+  const number = (await reply.json())?.result?.forkConfig?.forkBlockNumber;
+  if (!Number.isSafeInteger(number)) throw new Error(`${upstream} is not an Anvil fork (no forkConfig.forkBlockNumber).`);
+  forkBlock = number;
+  return forkBlock;
+}
+
 /**
  * The request body, or undefined as soon as it grows past MAX_REQUEST_BYTES:
  * reading then stops (the caller answers and closes the connection), so an
@@ -123,11 +148,18 @@ async function handle(request, response) {
 
   let upstreamResponse;
   let responseText;
+  let forwardText = requestText;
+  try {
+    if (requestText.includes(LOGS_METHOD)) forwardText = clampLogRanges(requestText, await readForkBlock());
+  } catch (error) {
+    // Not JSON, or the fork block is unknown: forward the request as it is.
+    if (!(error instanceof SyntaxError)) console.error(`Log ranges left as they are: ${error.message}`);
+  }
   try {
     upstreamResponse = await fetch(upstream, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: requestText,
+      body: forwardText,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     responseText = await upstreamResponse.text();

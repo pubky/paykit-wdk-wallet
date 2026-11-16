@@ -1,0 +1,222 @@
+diff --git a/Bitkit/Models/PaykitRequestPricing.swift b/Bitkit/Models/PaykitRequestPricing.swift
+index 465b593d7..cb84b9ea3 100644
+--- a/Bitkit/Models/PaykitRequestPricing.swift
++++ b/Bitkit/Models/PaykitRequestPricing.swift
+@@ -94,7 +94,7 @@ struct PaykitRequestPricing: Hashable {
+             switch requested {
+             case .btc: return method != .usdtArbitrum
+             case .usd: return method == .usdtArbitrum
+-            case .usdt: return false
++            case .usdt: return method == .usdtArbitrum // DEMO BRANCH
+             }
+         }
+     }
+diff --git a/Bitkit/Services/PaykitAllowance.swift b/Bitkit/Services/PaykitAllowance.swift
+index 0cf256a0a..616fb2122 100644
+--- a/Bitkit/Services/PaykitAllowance.swift
++++ b/Bitkit/Services/PaykitAllowance.swift
+@@ -43,6 +43,13 @@ struct PaykitAllowance: Identifiable, Hashable {
+     /// Terms with a limit beyond the per-payment cap and the one monthly amount Bitkit checks itself, such as a lifetime
+     /// amount, a payment count or another period. Bitkit never proposes these, and they never pay automatically.
+     let hasUncheckedLimits: Bool
++    /// DEMO BRANCH: limits of a USD₮ Allowance (Bitkit as Allowee), for display only.
++    var usdtPerPaymentMax: Decimal?
++    var usdtLifetimeMax: Decimal?
++
++    var isUsdt: Bool {
++        usdtPerPaymentMax != nil || usdtLifetimeMax != nil
++    }
+ 
+     var counterparty: String {
+         id.counterparty
+@@ -65,13 +72,17 @@ struct PaykitAllowance: Identifiable, Hashable {
+         guard let localRole = record.localRole,
+               let role = Role(localRole),
+               let terms = record.terms,
+-              terms.asset() == PaykitIssuerInterop.bitcoinAsset
++              // DEMO BRANCH: also USD₮ terms where Bitkit is the Allowee (the other wallet pays automatically).
++              terms.asset() == PaykitIssuerInterop.bitcoinAsset || (terms.asset() == PaykitAsset.usdt.rawValue && role == .allowee)
+         else { return nil }
++        let isUsdt = terms.asset() == PaykitAsset.usdt.rawValue
++        usdtPerPaymentMax = isUsdt ? terms.perPaymentAmount().flatMap { Decimal(string: $0.maximum(), locale: Locale(identifier: "en_US_POSIX")) } : nil
++        usdtLifetimeMax = isUsdt ? terms.lifetimeAmountLimit().flatMap { Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX")) } : nil
+ 
+         let periodLimits = terms.periodLimits()
+         let monthly = periodLimits.first { Self.isMonthly($0.period()) }
+-        let perPaymentMaxSats = terms.perPaymentAmount().flatMap { Self.sats(fromBitcoinAmount: $0.maximum()) }
+-        let monthlyLimitSats = monthly?.amountLimit().flatMap { Self.sats(fromBitcoinAmount: $0) }
++        let perPaymentMaxSats = isUsdt ? nil : terms.perPaymentAmount().flatMap { Self.sats(fromBitcoinAmount: $0.maximum()) }
++        let monthlyLimitSats = isUsdt ? nil : monthly?.amountLimit().flatMap { Self.sats(fromBitcoinAmount: $0) }
+         let monthlyAnchor = monthly?.period().anchor().flatMap(PaykitAllowanceTime.parse)
+         // This wallet pays only under limits it can show: terms whose caps don't parse to sats with a monthly anchor are dropped.
+         if role == .allower, perPaymentMaxSats == nil || monthlyLimitSats == nil || monthlyAnchor == nil {
+diff --git a/Bitkit/Services/PaykitPaymentRequestService.swift b/Bitkit/Services/PaykitPaymentRequestService.swift
+index 330e0be04..e81dcd724 100644
+--- a/Bitkit/Services/PaykitPaymentRequestService.swift
++++ b/Bitkit/Services/PaykitPaymentRequestService.swift
+@@ -870,12 +870,23 @@ struct PaykitPaymentRequestService {
+     }
+ 
+     func propose(
+-        _ draft: PaykitPaymentRequestDraft,
++        _ requestedDraft: PaykitPaymentRequestDraft,
+         to target: PaykitPaymentRequestTarget,
+         savedPublicKeys: [String],
+         expectedIdentity: String
+     ) async throws -> PaykitPaymentRequest {
+         let enabled = await Self.acceptedPaymentEndpointIdentifiers(canReceiveLightning: canReceiveLightning())
++        // DEMO BRANCH: a dollar request is sent as a USD₮ request over the USD₮ rail only, with no conversion,
++        // so the payer's USD₮ Allowance can pay it (specs/payment-conversion.md: Allowances cannot authorize repricing).
++        let usdtRail = PublicPaykitService.MethodId.usdtArbitrum.rawValue
++        let draft = requestedDraft.amount.asset == .usd && enabled.contains(usdtRail)
++            ? try PaykitPaymentRequestDraft(
++                amount: PaykitAmount(asset: .usdt, value: requestedDraft.amount.value),
++                acceptedPaymentEndpointIdentifiers: [usdtRail],
++                note: requestedDraft.note,
++                expiresAt: requestedDraft.expiresAt
++            )
++            : requestedDraft
+         let acceptedPaymentEndpointIdentifiers = draft.acceptedPaymentEndpointIdentifiers.map { selected in
+             enabled.filter { selected.contains($0) }
+         } ?? enabled
+@@ -929,12 +940,17 @@ struct PaykitPaymentRequestService {
+     }
+ 
+     func proposeSubscription(
+-        _ draft: PaykitSubscriptionDraft,
++        _ requestedDraft: PaykitSubscriptionDraft,
+         to target: PaykitPaymentRequestTarget,
+         savedPublicKeys: [String],
+         expectedIdentity: String,
+         validateBeforeProposing: @MainActor () throws -> Void
+     ) async throws -> PaykitSubscription {
++        // DEMO BRANCH: a dollar subscription is sent in USD₮ over the USD₮ rail, with no conversion (see propose).
++        var draft = requestedDraft
++        if draft.amount.asset == .usd {
++            draft.amount = try PaykitAmount(asset: .usdt, value: draft.amount.value)
++        }
+         let acceptedPaymentEndpointIdentifiers = await PaykitRequestPricing.subscriptionEndpoints(
+             requested: draft.amount.asset,
+             available: Self.acceptedPaymentEndpointIdentifiers(canReceiveLightning: canReceiveLightning()),
+diff --git a/Bitkit/Services/PaykitSubscription.swift b/Bitkit/Services/PaykitSubscription.swift
+index a5d615827..095f06b8a 100644
+--- a/Bitkit/Services/PaykitSubscription.swift
++++ b/Bitkit/Services/PaykitSubscription.swift
+@@ -180,10 +180,9 @@ struct PaykitSubscriptionRecurrence: Hashable {
+ 
+         var isSupported: Bool {
+             switch self {
+-            case .day, .week, .month, .year:
++            case .minute, .hour, .day, .week, .month, .year:
++                // DEMO BRANCH: minute and hour schedules let a demo show several payments in minutes.
+                 true
+-            case .minute, .hour:
+-                false
+             }
+         }
+     }
+diff --git a/Bitkit/Views/Subscriptions/AllowancesView.swift b/Bitkit/Views/Subscriptions/AllowancesView.swift
+index 18ad56876..39f287e9c 100644
+--- a/Bitkit/Views/Subscriptions/AllowancesView.swift
++++ b/Bitkit/Views/Subscriptions/AllowancesView.swift
+@@ -134,8 +134,8 @@ struct AllowanceRow: View {
+             Spacer(minLength: 8)
+ 
+             VStack(alignment: .trailing, spacing: 0) {
+-                AllowanceMoney(usd: entry.limits?.monthlyUsd, sats: entry.monthlyLimitSats, size: .bodyMSB)
+-                CaptionBText(t("subscriptions__allowance_monthly_limit"), textColor: .white64)
++                AllowanceMoney(usd: entry.primary.isUsdt ? entry.primary.usdtLifetimeMax : entry.limits?.monthlyUsd, sats: entry.monthlyLimitSats, size: .bodyMSB)
++                CaptionBText(entry.primary.isUsdt ? "USDT in all" : t("subscriptions__allowance_monthly_limit"), textColor: .white64)
+                     .lineLimit(1)
+             }
+         }
+@@ -296,7 +296,7 @@ enum AllowanceAmountText {
+ 
+     @MainActor
+     static func perPayment(_ entry: PaykitAllowanceEntry, currency: CurrencyViewModel) -> String? {
+-        if let usd = entry.limits?.perPaymentUsd {
++        if let usd = entry.primary.usdtPerPaymentMax ?? entry.limits?.perPaymentUsd {
+             return t("subscriptions__allowance_per_payment_short", variables: ["amount": short(usd)])
+         }
+         guard let sats = entry.perPaymentMaxSats else { return nil }
+@@ -312,14 +312,14 @@ private struct AllowanceLimitsGrid: View {
+     var body: some View {
+         HStack(alignment: .top, spacing: 16) {
+             cell(
+-                title: t("subscriptions__allowance_per_payment"),
+-                usd: entry.limits?.perPaymentUsd,
++                title: entry.primary.isUsdt ? "USDT per payment" : t("subscriptions__allowance_per_payment"),
++                usd: entry.primary.usdtPerPaymentMax ?? entry.limits?.perPaymentUsd,
+                 sats: entry.perPaymentMaxSats,
+                 identifier: "AllowancePerPaymentValue"
+             )
+             cell(
+-                title: t("subscriptions__allowance_each_month"),
+-                usd: entry.limits?.monthlyUsd,
++                title: entry.primary.isUsdt ? "USDT in all" : t("subscriptions__allowance_each_month"),
++                usd: entry.primary.usdtLifetimeMax ?? entry.limits?.monthlyUsd,
+                 sats: entry.monthlyLimitSats,
+                 identifier: "AllowanceMonthlyValue"
+             )
+diff --git a/Bitkit/Views/Subscriptions/CreateSubscriptionView.swift b/Bitkit/Views/Subscriptions/CreateSubscriptionView.swift
+index 08718c2d1..a4fa64326 100644
+--- a/Bitkit/Views/Subscriptions/CreateSubscriptionView.swift
++++ b/Bitkit/Views/Subscriptions/CreateSubscriptionView.swift
+@@ -405,6 +405,7 @@ struct SubscriptionProposalSentView: View {
+ }
+ 
+ private enum SubscriptionFrequencyOption: String, CaseIterable, CustomStringConvertible {
++    case minute // DEMO BRANCH
+     case day
+     case week
+     case month
+@@ -412,6 +413,7 @@ private enum SubscriptionFrequencyOption: String, CaseIterable, CustomStringConv
+ 
+     var unit: PaykitSubscriptionRecurrence.Unit {
+         switch self {
++        case .minute: .minute
+         case .day: .day
+         case .week: .week
+         case .month: .month
+@@ -421,6 +423,7 @@ private enum SubscriptionFrequencyOption: String, CaseIterable, CustomStringConv
+ 
+     var description: String {
+         switch self {
++        case .minute: "Every minute"
+         case .day: t("subscriptions__daily")
+         case .week: t("subscriptions__weekly")
+         case .month: t("subscriptions__monthly")
+diff --git a/Bitkit/Views/Subscriptions/SubscriptionsView.swift b/Bitkit/Views/Subscriptions/SubscriptionsView.swift
+index b8fbe69fa..fad717c9b 100644
+--- a/Bitkit/Views/Subscriptions/SubscriptionsView.swift
++++ b/Bitkit/Views/Subscriptions/SubscriptionsView.swift
+@@ -1094,7 +1094,8 @@ extension PaykitSubscriptionRecurrence {
+         case .year:
+             return singular ? t("subscriptions__per_year") : t("subscriptions__every_years", variables: ["count": "\(every)"])
+         case .minute, .hour:
+-            return t("subscriptions__unsupported_frequency")
++            // DEMO BRANCH: English-only labels for demo schedules.
++            return every == 1 ? (unit == .minute ? "Every minute" : "Hourly") : "Every \(every) \(unit.rawValue)s"
+         }
+     }
+ 
+@@ -1110,7 +1111,8 @@ extension PaykitSubscriptionRecurrence {
+         case .year:
+             return t("subscriptions__yearly")
+         case .minute, .hour:
+-            return t("subscriptions__unsupported_frequency")
++            // DEMO BRANCH: English-only labels for demo schedules.
++            return every == 1 ? (unit == .minute ? "Every minute" : "Hourly") : "Every \(every) \(unit.rawValue)s"
+         }
+     }
+ 
+@@ -1126,7 +1128,8 @@ extension PaykitSubscriptionRecurrence {
+         case .year:
+             return t("subscriptions__yearly_subscription")
+         case .minute, .hour:
+-            return t("subscriptions__unsupported_frequency")
++            // DEMO BRANCH: English-only labels for demo schedules.
++            return every == 1 ? (unit == .minute ? "Every minute" : "Hourly") : "Every \(every) \(unit.rawValue)s"
+         }
+     }
+ }

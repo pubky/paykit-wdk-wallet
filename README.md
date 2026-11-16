@@ -349,8 +349,11 @@ One with real funds (the guide's "Not in this change" says why).
 [`docs/BITKIT-USDT-FORK.md`](docs/BITKIT-USDT-FORK.md) covers the fork,
 bitkit-core's bundler fixture, the `receiptLogIndex` shim
 (`scripts/arbitrum-fork-rpc.mjs`), launching Bitkit against them, and
-funding both sides with `scripts/fund-fork.mjs`. Not run end to end yet:
-whether Bitkit can send USD₮ on the fork is still open. Use a separate
+funding both sides with `scripts/fund-fork.mjs`. It was run end to end
+on 2026-11-16: USD₮ payments and requests work both ways with stock
+Bitkit, and automatic payments and subscriptions with a small local
+Bitkit patch. [`docs/DEMO-VIDEO.md`](docs/DEMO-VIDEO.md) records the
+demo video from that setup. Use a separate
 install and identity per EVM mode (a fresh install, or erase the
 simulator), as for the Bitcoin modes. Switching `EXPO_PUBLIC_EVM_CHAIN`
 on an existing install, or restoring a Paykit backup made under the

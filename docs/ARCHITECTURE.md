@@ -73,7 +73,7 @@ This app has two engines and one UI:
 | `plugins/withPaykitSimulatorArchs.js` | Expo config plugin: arm64-only iOS simulator builds (Paykit ships no x86_64 slice). |
 | `plugins/withMmkvBackupExclusion.js` | Expo config plugin: excludes `Documents/mmkv` from iCloud and Finder backups at every launch (see "Storage and secrets"). |
 | `src/ui/useScreenCaptureBlock.ts` | Blocks screenshots, recordings and the app-switcher snapshot while a secret is on screen (expo-screen-capture). `useForegroundSecret` uses it. |
-| `scripts/` | Paykit package build, Paykit Android patch (postinstall), demo prefill generator, the demo funding scripts `fund-*.mjs` (see "Funding the demo"), and `arbitrum-fork-rpc.mjs`, the `receiptLogIndex` shim for Bitkit on the Arbitrum fork (`docs/BITKIT-USDT-FORK.md`). |
+| `scripts/` | Paykit package build, Paykit Android patch (postinstall), demo prefill generator, the demo funding scripts `fund-*.mjs` (see "Funding the demo"), and `arbitrum-fork-rpc.mjs`, the `receiptLogIndex` shim for Bitkit on the Arbitrum fork (`docs/BITKIT-USDT-FORK.md`), and `demo-video/`, the tools that record and edit the Bitkit demo video (`docs/DEMO-VIDEO.md`). |
 
 ## Chain modes
 
@@ -247,9 +247,12 @@ history and keeps the newest. WDK's EVM module
 has no history call and the WDK Indexer does not cover testnets, so EVM
 activity comes from the keyless Blockscout Sepolia API, merged with a local
 in-memory record of transactions this app just sent. The Arbitrum fork
-has no history API (`EVM_CHAIN.activityApi` is undefined), so
-`fetchEvmActivity` returns nothing there and Activity shows only that
-in-memory record: this launch's sends, and no received transfers.
+has no history API (`EVM_CHAIN.activityApi` is undefined), but its RPC
+is Anvil on this computer, so `fetchEvmActivity` reads the USD₮0
+Transfer logs to and from the wallet's address there, from the block the
+fork started at (`anvil_nodeInfo`), with each block's time
+(`parseUsdtTransferLogs` in `src/wallet/activity.ts`). ETH movements are
+not listed on the fork.
 
 Two gaps in those sources are filled in `useActivity`. Electrum reports a
 block height but no time, so each confirmed Bitcoin transaction's block
@@ -975,7 +978,10 @@ immutable terms (anchor + k × every × unit, inside `starts_at` and
 `ends_at`; this app proposes minute schedules with a number of
 payments). Whether a period is on the schedule is worked out from its
 index k, so period 500 of an endless schedule from another wallet is as
-payable and checkable as period 1; only lists stop at 120. The schedule
+payable and checkable as period 1; only lists stop at 120. A period
+keeps the anchor's milliseconds: Bitkit writes anchors such as
+`12:00:00.123Z`, and periods cut to whole seconds would miss its
+schedule, so none would be paid. The schedule
 starts when the request is sent, not when it is accepted, so a payer who
 accepts late finds the missed periods due at once (the Request money
 screen says so). The payer sees started periods without a payment as
@@ -1393,7 +1399,9 @@ balances on the local Arbitrum fork with Anvil's `anvil_setBalance` and
 `anvil_setStorageAt`, after checking that the RPC is on this computer
 and is Anvil on chain 42161 (`docs/BITKIT-USDT-FORK.md`). The fork
 scripts take their chain constants and that check from
-`scripts/lib/fork.mjs`, which imports nothing, so the RPC proxy loads
+`scripts/lib/fork.mjs`, which imports nothing (it also holds
+`clampLogRanges`, which starts the proxy's `eth_getLogs` ranges at the
+fork block), so the RPC proxy loads
 neither `ethers` nor the demo-wallet helpers. The fork
 scripts and the Bitcoin funding scripts never read the app's chain
 switches, so exporting one is never needed;

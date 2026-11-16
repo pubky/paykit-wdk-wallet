@@ -1,4 +1,4 @@
-// Shared constants, the loopback check, formatUnits and fail for the local
+// Shared constants, the loopback check, formatUnits, clampLogRanges and fail for the local
 // Arbitrum fork's scripts (scripts/fund-fork.mjs, scripts/arbitrum-fork-rpc.mjs).
 // lib/demo-wallets.mjs re-exports formatUnits for the other funding scripts.
 //
@@ -44,6 +44,38 @@ export function formatUnits(value, decimals) {
   const whole = value / base;
   const fraction = (value % base).toString().padStart(decimals, '0').replace(/0+$/, '');
   return fraction ? `${whole}.${fraction}` : `${whole}`;
+}
+
+/** The JSON-RPC method whose ranges clampLogRanges moves. */
+export const LOGS_METHOD = 'eth_getLogs';
+
+/** A block number from a filter, or undefined for a tag other than "earliest" (latest, pending, ...). */
+function blockNumber(value) {
+  if (value === 'earliest') return 0;
+  if (typeof value === 'string' && /^0x[0-9a-f]+$/i.test(value)) return Number.parseInt(value, 16);
+  return undefined;
+}
+
+/**
+ * The request text with every eth_getLogs range moved to start no earlier
+ * than `fork` (see scripts/arbitrum-fork-rpc.mjs: Bitkit reads its history from block 0, and the part before the fork goes to Arbitrum One, which refuses large ranges), or `requestText` itself when nothing changes.
+ * A filter by blockHash is left alone. Throws if the text is not JSON.
+ */
+export function clampLogRanges(requestText, fork) {
+  const parsed = JSON.parse(requestText);
+  let changed = false;
+  const clamp = (call) => {
+    const filter = call?.method === LOGS_METHOD ? call.params?.[0] : undefined;
+    if (!filter || typeof filter !== 'object' || filter.blockHash !== undefined) return call;
+    const hex = (n) => `0x${n.toString(16)}`;
+    const from = blockNumber(filter.fromBlock ?? 'earliest');
+    if (from === undefined || from >= fork) return call;
+    const to = blockNumber(filter.toBlock);
+    changed = true;
+    return { ...call, params: [{ ...filter, fromBlock: hex(fork), ...(to !== undefined && to < fork ? { toBlock: hex(fork) } : {}) }, ...call.params.slice(1)] };
+  };
+  const rewritten = Array.isArray(parsed) ? parsed.map(clamp) : clamp(parsed);
+  return changed ? JSON.stringify(rewritten) : requestText;
 }
 
 /** Print `message` to stderr and stop with exit code 1. */

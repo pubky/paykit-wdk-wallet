@@ -10,6 +10,9 @@
 //   and keep a local record of transactions this app sent, so a fresh send
 //   shows up before Blockscout has indexed it. That is the simplest approach
 //   that works without an API key; the WDK Indexer does not cover testnets.
+//   The local Arbitrum fork has no indexer, but its RPC is Anvil on this
+//   computer, so USD₮ history there is read from the token's Transfer logs
+//   (parseUsdtTransferLogs); ETH movements are not listed.
 //
 // The parsers are pure so they can be unit tested; the hook that calls them
 // is in ./useActivity.ts.
@@ -185,6 +188,58 @@ export function parseBlockscoutTokenTransfers(json: unknown, owner: string, sent
       counterpartyAddress: outgoing ? transfer.to?.hash : from,
       timestamp: toTimestamp(transfer.timestamp),
       // Blockscout only lists token transfers from mined transactions.
+      status: 'confirmed',
+      accountIndex: 0,
+    });
+  }
+  return items;
+}
+
+/** keccak256("Transfer(address,address,uint256)"), the first topic of every ERC-20 Transfer log. */
+export const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/** The fields of an eth_getLogs entry this file reads. */
+type RpcLog = { address?: string; topics?: string[]; data?: string; transactionHash?: string; logIndex?: string; blockNumber?: string; removed?: boolean };
+
+/** The address in a 32-byte indexed topic (its last 20 bytes), or undefined if it is not one. */
+function topicAddress(topic: string | undefined): string | undefined {
+  return typeof topic === 'string' && /^0x0{24}[0-9a-fA-F]{40}$/.test(topic) ? `0x${topic.slice(26)}` : undefined;
+}
+
+/**
+ * USD₮ movements of `owner` from eth_getLogs results (Transfer logs of
+ * EVM_CHAIN.usdtToken), for a chain with no indexer: the local Arbitrum
+ * fork. Logs of other tokens or events, removed logs and logs that do not
+ * involve `owner` are skipped, so the two queries (sent and received) can be
+ * passed together, and a log both queries return is listed once (a
+ * transfer to oneself, as sent). `blockTimesMs` gives each block's time by
+ * its hex number, when known.
+ */
+export function parseUsdtTransferLogs(logs: unknown, owner: string, blockTimesMs: ReadonlyMap<string, number>): ActivityItem[] {
+  if (!Array.isArray(logs)) return [];
+  const items: ActivityItem[] = [];
+  const seen = new Set<string>();
+  for (const log of logs as RpcLog[]) {
+    if (!log || log.removed || !sameEvmAddress(log.address ?? '', EVM_CHAIN.usdtToken)) continue;
+    if (log.topics?.[0]?.toLowerCase() !== ERC20_TRANSFER_TOPIC) continue;
+    const from = topicAddress(log.topics[1]);
+    const to = topicAddress(log.topics[2]);
+    if (!from || !to || !log.transactionHash || !/^0x[0-9a-fA-F]+$/.test(log.data ?? '')) continue;
+    const outgoing = sameEvmAddress(from, owner);
+    if (!outgoing && !sameEvmAddress(to, owner)) continue;
+    const id = `ethereum:${log.transactionHash}:usdt:${Number.parseInt(log.logIndex ?? '0x0', 16)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    items.push({
+      id,
+      chain: 'ethereum',
+      asset: 'usdt',
+      direction: outgoing ? 'out' : 'in',
+      amount: BigInt(log.data!),
+      hash: log.transactionHash,
+      counterpartyAddress: outgoing ? to : from,
+      timestamp: log.blockNumber ? blockTimesMs.get(log.blockNumber) : undefined,
+      // eth_getLogs lists mined logs only.
       status: 'confirmed',
       accountIndex: 0,
     });

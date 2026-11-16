@@ -53,7 +53,8 @@ const SESSION_ORIGIN_WORDS = {
 const BTC_DETAILS_HINT =
   `Fee rates and block times: ${BTC_CHAIN.esploraApi}` + (BTC_CHAIN.buildSwitch ? `. Chain mode: ${BTC_CHAIN.buildSwitch}.` : '');
 const EVM_DETAILS_HINT =
-  `History: ${EVM_CHAIN.activityApi ?? 'none'}` + (EVM_CHAIN.buildSwitch ? `. Chain mode: ${EVM_CHAIN.buildSwitch}.` : '');
+  `History: ${EVM_CHAIN.activityApi ?? (EVM_CHAIN.funding.kind === 'anvil-fork' ? "USD₮ transfer logs from the fork's RPC" : 'none')}` +
+  (EVM_CHAIN.buildSwitch ? `. Chain mode: ${EVM_CHAIN.buildSwitch}.` : '');
 
 function countWords(count: number): string {
   return `${count} ${count === 1 ? 'contact' : 'contacts'}`;

@@ -1,16 +1,18 @@
 # Pay USD₮ with Bitkit on a local Arbitrum fork
 
 This guide runs the wallet's USD₮ on a private copy of Arbitrum One on
-your Mac, next to a stock Bitkit iOS Debug build pointed at the same
-copy. Use it to demo Paykit USD₮ payments between this wallet and Bitkit
-without spending real money.
+your Mac, next to a Bitkit iOS Debug build pointed at the same copy. Use
+it to demo Paykit USD₮ payments between this wallet and Bitkit without
+spending real money.
 
-> **Not run yet.** Nothing in this guide has been run against a live
-> fork. The wallet's side is covered by unit tests only. The biggest
-> open question is whether Bitkit can *send* USD₮ on the fork through
-> bitkit-core's test bundler (see "Start the bundler and paymaster").
-> Until someone checks it, only payments from this wallet to Bitkit are
-> expected to work.
+> **Run end to end on 2026-11-16** with this wallet's Release build on
+> one iOS 26.5 simulator and Bitkit iOS `d1a07fea0` (Paykit 0.1.1-rc8,
+> bitkit-core 0.8.0-rc15) on another. Stock Bitkit and this wallet
+> paid each other USD₮ in both directions, by pubky and as contacts,
+> and settled USD₮ payment requests both ways with proofs. Allowances
+> and minute subscriptions with Bitkit need a small local Bitkit patch:
+> see [Automatic payments and subscriptions with
+> Bitkit](#automatic-payments-and-subscriptions-with-bitkit).
 
 ## Why an EVM chain mode
 
@@ -43,7 +45,7 @@ launch.
 | USD₮ token | Aave test USDT `0xaA8E…33D0` | USD₮0 `0xfd08…cbb9` |
 | USD₮ endpoint id | `usdt-sepolia-address` | `usdt-arbitrum-address` (Bitkit's id) |
 | Explorer links | Sepolia Etherscan | none |
-| Activity history (indexer) | Blockscout Sepolia | none |
+| Activity history | Blockscout Sepolia | USD₮ Transfer logs read from the fork's RPC (no ETH) |
 | When a USD₮ payment was made | counted from confirmations (one block per 12 s) | the block's timestamp, with 10 minutes' allowance |
 | Test funds | Aave faucet ("Get test USD₮") and a public ETH faucet | `scripts/fund-fork.mjs` |
 | npm script | `npm start` | `npm run start:arbitrum-fork` |
@@ -72,7 +74,8 @@ the fork. `npm run start:bitkit-demo` sets both.
 - Everything in [BITKIT-DEMO.md](BITKIT-DEMO.md): a Bitkit iOS Debug
   build, the wallet's Debug build, and one iOS simulator with both.
 - [Foundry](https://getfoundry.sh/)'s `anvil` (and `cast`). Install it
-  yourself; this repository does not.
+  yourself; this repository does not. On macOS, `brew install foundry`
+  (checked with 1.9.0; `brew uninstall foundry` removes it).
 - A checkout of
   [bitkit-core](https://github.com/synonymdev/bitkit-core), for its
   `tests/usdt-fork` fixture.
@@ -92,12 +95,30 @@ running for the whole demo.
 ## 1. Start the fork
 
 ```sh
-anvil --fork-url https://arb1.arbitrum.io/rpc --host 127.0.0.1 --port 18545 --no-cors
+anvil --fork-url https://arbitrum-one.public.blastapi.io --block-time 2 \
+  --host 127.0.0.1 --port 18545 --no-cors
 ```
 
-`--no-cors` turns off Anvil's default permissive CORS. Without it, any web
-page open on the Mac could call the fork's `anvil_*` methods and rewrite
-balances or the clock.
+- `--fork-url` must serve **old state**. Anvil reads every account and
+  storage slot it hasn't seen yet from this RPC, at the block it forked.
+  Arbitrum's own `https://arb1.arbitrum.io/rpc` keeps only recent state,
+  and Arbitrum makes about four blocks a second, so within minutes every
+  new account fails with `historical state … is not available` (Bitkit
+  then shows its USD₮ balance as `—`). Blast API's free public endpoint
+  serves old state and worked for a whole demo. The free endpoints
+  checked on 2026-11-16 that did not: `arb1.arbitrum.io`,
+  `arbitrum.drpc.org`, `1rpc.io/arb`, `arbitrum.meowrpc.com`; PublicNode
+  and Ankr want an API key for old state.
+- `--block-time 2` mines a block every 2 seconds. Without it, an idle
+  fork mines nothing, so its latest block falls behind the clock.
+  bitkit-core's paymaster signs each fee approval as valid until the
+  *latest* block's time plus 10 minutes, so after 10 idle minutes every
+  Bitkit USD₮ send fails with `AA32 paymaster expired or not due`. On a
+  fork that is already running, `cast rpc evm_setIntervalMining 2
+  --rpc-url http://127.0.0.1:18545` does the same.
+- `--no-cors` turns off Anvil's default permissive CORS. Without it, any
+  web page open on the Mac could call the fork's `anvil_*` methods and
+  rewrite balances or the clock.
 
 Without `--fork-block-number`, Anvil forks the latest block. For runs
 you can repeat, pin a block:
@@ -108,8 +129,8 @@ payment on the fork is gone, and the apps' records then point at
 transactions that no longer exist. Restart the fixture and the shim
 after Anvil, and fund again.
 
-The public Arbitrum RPC is rate limited. Anvil reads state it has not
-seen yet from it, so the first calls can be slow or fail.
+The public RPC is rate limited. Anvil reads state it has not seen yet
+from it, so the first calls can be slow.
 
 ### Check the fork's clock
 
@@ -128,9 +149,10 @@ cast block pending --field timestamp --rpc-url http://127.0.0.1:18545
 date +%s
 ```
 
-Use `pending`, not `latest`: Anvil mines only when a transaction
-arrives, so an idle fork's latest block falls behind your Mac's clock
-even though the next block will be stamped correctly.
+Use `pending`, not `latest`: without `--block-time`, Anvil mines only
+when a transaction arrives, so an idle fork's latest block falls behind
+your Mac's clock even though the next block will be stamped correctly.
+With `--block-time 2` both stay within a few seconds of the clock.
 
 `scripts/fund-fork.mjs` also warns when the two differ by more than 5
 minutes. If the fork is behind, run it with `--sync-time` (see "Fund
@@ -158,12 +180,13 @@ What it does, and what it does not:
 - At start it resets only its own test account, the address in
   bitkit-core's EIP-7702 test vectors (`provider.mjs:74-82`), makes its
   test signer a paymaster signer, and deposits 1 ETH for the paymaster.
-- It was written for that one fixed account, and says it "does not model
-  Pimlico's pricing, gas estimation, or service acceptance policy".
-- **Unproven:** whether Bitkit can send USD₮ from its own address
-  through it. This is the go/no-go for payments from Bitkit to this
-  wallet. If it fails, a general local bundler (such as Pimlico's Alto)
-  and a paymaster that sponsors on the fork are the next thing to try.
+- Its setup was written for that one fixed account, and it says it
+  "does not model Pimlico's pricing, gas estimation, or service
+  acceptance policy". Its relay part takes any sender: Bitkit sends USD₮
+  from its own address through it, with the fee paid in USD₮0 (checked;
+  fund Bitkit's address with `fund-fork.mjs` first).
+- It needs the fork's blocks to keep time (`--block-time 2` above), or
+  sends fail with `AA32 paymaster expired or not due`.
 - Bitkit *receiving* USD₮ needs none of this: the wallet sends a plain
   ERC-20 transfer.
 
@@ -184,7 +207,16 @@ one, even though the payment itself went through.
 
 The shim is a JSON-RPC proxy that adds `receiptLogIndex` (the log's
 position, as a decimal string) to every log of every receipt, single or
-batched. Everything else passes through unchanged. It listens on
+batched.
+
+It also moves the start of every `eth_getLogs` range up to the block the
+fork started from. Bitkit reads its USD₮ history from block 0, and Anvil
+sends the part of a log query before the fork to the forked RPC, which
+refuses ranges over 100,000 blocks; Bitkit then shows its USD₮ balance
+as `—`. Demo accounts are new, so they have no history before the fork.
+History of an account that existed before the fork is not shown.
+
+Everything else passes through unchanged. It listens on
 `127.0.0.1` only, forwards only to `127.0.0.1`, and refuses requests
 from a browser (any request with an `Origin` header). It will not start
 with an `--upstream` on its own `--port`, which would forward to itself.
@@ -226,7 +258,19 @@ offers USD₮ (`Bitkit/Views/Sheets/UsdtIntroSheet.swift@1b56274c1`).
 
 Bitkit's USD₮ address is its own key (EIP-7702 delegates it; there is no
 separate smart-wallet address). Copy it from Bitkit's USD₮ receive
-screen for the next step.
+screen (**Show Details**) for the next step.
+
+For the demo, also set in Bitkit:
+
+- **Settings › General › Public payments** on, so this wallet can pay
+  Ben by pubky. It is off by default; the wallet then says "Ben doesn't
+  publish payment addresses for everyone."
+- Allow notifications once (**Settings › General › Notifications ›
+  Enable**). Otherwise iOS asks in the middle of a payment.
+
+Stock Bitkit offers USD₮ only when paying a **contact** (its Send screen
+lists USD₮ as a source only for a contact's private payment list). Paid
+by pubky, a stranger gets Bitcoin from Bitkit.
 
 ## 5. Build and run the wallet
 
@@ -286,13 +330,13 @@ What that means per build:
 
 | Build | The block-time read over plain HTTP |
 |---|---|
-| iOS simulator, Debug or Release | Expected to work. Not checked: see below. |
+| iOS simulator, Release | Works (checked on 2026-11-16: proofs were checked and Activity read the fork). |
+| iOS simulator, Debug | Expected to work. Not checked. |
 | Android Debug | Expected to work. Not checked: see below. |
 | Android Release | Blocked, unless you allow cleartext for the build. |
 
 Not checked here, because the native template is not in this repository
-(`ios/` and `android/` are generated and git-ignored) and nothing in this
-guide has run:
+(`ios/` and `android/` are generated and git-ignored):
 
 - The ATS keys in the generated iOS `Info.plist`. Expo's template is
   understood to allow local networking (`NSAllowsLocalNetworking`). Check
@@ -303,7 +347,8 @@ guide has run:
   HTTP works. Look for `android:usesCleartextTraffic` in
   `android/app/src/debug/AndroidManifest.xml` and
   `android/app/src/main/AndroidManifest.xml` after a prebuild.
-- That the worklet's own sockets are outside ATS and the cleartext rule.
+- That the worklet's own sockets are outside ATS and the cleartext rule
+  on Android (on the iOS simulator they reach the fork).
 
 For an Android Release build on the fork, allow cleartext for that build
 only: set `"usesCleartextTraffic": true` under `android` in the
@@ -324,7 +369,7 @@ The reason is the platform's error. On Android, also check the
 
 Check You > Network details: it shows "Arbitrum (local Anvil fork of
 Arbitrum One) (chain id 42161)", RPC `http://127.0.0.1:18545`, history
-"none" and the chain mode.
+"USD₮ transfer logs from the fork's RPC" and the chain mode.
 
 ### Use a separate install and identity per EVM mode
 
@@ -394,15 +439,18 @@ What the script does:
 Options: `--usdt <amount>` (default 1000), `--eth <amount>` (default 1),
 `--rpc <url>` (default `http://127.0.0.1:18545`), `--sync-time`.
 
-Then add each other as contacts and pay as in [DEMO.md](DEMO.md). Anvil
-mines each transaction as it arrives, so a payment confirms within
-seconds.
+Then add each other as contacts and pay as in [DEMO.md](DEMO.md). With
+`--block-time 2`, a payment confirms within a few seconds.
+
+Balances set this way have no Transfer log, so they don't show in either
+app's activity list; only the balance changes.
 
 ## What matches on both sides
 
-Checked by reading both codebases and by this wallet's unit tests, not
-by a run. Bitkit's side is bitkit-ios `1b56274c1` and bitkit-core
-`6d4e01e`. The proof test vectors in
+Checked by reading both codebases, by this wallet's unit tests, and by
+the live run above. Line references are to bitkit-ios `1b56274c1` and
+bitkit-core `6d4e01e`; the run used bitkit-ios `d1a07fea0`. The proof
+test vectors in
 `src/wallet/__tests__/fixtures/erc20-payment-proofs.json` are a byte-for-byte
 copy of bitkit-core's.
 
@@ -444,27 +492,71 @@ payment for a new request. Real Arbitrum sequencer lag of more than 10
 minutes is rare. On the fork, keep the clock current with `--sync-time`
 (see "Check the fork's clock").
 
+## Automatic payments and subscriptions with Bitkit
+
+What stock Bitkit does, read from bitkit-ios `d1a07fea0`:
+
+- **Bitkit pays automatically only over Lightning**, and only one-time
+  requests (`PaykitAllowanceExecutor.swift`: "An on-chain allowance
+  payment stays manual"). This wallet has no Lightning, so Bitkit never
+  pays its requests without a tap.
+- **Bitkit accepts allowance offers in bitcoin only**
+  (`PaykitAllowance.swift`, `init?(record:)`). An offer where Bitkit is
+  the Allowee (the payee) is accepted without asking.
+- **Bitkit's subscriptions repeat daily at the most often.** A minute or
+  hour schedule shows as "Unsupported frequency"
+  (`PaykitSubscription.swift`, `Unit.isSupported`).
+- **Bitkit's dollar requests are priced in `usd`** with a fixed rate of
+  `1` to `usdt`. The Paykit spec says an Allowance cannot pay a request
+  that a rate reprices (`specs/payment-conversion.md`: "Allowances account
+  in the requested asset and amount and cannot authorize repricing").
+
+So with stock Bitkit this wallet can offer **bitcoin** automatic
+payments to Bitkit and pay Bitkit's one-time bitcoin requests within
+them. For the demo video, a local Bitkit patch,
+[`bitkit-demo.patch`](bitkit-demo.patch), changes only what a demo
+needs, about 50 lines:
+
+- minute and hour schedules count as supported, with English labels, and
+  **Every minute** is a choice when creating a subscription;
+- a dollar request or subscription is sent in `usdt` over the USD₮ rail
+  only, with no rate, so this wallet's USD₮ Allowance can pay it;
+- a USD₮ allowance offer is accepted when Bitkit is the Allowee, and its
+  limits show in dollars.
+
+It is not for merging into Bitkit. Apply it to a local branch:
+
+```sh
+git -C <bitkit-ios> switch -c demo/usdt-allowances-local d1a07fea0
+git -C <bitkit-ios> apply <this repository>/docs/bitkit-demo.patch
+```
+
+With the patch, checked live: this wallet offered USD₮ automatic
+payments, Bitkit accepted, a $2 request from Bitkit was accepted and
+paid without a tap, and a $1 every-minute subscription was paid each
+minute until the offer's limit of 10 payments an hour. Bitkit checked
+each payment's proof against the fork.
+
 ## Known gaps
 
-- **No indexer on the fork.** Activity shows only the USD₮ and ETH sends
-  this app made since it launched; the record is in memory and keeps only
-  the latest 50 sends, Bitcoin and EVM together. A received payment never
-  gets a row: the balance moves, and that is all. A USD₮ payment whose
-  transaction hash was lost (the app stopped mid-send) is found only
-  within the same launch, and only while it is among that launch's latest
-  50 sends. After a relaunch, or once it drops out, the wallet cannot
-  find it, but it never decides "not sent" for USD₮: the payment stays
-  reserved and shows as "May have been paid. Check Activity". It cannot
-  be linked to its transaction automatically.
+- **USD₮ only in the fork's Activity.** Activity reads the fork's USD₮0
+  Transfer logs from the block the fork started at. ETH movements are
+  not listed, and a balance set with `fund-fork.mjs` has no log. A USD₮
+  payment whose transaction hash was lost (the app stopped mid-send) is
+  matched against those logs.
 - **Bitkit's dollar requests are not payable.** Bitkit creates requests
   in `btc` or `usd` only (`CreatePaymentRequestView.swift@1b56274c1:311`,
   `PaykitAmount.swift@1b56274c1:3-6`), and pays a `usd` request in USD₮.
   This wallet reads only `btc` and `usdt` amounts
   (`src/paykit/requestTerms.ts:225`), so it shows a Bitkit dollar request
-  with its raw amount and cannot pay it. This is out of scope here.
-- **Recurring USD₮ requests to Bitkit, probably not payable.** From
-  reading the code only: Bitkit picks no endpoint for a recurring request
-  in `usdt` (`PaykitRequestPricing.swift@1b56274c1:97`).
+  with its raw amount and cannot pay it. The demo patch above sends them
+  in `usdt` instead.
+- **Recurring USD₮ requests to Bitkit.** Bitkit picks no endpoint for a
+  recurring request in `usdt` (`PaykitRequestPricing.swift@1b56274c1:97`);
+  the demo patch changes that.
+- **Bitkit shows a popup for every USD₮ it receives.** During a minute
+  subscription, "Received USDT $1.00" sheets queue up and cover the
+  screen until each is dismissed.
 - **A separate install and identity per EVM mode**, as above. Nothing
   in the app enforces it. The dev prefill is off on non-Sepolia EVM
   builds.
@@ -498,21 +590,27 @@ Arbitrum One indexer for Activity and payment checks, refusing payment
 codes without a chain id, real-funds wording on every screen that says
 "test" today, no dev prefill, and fresh identities only.
 
-## Not tested
+## What was tested
 
-Unit tests cover the wallet's endpoint, payload, payment code, proofs,
-payment-time rule and guards on an `arbitrum-fork` build. None of the
-following has run:
+Run live on 2026-11-16, both apps on iOS 26.5 simulators, this wallet as
+a Release build with `bitkit-regtest` and `arbitrum-fork`:
 
-- Bitkit sending USD₮ on the fork through bitkit-core's fixture, from
-  its own address (the go/no-go above).
-- Any payment between the two apps on the fork, in either direction.
-- The scripts against a live Anvil: `fund-fork.mjs` and
-  `arbitrum-fork-rpc.mjs` are checked by reading and by lint only.
-- WDK's worklet reaching `http://127.0.0.1:18545`, and the wallet reading
-  a block's time over plain HTTP (see "Plain HTTP to the fork": the iOS
-  ATS keys and Android Debug's cleartext setting are not checked, and
-  Android Release blocks it).
-- The Android emulator with `adb reverse`.
-- Bitkit's history on the fork. For blocks from before the fork, Anvil
-  may pass Bitkit's log queries on to the rate-limited public RPC.
+- `fund-fork.mjs`, `arbitrum-fork-rpc.mjs` and bitkit-core's fixture
+  against a live Anvil fork.
+- Bitkit sending USD₮ from its own address through the fixture, to a
+  contact, and paying this wallet's USD₮ request. This wallet checked
+  Bitkit's proof (a transfer from a smart account) and sent a receipt.
+- This wallet paying Bitkit USD₮ by pubky, and paying Bitkit's USD₮
+  requests; Bitkit checked the proofs ("Payment verified").
+- With the demo patch: automatic payments and a minute subscription, as
+  in the section above.
+- Bitcoin on Blocktank's staging regtest alongside, as in
+  [BITKIT-DEMO.md](BITKIT-DEMO.md).
+
+Not tested:
+
+- A Debug build of this wallet on the fork, and any Android build
+  (including `adb reverse` and cleartext HTTP).
+- Bitkit as the payer under an Allowance (it pays automatically only
+  over Lightning, which this wallet lacks).
+- Real Arbitrum One.

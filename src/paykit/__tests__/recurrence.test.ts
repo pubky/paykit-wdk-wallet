@@ -139,3 +139,36 @@ it('words the interval', () => {
 it('keys a one-time payment with an empty string', () => {
   expect(periodKey(undefined)).toBe('');
 });
+
+describe('anchors with milliseconds (Bitkit writes 12:00:00.123Z)', () => {
+  const ANCHOR = '2026-11-16T10:56:46.123Z';
+  const anchorMs = Date.parse(ANCHOR);
+  const bitkitEveryMinute: Recurrence = { every: 1, unit: 'minute', startsAt: ANCHOR, anchor: ANCHOR };
+  const bitkitMonthly: Recurrence = { every: 1, unit: 'month', startsAt: ANCHOR, anchor: ANCHOR };
+
+  it('keeps the milliseconds in each period, so the periods are on the schedule', () => {
+    const due = unpaidPeriods(bitkitEveryMinute, new Set(), anchorMs + 2 * 60_000 + 5_000);
+    expect(due).toEqual([
+      { startsAt: '2026-11-16T10:56:46.123Z', endsAt: '2026-11-16T10:57:46.123Z' },
+      { startsAt: '2026-11-16T10:57:46.123Z', endsAt: '2026-11-16T10:58:46.123Z' },
+      { startsAt: '2026-11-16T10:58:46.123Z', endsAt: '2026-11-16T10:59:46.123Z' },
+    ]);
+    expect(due.every((period) => isScheduledPeriod(bitkitEveryMinute, period))).toBe(true);
+  });
+
+  it('keeps them across months too', () => {
+    expect(schedulePeriods(bitkitMonthly, 2)).toEqual([
+      { startsAt: '2026-11-16T10:56:46.123Z', endsAt: '2026-12-16T10:56:46.123Z' },
+      { startsAt: '2026-12-16T10:56:46.123Z', endsAt: '2027-01-16T10:56:46.123Z' },
+    ]);
+  });
+
+  it('still writes whole seconds for a schedule that has them', () => {
+    expect(schedulePeriods(everyMinute(1))).toEqual([{ startsAt: '2026-10-26T12:00:00Z', endsAt: '2026-10-26T12:01:00Z' }]);
+  });
+
+  it('matches a paid period however its fraction is spelled', () => {
+    const paid = new Set([periodKey({ startsAt: '2026-11-16T10:56:46.1230Z', endsAt: '2026-11-16T10:57:46.123Z' })]);
+    expect(unpaidPeriods(bitkitEveryMinute, paid, anchorMs + 5_000)).toEqual([]);
+  });
+});
