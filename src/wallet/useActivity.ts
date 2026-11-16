@@ -10,8 +10,10 @@
 // EVM history comes from Blockscout's keyless API, because WDK's EVM module
 // has no history call. Transactions this app just sent are merged in from
 // ./sentTransactions.ts until an indexer reports them. See ./activity.ts.
-// A chain with no known indexer (EVM_CHAIN.activityApi undefined, such as
-// the local Arbitrum fork) shows only those.
+// The local Arbitrum fork has no indexer: USD₮ history there comes from the
+// token's Transfer logs, read from the fork's RPC (fetchForkUsdtActivity).
+// Any other chain with no known indexer (EVM_CHAIN.activityApi undefined)
+// shows only this app's own sends.
 //
 // Per-contact BTC accounts have their own history: contacts' private
 // payments land there. ./useContactAccountActivity.ts collects it and it is
@@ -38,6 +40,7 @@ import { BALANCE_POLL_MS } from '../config/sync';
 import { BTC_NETWORK, EVM_NETWORK } from '../config/wdk';
 import {
   BTC_HISTORY_FETCH_LIMIT,
+  ERC20_TRANSFER_TOPIC,
   blockscoutSentFees,
   collapseInternalMoves,
   mergeActivity,
@@ -46,6 +49,7 @@ import {
   parseBlockscoutTokenTransfers,
   parseBlockscoutTransactions,
   parseBtcTransfers,
+  parseUsdtTransferLogs,
   withBlockTimes,
   type ActivityItem,
 } from './activity';
@@ -111,12 +115,65 @@ function cachedFor(owner: string | null) {
   return owner && lastFetched.owner === owner ? lastFetched : { btc: [], evm: [] };
 }
 
+/** The local fork's history is read from its RPC (Anvil on this computer). */
+const READS_FORK_LOGS = EVM_CHAIN.funding.kind === 'anvil-fork';
+
+/** Whether the build's EVM chain has a history source at all. */
+export const HAS_EVM_HISTORY = EVM_CHAIN.activityApi !== undefined || READS_FORK_LOGS;
+
+/** One JSON-RPC call to the EVM chain's RPC; throws on an error answer. */
+async function evmRpc(method: string, params: unknown[]): Promise<unknown> {
+  const answer = (await fetchJsonWithTimeout(EVM_CHAIN.rpc, 'the RPC', {
+    init: { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) },
+  })) as { result?: unknown; error?: { message?: string } } | null;
+  if (!answer || answer.error || !('result' in answer)) throw new Error(`${method} failed: ${answer?.error?.message ?? 'no result'}`);
+  return answer.result;
+}
+
+/** The block the fork started from (anvil_nodeInfo), read once. */
+let forkBlock: number | undefined;
+/** Fork block times (ms) by hex block number. Bounded; a block's time never changes. */
+const forkBlockTimes = new Map<string, number>();
+const FORK_BLOCK_TIMES_KEPT = 512;
+
 /**
- * ETH and USD₮ activity for an EVM address, from Blockscout. None, and no
- * error, where the chain has no indexer: right for the list, but not proof
- * that nothing was sent (see findSentPayment in ./usePaymentChecks.ts).
+ * USD₮ activity on the local Arbitrum fork, from the token's Transfer logs.
+ * Logs are read from the block the fork started at: Anvil would send an
+ * older range to Arbitrum One's public RPC, which refuses large ranges, and
+ * a demo account has no history before the fork anyway.
+ */
+async function fetchForkUsdtActivity(address: string): Promise<ActivityItem[]> {
+  if (forkBlock === undefined) {
+    const number = (await evmRpc('anvil_nodeInfo', [])) as { forkConfig?: { forkBlockNumber?: unknown } } | null;
+    const block = number?.forkConfig?.forkBlockNumber;
+    if (typeof block !== 'number' || !Number.isSafeInteger(block)) throw new Error('The RPC is not an Anvil fork');
+    forkBlock = block;
+  }
+  const padded = `0x${'0'.repeat(24)}${address.slice(2).toLowerCase()}`;
+  const query = (topics: (string | null)[]) => evmRpc('eth_getLogs', [{ address: EVM_CHAIN.usdtToken, fromBlock: `0x${forkBlock!.toString(16)}`, toBlock: 'latest', topics }]);
+  const [sent, received] = await Promise.all([query([ERC20_TRANSFER_TOPIC, padded]), query([ERC20_TRANSFER_TOPIC, null, padded])]);
+  const logs = [...(Array.isArray(sent) ? sent : []), ...(Array.isArray(received) ? received : [])] as { blockNumber?: string }[];
+  const missing = [...new Set(logs.map((log) => log.blockNumber).filter((n): n is string => typeof n === 'string' && !forkBlockTimes.has(n)))];
+  await Promise.all(
+    missing.map(async (number) => {
+      const block = (await evmRpc('eth_getBlockByNumber', [number, false]).catch(() => undefined)) as { timestamp?: string } | undefined;
+      const seconds = block?.timestamp ? Number.parseInt(block.timestamp, 16) : Number.NaN;
+      if (!Number.isFinite(seconds)) return;
+      if (forkBlockTimes.size >= FORK_BLOCK_TIMES_KEPT) forkBlockTimes.delete(forkBlockTimes.keys().next().value!);
+      forkBlockTimes.set(number, seconds * 1000);
+    }),
+  );
+  return parseUsdtTransferLogs(logs, address, forkBlockTimes);
+}
+
+/**
+ * ETH and USD₮ activity for an EVM address, from Blockscout, or USD₮ only
+ * from the local fork's logs. None, and no error, where the chain has no
+ * history source: right for the list, but not proof that nothing was sent
+ * (see findSentPayment in ./usePaymentChecks.ts).
  */
 export async function fetchEvmActivity(address: string): Promise<ActivityItem[]> {
+  if (READS_FORK_LOGS) return fetchForkUsdtActivity(address);
   const api = EVM_CHAIN.activityApi;
   if (api === undefined) return [];
   const [transactions, tokenTransfers] = await Promise.all([
@@ -186,7 +243,7 @@ export function useActivity(options: { pollMs?: number } = {}): WalletActivity {
           .then((added) => added && setBlockTimesVersion((v) => v + 1)),
         // With no indexer there is no list to fetch: setting a fresh empty
         // one every poll would only re-render for nothing.
-        (EVM_CHAIN.activityApi === undefined
+        (!HAS_EVM_HISTORY
           ? Promise.resolve()
           : fetchEvmActivity(evmAddress)
               .then((items) => {
