@@ -217,16 +217,12 @@ if __name__ == "__main__":
     spec = [{"file": "labels.png", "kind": "labels"},
             {"file": "card_title.png", "kind": "card", "title": "Paykit: pay people, not addresses",
              "lines": ["Bitkit and a Tether WDK wallet pay each other by pubky, in Bitcoin and USD₮",
-                       "Two stacks: Swift + LDK on the left, React Native + Tether WDK on the right",
-                       "Bitcoin on regtest (Blocktank staging) · USD₮ on a local fork of Arbitrum One · Pubky staging",
-                       "Recorded live on two iOS simulators. Waits are shortened; blocks are mined on demand."]},
+                       "Two teams, two stacks: Swift + LDK on the left, React Native + Tether WDK on the right",
+                       "Recorded live on two iPhone simulators. Waits are shortened."]},
             {"file": "card_end.png", "kind": "card", "title": "Two wallets, one protocol",
              "lines": ["What you saw, between two independent implementations",
                        "Pay by pubky in Bitcoin and USD₮  ·  contacts over an encrypted link  ·  private addresses",
-                       "Requests both ways, settled with proofs checked on chain  ·  automatic payments  ·  a subscription",
-                       "Setup: USD₮ on a local Anvil fork of Arbitrum One, with bitkit-core's test bundler and paymaster",
-                       "Not stock Bitkit: a local patch adds minute schedules, USD₮-priced requests, USD₮ allowance offers",
-                       "Not shown: Lightning (the WDK wallet has none)"]}]
+                       "Payment requests both ways  ·  automatic payments within limits  ·  a subscription"]}]
     json.dump(spec, open(os.path.join(WORK, "spec_static.json"), "w"))
     subprocess.run(["swift", os.path.join(SCRIPTS, "render.swift"), os.path.join(WORK, "spec_static.json"), WORK], check=True)
     parts = []

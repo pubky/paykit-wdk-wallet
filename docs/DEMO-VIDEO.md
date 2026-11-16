@@ -97,7 +97,10 @@ scripts/demo-video/clip.sh mark "5 · USD₮ between contacts|Ana's WDK wallet s
 scripts/demo-video/clip.sh stop
 ```
 
-The text before `|` is the scene title; the rest is the caption.
+The text before `|` is the scene title; the rest is the caption. Keep
+captions about what the person sees and does ("Ana sends Ben 5 USD₮").
+Leave out the test setup (regtest, the fork, the Bitkit patch, Paykit
+versions) and the plumbing (proof formats, smart accounts, gas).
 `mark` changes the caption from that moment. Drive the apps with `axe
 tap --id <id>`; `tapl.sh` taps an element by its label when it has no
 id, `ui.sh` lists what is on screen, and `waitfor.sh` waits for text to
@@ -118,7 +121,7 @@ The v3 scenes, in order:
 | 03 | Become contacts | Ana adds Ben, Ben adds Ana, the link completes |
 | 04 | Private addresses | Ben's private addresses reach Ana |
 | 05 | USD₮ between contacts | Ben pays Ana 5 USD₮ |
-| 06 | A request, a proof, a receipt | Ana asks Ben for 10 USD₮; Ben pays; Ana's wallet checks the proof and sends a receipt |
+| 06 | Request money | Ana asks Ben for 10 USD₮; Ben pays; Ana's wallet checks the proof and sends a receipt |
 | 07 | (same) | Ben asks Ana for 15,000 sats; Ana pays; a block is mined |
 | 08 | Automatic payments | Ana offers automatic USD₮ payments; Bitkit accepts |
 | 09 | (same) | Ben asks for $2; Ana's wallet pays it without a tap |
@@ -162,4 +165,5 @@ Never cut across a caption change. The edit follows these rules:
 - Captions crossfade on their own layer.
 
 `verify.py` must print `PASS`. The title and end cards are in
-`stage2.py`; the side labels are in `render.swift`.
+`stage2.py`; the side labels are in `render.swift`. Both stay free of
+setup details too.

@@ -43,10 +43,10 @@ for it in items {
       // Side labels next to each phone (phones sit at x 534..930 and 990..1386).
       draw("Ben", font(44, .bold), orange, in: NSRect(x: 60, y: 360, width: 440, height: 60), align: .right)
       draw("Bitkit iOS", font(30, .semibold), white, in: NSRect(x: 60, y: 420, width: 440, height: 44), align: .right)
-      draw("Swift · LDK\nPaykit 0.1.1-rc8\nunmodified Debug build", font(24, .regular), muted, in: NSRect(x: 60, y: 466, width: 440, height: 120), align: .right)
+      draw("Swift · LDK", font(24, .regular), muted, in: NSRect(x: 60, y: 466, width: 440, height: 120), align: .right)
       draw("Ana", font(44, .bold), accent, in: NSRect(x: 1420, y: 360, width: 440, height: 60), align: .left)
       draw("Paykit × WDK wallet", font(30, .semibold), white, in: NSRect(x: 1420, y: 420, width: 440, height: 44), align: .left)
-      draw("React Native · Tether WDK\nPaykit 0.1.1-rc5\nexample app", font(24, .regular), muted, in: NSRect(x: 1420, y: 466, width: 440, height: 120), align: .left)
+      draw("React Native · Tether WDK", font(24, .regular), muted, in: NSRect(x: 1420, y: 466, width: 440, height: 120), align: .left)
       // Caption strip.
       draw(it.title ?? "", font(30, .bold), accent, in: NSRect(x: 80, y: 912, width: W - 160, height: 44), align: .center)
       draw(it.caption ?? "", font(28, .regular), white, in: NSRect(x: 120, y: 960, width: W - 240, height: 100), align: .center)
@@ -56,10 +56,10 @@ for it in items {
     render(path, opaque: false) {
       draw("Ben", font(44, .bold), orange, in: NSRect(x: 60, y: 360, width: 440, height: 60), align: .right)
       draw("Bitkit iOS", font(30, .semibold), white, in: NSRect(x: 60, y: 420, width: 440, height: 44), align: .right)
-      draw("Swift · LDK\nPaykit 0.1.1-rc8\nDebug build + local demo patch", font(24, .regular), muted, in: NSRect(x: 60, y: 466, width: 440, height: 120), align: .right)
+      draw("Swift · LDK", font(24, .regular), muted, in: NSRect(x: 60, y: 466, width: 440, height: 120), align: .right)
       draw("Ana", font(44, .bold), accent, in: NSRect(x: 1420, y: 360, width: 440, height: 60), align: .left)
       draw("Paykit × WDK wallet", font(30, .semibold), white, in: NSRect(x: 1420, y: 420, width: 440, height: 44), align: .left)
-      draw("React Native · Tether WDK\nPaykit 0.1.1-rc5\nexample app (Release build)", font(24, .regular), muted, in: NSRect(x: 1420, y: 466, width: 440, height: 120), align: .left)
+      draw("React Native · Tether WDK", font(24, .regular), muted, in: NSRect(x: 1420, y: 466, width: 440, height: 120), align: .left)
     }
   case "caption":
     // Caption strip only, so captions can crossfade without touching the labels.
